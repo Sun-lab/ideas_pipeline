@@ -1,0 +1,818 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(Matrix)
+> library(data.table)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(MAST)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following object is masked from ‘package:dplyr’:
+
+    count
+
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:dplyr’:
+
+    combine, intersect, setdiff, union
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following objects are masked from ‘package:dplyr’:
+
+    first, rename
+
+The following objects are masked from ‘package:data.table’:
+
+    first, second
+
+The following objects are masked from ‘package:Matrix’:
+
+    expand, unname
+
+The following objects are masked from ‘package:base’:
+
+    expand.grid, I, unname
+
+Loading required package: IRanges
+
+Attaching package: ‘IRanges’
+
+The following objects are masked from ‘package:dplyr’:
+
+    collapse, desc, slice
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+> library(lme4)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> 
+> 
+> data.dir = "data"
+> 
+> args=(commandArgs(TRUE))
+> args
+[1] "grp='PFC_L5_6'"
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'PFC_L2_3' as default.\n")
++   grp = "PFC_L2_3"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+> 
+> grp
+[1] "PFC_L5_6"
+> 
+> # ------------------------------------------------------------------------
+> # read in cell information
+> # ------------------------------------------------------------------------
+> 
+> cell_info = fread(file.path(data.dir, "meta.tsv"))
+> dim(cell_info)
+[1] 104559     16
+> cell_info[1:2,]
+                           cell     cluster    sample individual region age sex
+1: AAACCTGGTACGCACC-1_1823_BA24 Neu-NRGN-II 1823_BA24       1823    ACC  15   M
+2: AAACGGGCACCAGATT-1_1823_BA24        L5/6 1823_BA24       1823    ACC  15   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB8      SB3                           18
+2:   Control      CB8      SB3                           18
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                    7   622   774               2.4547804
+2:                    7  6926 24042               0.4450545
+   RNA ribosomal percent
+1:             1.4211886
+2:             0.4284169
+> 
+> table(cell_info$region)
+
+  ACC   PFC 
+42393 62166 
+> 
+> cell_info = cell_info[which(cell_info$region=="PFC"),]
+> 
+> sort(table(paste(cell_info$diagnosis, cell_info$sample, sep=":")))
+
+         ASD:5978_BA9      Control:5976_BA9          ASD:5403_PFC 
+                  926                  1054                  1112 
+Control:5879_PFC_Nova          ASD:6033_BA9          ASD:5419_PFC 
+                 1850                  1970                  1972 
+Control:5936_PFC_Nova          ASD:5144_PFC      Control:5958_BA9 
+                 2033                  2047                  2083 
+         ASD:5864_BA9 Control:5408_PFC_Nova          ASD:5565_BA9 
+                 2148                  2255                  2319 
+         ASD:5945_PFC          ASD:5294_BA9          ASD:5278_PFC 
+                 2522                  2568                  2819 
+Control:5538_PFC_Nova          ASD:5531_BA9          ASD:5939_BA9 
+                 3034                  3054                  3085 
+     Control:5893_PFC     Control:4341_BA46      Control:5577_BA9 
+                 3317                  3849                  4131 
+         ASD:5841_BA9      Control:5387_BA9 
+                 5477                  6541 
+> 
+> # ------------------------------------------------------------------------
+> # read in count data of one region and one cluster
+> # ------------------------------------------------------------------------
+> 
+> dat1 = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+> dim(dat1)
+[1] 18041  1972
+> class(dat1)
+[1] "dgCMatrix"
+attr(,"package")
+[1] "Matrix"
+> 
+> # ------------------------------------------------------------------------
+> # subset cell information
+> # ------------------------------------------------------------------------
+> 
+> table(colnames(dat1) %in% cell_info$cell)
+
+TRUE 
+1972 
+> meta = cell_info[match(colnames(dat1), cell_info$cell),]
+> dim(meta)
+[1] 1972   16
+> meta[1:2,]
+                           cell cluster    sample individual region age sex
+1: AAACCTGAGTGTTAGA-1_4341_BA46    L5/6 4341_BA46       4341    PFC  13   M
+2: AAAGCAAGTTAGGGTG-1_4341_BA46    L5/6 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB6      SB2                           16
+2:   Control      CB6      SB2                           16
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                  7.2  4890 13640               0.8577713
+2:                  7.2  2749  5775               0.3636364
+   RNA ribosomal percent
+1:             0.4692082
+2:             1.1774892
+> 
+> summary(meta$UMIs/meta$genes)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.314   2.083   2.443   2.516   2.883   5.411 
+> 
+> # check each individual has a unique sample
+> table(tapply(meta$sample, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> # check each individual has a unique Capbatch
+> table(tapply(meta$Capbatch, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> table(meta$cluster)
+
+L5/6 
+1972 
+> table(meta$region)
+
+ PFC 
+1972 
+> 
+> sort(table(paste(meta$diagnosis, meta$sample, sep=":")))
+
+         ASD:5278_PFC      Control:5958_BA9 Control:5879_PFC_Nova 
+                    6                    21                    24 
+         ASD:5403_PFC          ASD:5144_PFC          ASD:5565_BA9 
+                   26                    38                    42 
+         ASD:5294_BA9 Control:5936_PFC_Nova Control:5538_PFC_Nova 
+                   49                    50                    52 
+         ASD:5945_PFC          ASD:5419_PFC      Control:5976_BA9 
+                   61                    72                    73 
+         ASD:5978_BA9 Control:5408_PFC_Nova          ASD:5531_BA9 
+                   79                    81                    84 
+         ASD:5939_BA9          ASD:6033_BA9          ASD:5864_BA9 
+                   89                    95                   109 
+     Control:5893_PFC     Control:4341_BA46      Control:5577_BA9 
+                  125                   156                   198 
+     Control:5387_BA9          ASD:5841_BA9 
+                  216                   226 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # run MAST
+> # ------------------------------------------------------------------------
+> 
+> rds = colSums(dat1)
+> med_rds = median(rds)
+> summary(rds)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    980    6135   10078   11430   15053   63585 
+> med_rds
+[1] 10077.5
+> 
+> dim(dat1)
+[1] 18041  1972
+> dat1[1:3,1:6]
+3 x 6 sparse Matrix of class "dgCMatrix"
+        AAACCTGAGTGTTAGA-1_4341_BA46 AAAGCAAGTTAGGGTG-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAATGCCCATCTATGG-1_4341_BA46 AACCGCGTCCCGGATG-1_4341_BA46
+DNAJC11                            .                            1
+NADK                               .                            .
+MASP2                              .                            .
+        AACTCAGCATACTCTT-1_4341_BA46 AAGGAGCTCTACTCAT-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+> dat1 = t(t(dat1)/rds)*med_rds
+> dim(dat1)
+[1] 18041  1972
+> dat1[1:3,1:6]
+3 x 6 sparse Matrix of class "dgCMatrix"
+        AAACCTGAGTGTTAGA-1_4341_BA46 AAAGCAAGTTAGGGTG-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAATGCCCATCTATGG-1_4341_BA46 AACCGCGTCCCGGATG-1_4341_BA46
+DNAJC11                            .                    0.5672352
+NADK                               .                    .        
+MASP2                              .                    .        
+        AACTCAGCATACTCTT-1_4341_BA46 AAGGAGCTCTACTCAT-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+> summary(colSums(dat1))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  10078   10078   10078   10078   10078   10078 
+> 
+> dat1_log = as.matrix(log2(1 + dat1)) #log transformed data
+> 
+> dim(dat1_log)
+[1] 18041  1972
+> dat1_log[1:3, 1:4]
+        AAACCTGAGTGTTAGA-1_4341_BA46 AAAGCAAGTTAGGGTG-1_4341_BA46
+DNAJC11                            0                            0
+NADK                               0                            0
+MASP2                              0                            0
+        AAATGCCCATCTATGG-1_4341_BA46 AACCGCGTCCCGGATG-1_4341_BA46
+DNAJC11                            0                    0.6482217
+NADK                               0                    0.0000000
+MASP2                              0                    0.0000000
+> cell_id = colnames(dat1_log)   # get the cell id from the data
+> gene_id = rownames(dat1_log)   # get the gene id from the data
+> 
+> fData = data.frame(primerid = gene_id)
+> cData = data.frame(wellKey  = cell_id)
+> 
+> # Cell info for meta
+> cell_rd = colSums(dat1)
+> CDR     = colSums(dat1 > 0) / nrow(dat1)
+> 
+> meta_ind = meta[, c("individual", "diagnosis")]
+> meta_ind = unique(meta_ind)
+> rownames(meta_ind) = meta_ind$individual
+> 
+> dim(meta)
+[1] 1972   16
+> meta[1:2,]
+                           cell cluster    sample individual region age sex
+1: AAACCTGAGTGTTAGA-1_4341_BA46    L5/6 4341_BA46       4341    PFC  13   M
+2: AAAGCAAGTTAGGGTG-1_4341_BA46    L5/6 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB6      SB2                           16
+2:   Control      CB6      SB2                           16
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                  7.2  4890 13640               0.8577713
+2:                  7.2  2749  5775               0.3636364
+   RNA ribosomal percent
+1:             0.4692082
+2:             1.1774892
+> dim(meta_ind)
+[1] 23  2
+> meta_ind[1:2,]
+   individual diagnosis
+1:       4341   Control
+2:       5144       ASD
+> 
+> gc()
+           used  (Mb) gc trigger   (Mb)  max used  (Mb)
+Ncells  6042816 322.8    9473505  506.0   7738029 413.3
+Vcells 59434861 453.5  149381004 1139.7 119310870 910.3
+> sca = FromMatrix(dat1_log, cData, fData)
+Assuming data assay in position 1, with name et is log-transformed.
+> colData(sca)$cngeneson = as.numeric(CDR)
+> colData(sca)$diagnosis = as.factor(meta$diagnosis)
+> colData(sca)$ind = as.factor(meta$individual)
+> colData(sca)$RIN = meta$'RNA Integrity Number'
+> colData(sca)
+DataFrame with 1972 rows and 5 columns
+                                            wellKey cngeneson diagnosis
+                                        <character> <numeric>  <factor>
+AAACCTGAGTGTTAGA-1_4341_BA46 AAACCTGAGTGTTAGA-1_4..  0.264675   Control
+AAAGCAAGTTAGGGTG-1_4341_BA46 AAAGCAAGTTAGGGTG-1_4..  0.150435   Control
+AAATGCCCATCTATGG-1_4341_BA46 AAATGCCCATCTATGG-1_4..  0.148994   Control
+AACCGCGTCCCGGATG-1_4341_BA46 AACCGCGTCCCGGATG-1_4..  0.316668   Control
+AACTCAGCATACTCTT-1_4341_BA46 AACTCAGCATACTCTT-1_4..  0.165955   Control
+...                                             ...       ...       ...
+TGGTTAGGTAGCTCCG-1_6033_BA9  TGGTTAGGTAGCTCCG-1_6..  0.224322       ASD
+TGTCCCATCTTGTACT-1_6033_BA9  TGTCCCATCTTGTACT-1_6..  0.240120       ASD
+TTGACTTCATTCGACA-1_6033_BA9  TTGACTTCATTCGACA-1_6..  0.295106       ASD
+TTGGCAACATTGGCGC-1_6033_BA9  TTGGCAACATTGGCGC-1_6..  0.196663       ASD
+TTTGTCACAAAGTCAA-1_6033_BA9  TTTGTCACAAAGTCAA-1_6..  0.247714       ASD
+                                  ind       RIN
+                             <factor> <numeric>
+AAACCTGAGTGTTAGA-1_4341_BA46     4341       7.2
+AAAGCAAGTTAGGGTG-1_4341_BA46     4341       7.2
+AAATGCCCATCTATGG-1_4341_BA46     4341       7.2
+AACCGCGTCCCGGATG-1_4341_BA46     4341       7.2
+AACTCAGCATACTCTT-1_4341_BA46     4341       7.2
+...                               ...       ...
+TGGTTAGGTAGCTCCG-1_6033_BA9      6033         8
+TGTCCCATCTTGTACT-1_6033_BA9      6033         8
+TTGACTTCATTCGACA-1_6033_BA9      6033         8
+TTGGCAACATTGGCGC-1_6033_BA9      6033         8
+TTTGTCACAAAGTCAA-1_6033_BA9      6033         8
+> 
+> #sca=sca[1:10,]
+> 
+> rm(dat1_log)
+> gc()
+           used  (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells  6072883 324.4    9473505  506.0   7738029  413.3
+Vcells 59501725 454.0  149381004 1139.7 149381003 1139.7
+> 
+> getOption("mc.cores")
+NULL
+> 
+> date()
+[1] "Sat Jun 12 23:24:52 2021"
+> b0 = zlm(formula = ~ diagnosis + cngeneson + RIN, sca = sca, 
++          parallel = TRUE)
+
+Done!
+> date()
+[1] "Sat Jun 12 23:28:06 2021"
+> b1 = zlm(formula = ~ diagnosis + (1 | ind) + cngeneson + RIN, sca = sca, 
++          method = 'glmer', ebayes = FALSE, parallel = TRUE)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 19 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 35 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 11 warnings (use warnings() to see them)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in eval_f(x, ...) : Downdated VtV is not positive definite
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00236128 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00450784 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00335652 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00247088 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00282124 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00244604 (tol = 0.002, component 1)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00252873 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.143528 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00333525 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00299886 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00229222 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00341213 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00200989 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00253608 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 14 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00247415 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00441707 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00371635 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00406086 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00636273 (tol = 0.002, component 1)
+Error in (function (fr, X, reTrms, family, nAGQ = 1L, verbose = 0L, maxit = 100L,  : 
+  pwrssUpdate did not converge in (maxit) iterations
+In addition: There were 21 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+
+Done!
+There were 50 or more warnings (use warnings() to see the first 50)
+> date()
+[1] "Sun Jun 13 02:37:54 2021"
+> 
+> b0
+Fitted zlm on 18041 genes and 1972 cells.
+ Using BayesGLMlike ~ diagnosis + cngeneson + RIN 
+> b1
+Fitted zlm on 18041 genes and 1972 cells.
+ Using LMERlike ~ diagnosis + (1 | ind) + cngeneson + RIN 
+> 
+> date()
+[1] "Sun Jun 13 02:37:54 2021"
+> lrt0 = lrTest(b0, "diagnosis")
+Refitting on reduced model...
+
+Done!
+> date()
+[1] "Sun Jun 13 02:40:57 2021"
+> lrt1 = lrTest(b1, "diagnosis")
+Refitting on reduced model...
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0479485 (tol = 0.002, component 1)
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0351893 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00213554 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00203121 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00214441 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00280707 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00410335 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0265429 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0352191 (tol = 0.002, component 1)
+10: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00228846 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 22 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00200642 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0334928 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00233534 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0023405 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00298274 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00337798 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00383204 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0394497 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in eval_f(x, ...) : Downdated VtV is not positive definite
+In addition: There were 39 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0291027 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00211454 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00291405 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 40 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00332489 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00237505 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 12 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00277086 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00218138 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00257076 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00259491 (tol = 0.002, component 1)
+Error in (function (fr, X, reTrms, family, nAGQ = 1L, verbose = 0L, maxit = 100L,  : 
+  pwrssUpdate did not converge in (maxit) iterations
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00214669 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00269876 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00359245 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00211054 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00214224 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+
+Done!
+There were 50 or more warnings (use warnings() to see the first 50)
+> date()
+[1] "Sun Jun 13 04:58:16 2021"
+> 
+> dim(lrt0)
+[1] 18041     3     3
+> lrt0[1,,]
+         metric
+test.type     lambda df Pr(>Chisq)
+   cont   0.23954547  1  0.6245346
+   disc   0.03572736  1  0.8500796
+   hurdle 0.27527283  2  0.8714155
+> 
+> dim(lrt1)
+[1] 18041     3     3
+> lrt1[1,,]
+         metric
+test.type    lambda df Pr(>Chisq)
+   cont   0.7575466  1  0.3840974
+   disc   0.1272234  1  0.7213284
+   hurdle 0.8847700  2  0.6425022
+> 
+> mast_pval_glm = apply(lrt0, 1, function(x){x[3,3]})
+> length(mast_pval_glm)
+[1] 18041
+> mast_pval_glm[1:4]
+  DNAJC11      NADK     MASP2     CLCN6 
+0.8714155 0.1074569 0.6790658 0.8934808 
+> 
+> mast_pval_glmer = apply(lrt1, 1, function(x){x[3,3]})
+> length(mast_pval_glmer)
+[1] 18041
+> mast_pval_glmer[1:4]
+  DNAJC11      NADK     MASP2     CLCN6 
+0.6425022 0.1042439 0.8824595 0.9335977 
+> 
+> pdf(sprintf("figures/step1b_MAST_glmer_%s_pval_hist_final.pdf", grp), 
++     width=6, height=3)
+> par(mfrow=c(1,2), bty="n", mar=c(5,4,2,1))
+>   hist(mast_pval_glm, main="MAST_glm", xlab="p-value", breaks=50)
+>   hist(mast_pval_glmer, main="MAST_glmer", xlab="p-value", breaks=50)
+> dev.off()
+null device 
+          1 
+> 
+> # ------------------------------------------------------------------------
+> # summarize p-value distribution
+> # ------------------------------------------------------------------------
+> 
+> pdf(sprintf("figures/step1b_MAST_%s_compare_pval_Seq.pdf", grp), 
++     width=9, height=3)
+> par(mfrow=c(1,3), bty="n", mar=c(5,4,1,1))
+> hist(mast_pval_glm, main="MAST glm", xlab="p-value")
+> hist(mast_pval_glmer, main="MAST glmer", xlab="p-value")
+> plot(-log10(mast_pval_glm), -log10(mast_pval_glmer), main="-log10(p-value)", 
++      xlab="MAST glm", ylab="MAST glmer", 
++      pch=20, cex=0.2, col=rgb(0.8, 0.1, 0.1, 0.5))
+> abline(0, 1, col="darkblue")
+> dev.off()
+null device 
+          1 
+> # ------------------------------------------------------------------------
+> # save the results
+> # ------------------------------------------------------------------------
+> 
+> 
+> fwrite(data.frame(mast_pval_glm), file=sprintf("res/step1b_MAST_%s_glm.tsv", grp), 
++        sep = "\t", row.names=TRUE, col.names=FALSE)
+> 
+> fwrite(data.frame(mast_pval_glmer), file=sprintf("res/step1b_MAST_%s_glmer.tsv", grp), 
++             sep = "\t", row.names=TRUE, col.names=FALSE)
+> 
+> gc()
+           used  (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells  6253975 334.0   12572392  671.5  12572392  671.5
+Vcells 62716569 478.5  193668731 1477.6 242085913 1847.0
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.5 LTS
+
+Matrix products: default
+BLAS/LAPACK: /opt/intel/compilers_and_libraries_2018.2.199/linux/mkl/lib/intel64_lin/libmkl_rt.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] doRNG_1.8.2                 rngtools_1.5               
+ [3] doParallel_1.0.16           iterators_1.0.13           
+ [5] foreach_1.5.1               lme4_1.1-27                
+ [7] MAST_1.18.0                 SingleCellExperiment_1.14.1
+ [9] SummarizedExperiment_1.22.0 Biobase_2.52.0             
+[11] GenomicRanges_1.44.0        GenomeInfoDb_1.28.0        
+[13] IRanges_2.26.0              S4Vectors_0.30.0           
+[15] BiocGenerics_0.38.0         MatrixGenerics_1.4.0       
+[17] matrixStats_0.59.0          dplyr_1.0.6                
+[19] data.table_1.14.0           Matrix_1.3-3               
+
+loaded via a namespace (and not attached):
+ [1] progress_1.2.2         tidyselect_1.1.1       purrr_0.3.4           
+ [4] reshape2_1.4.4         splines_4.1.0          lattice_0.20-44       
+ [7] colorspace_2.0-1       vctrs_0.3.8            generics_0.1.0        
+[10] utf8_1.2.1             rlang_0.4.11           pillar_1.6.1          
+[13] nloptr_1.2.2.2         glue_1.4.2             GenomeInfoDbData_1.2.6
+[16] lifecycle_1.0.0        plyr_1.8.6             stringr_1.4.0         
+[19] zlibbioc_1.38.0        munsell_0.5.0          gtable_0.3.0          
+[22] codetools_0.2-18       fansi_0.5.0            Rcpp_1.0.6            
+[25] scales_1.1.1           DelayedArray_0.18.0    XVector_0.32.0        
+[28] abind_1.4-5            hms_1.1.0              digest_0.6.27         
+[31] ggplot2_3.3.3          stringi_1.6.2          grid_4.1.0            
+[34] tools_4.1.0            bitops_1.0-7           magrittr_2.0.1        
+[37] RCurl_1.98-1.3         tibble_3.1.2           crayon_1.4.1          
+[40] pkgconfig_2.0.3        ellipsis_0.3.2         MASS_7.3-54           
+[43] prettyunits_1.1.1      minqa_1.2.4            R6_2.5.0              
+[46] boot_1.3-28            nlme_3.1-152           compiler_4.1.0        
+> q(save="no")
+> proc.time()
+     user    system   elapsed 
+20017.119     3.187 20020.791 

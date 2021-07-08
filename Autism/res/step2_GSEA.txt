@@ -1,0 +1,401 @@
+
+---------------------------------------------------
+PFC_AST-FB
+---------------------------------------------------
+
+---------------------------------------------------
+PFC_AST-PP
+---------------------------------------------------
+
+---------------------------------------------------
+PFC_Endothelial
+---------------------------------------------------
+$DESeq2
+                                                                                                                      pathway
+ 1:                                                      REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE
+ 2:                                                                                                      REACTOME_TRANSLATION
+ 3:                                                                                                  REACTOME_RRNA_PROCESSING
+ 4:                                                                REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY
+ 5:                                                                                REACTOME_EUKARYOTIC_TRANSLATION_INITIATION
+ 6:                                                                                      REACTOME_SELENOAMINO_ACID_METABOLISM
+ 7:                                                                                REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION
+ 8:                                                                      REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS
+ 9:                                                                                      REACTOME_NONSENSE_MEDIATED_DECAY_NMD
+10:                                                                        REACTOME_METABOLISM_OF_AMINO_ACIDS_AND_DERIVATIVES
+11:                                                                                              REACTOME_INFLUENZA_INFECTION
+12:                                                                                               REACTOME_INFECTIOUS_DISEASE
+13: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+14:                                                                                                REACTOME_METABOLISM_OF_RNA
+            pval         padj      NES
+ 1: 3.352074e-06 0.0005296276 1.585903
+ 2: 3.213129e-06 0.0005296276 1.561339
+ 3: 1.185720e-05 0.0009367189 1.556261
+ 4: 1.045400e-05 0.0009367189 1.541682
+ 5: 1.565277e-05 0.0009892549 1.549457
+ 6: 2.326745e-05 0.0012254193 1.537243
+ 7: 8.373781e-05 0.0037801640 1.495820
+ 8: 1.008269e-04 0.0039826633 1.488167
+ 9: 1.820414e-04 0.0063916768 1.460114
+10: 2.646323e-04 0.0083623813 1.441035
+11: 7.168753e-04 0.0191212959 1.411776
+12: 7.261252e-04 0.0191212959 1.310402
+13: 1.812653e-03 0.0409141736 1.505900
+14: 1.775471e-03 0.0409141736 1.278604
+
+$KR_nb_JSD
+                                    pathway         pval       padj      NES
+1: REACTOME_INTERFERON_ALPHA_BETA_SIGNALING 4.653016e-05 0.01335415 1.806862
+
+$PS_nb_JSD
+                                    pathway         pval       padj     NES
+1: REACTOME_INTERFERON_ALPHA_BETA_SIGNALING 0.0001283385 0.03683314 1.76799
+
+$KR_dca_direct_Was
+                                       pathway         pval        padj      NES
+1:    REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION 2.524164e-05 0.007976358 1.461439
+2: REACTOME_TRANSCRIPTIONAL_REGULATION_BY_TP53 2.232579e-04 0.035274742 1.567711
+
+$PS_dca_direct_Was
+                                       pathway         pval        padj      NES
+1: REACTOME_TRANSCRIPTIONAL_REGULATION_BY_TP53 5.480576e-06 0.001731862 1.710584
+
+$PS_dca_direct_JSD
+                                                                                                                     pathway
+1: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+2:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+3:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+4:                                                             REACTOME_TRANSLOCATION_OF_SLC2A4_GLUT4_TO_THE_PLASMA_MEMBRANE
+5:                                                                                             REACTOME_RHO_GTPASE_EFFECTORS
+           pval        padj      NES
+1: 5.550391e-06 0.001518709 1.776528
+2: 9.612080e-06 0.001518709 1.744145
+3: 1.029708e-04 0.010846255 1.740281
+4: 5.371184e-04 0.033945880 1.631807
+5: 4.763794e-04 0.033945880 1.459337
+
+
+---------------------------------------------------
+PFC_IN-PV
+---------------------------------------------------
+
+---------------------------------------------------
+PFC_IN-SST
+---------------------------------------------------
+$DESeq2
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+5:                                                                                 REACTOME_PEPTIDE_LIGAND_BINDING_RECEPTORS
+           pval        padj      NES
+1: 9.246451e-07 0.000370927 1.671747
+2: 1.270298e-06 0.000370927 1.616130
+3: 1.706289e-05 0.003321576 1.488195
+4: 2.693380e-05 0.003932335 1.695798
+5: 1.469840e-04 0.017167735 1.692564
+
+$KR_nb_JSD
+                                   pathway         pval        padj      NES
+1:             REACTOME_L1CAM_INTERACTIONS 1.678086e-05 0.009783244 1.520399
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT 7.804145e-05 0.022749083 1.534857
+
+$PS_nb_Was
+                       pathway         pval       padj      NES
+1: REACTOME_L1CAM_INTERACTIONS 6.323096e-05 0.03686365 1.486866
+
+$PS_nb_JSD
+                       pathway         pval       padj     NES
+1: REACTOME_L1CAM_INTERACTIONS 1.875504e-05 0.01091543 1.51485
+
+$KR_dca_direct_Was
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+           pval       padj      NES
+1: 0.0001339558 0.02607672 1.607357
+2: 0.0001293762 0.02607672 1.537997
+3: 0.0001270864 0.02607672 1.480446
+
+$PS_dca_direct_Was
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+4:                                                                                  REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION
+5:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+6:                                                                                  REACTOME_NOTCH_HLH_TRANSCRIPTION_PATHWAY
+           pval        padj      NES
+1: 8.208884e-06 0.002554043 1.731140
+2: 9.050801e-06 0.002554043 1.681495
+3: 1.312008e-05 0.002554043 1.580630
+4: 1.454047e-04 0.021229087 1.288993
+5: 2.600301e-04 0.030371520 1.724897
+6: 4.353902e-04 0.042377977 1.783170
+
+
+---------------------------------------------------
+PFC_IN-SV2C
+---------------------------------------------------
+
+---------------------------------------------------
+PFC_IN-VIP
+---------------------------------------------------
+$KR_dca_direct_JSD
+                         pathway         pval        padj      NES
+1: REACTOME_COMPLEX_I_BIOGENESIS 9.050801e-06 0.005394277 1.744549
+
+
+---------------------------------------------------
+PFC_L2_3
+---------------------------------------------------
+$PS_nb_Was
+                                  pathway         pval       padj       NES
+1: REACTOME_TRANSLESION_SYNTHESIS_BY_POLK 4.693707e-05 0.03783128 -2.264327
+
+
+---------------------------------------------------
+PFC_L4
+---------------------------------------------------
+
+---------------------------------------------------
+PFC_L5_6
+---------------------------------------------------
+$KR_dca_direct_Was
+                                                                                                                     pathway
+1:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+2:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+3: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+5:                                                                                      REACTOME_CITRIC_ACID_CYCLE_TCA_CYCLE
+           pval        padj      NES
+1: 4.223903e-06 0.003239734 1.434415
+2: 8.910481e-06 0.003417169 1.502844
+3: 3.542797e-05 0.009057750 1.443142
+4: 9.399127e-05 0.018022826 1.541858
+5: 1.980700e-04 0.030383943 1.695487
+
+$KR_dca_direct_JSD
+                                                                 pathway         pval       padj      NES
+1: REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT 6.323096e-05 0.04849815 1.364655
+
+$PS_dca_direct_Was
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+3: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+           pval        padj      NES
+1: 3.874828e-06 0.002968119 1.559201
+2: 3.032646e-05 0.011615034 1.427667
+3: 4.903206e-05 0.012519519 1.453862
+4: 1.293762e-04 0.024775540 1.553722
+
+$PS_dca_direct_JSD
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+           pval        padj      NES
+1: 7.016515e-06 0.004500745 1.506357
+2: 1.734491e-05 0.004500745 1.468492
+3: 1.762694e-05 0.004500745 1.406162
+
+
+---------------------------------------------------
+PFC_L5_6-CC
+---------------------------------------------------
+$DESeq2
+                         pathway        pval     padj     NES
+1: REACTOME_COMPLEX_I_BIOGENESIS 2.15753e-05 0.018339 1.57771
+
+
+---------------------------------------------------
+PFC_Microglia
+---------------------------------------------------
+$DESeq2
+                       pathway         pval      padj      NES
+1: REACTOME_SIGNALING_BY_ERBB4 0.0003435272 0.0340092 1.732156
+
+$KR_dca_direct_Was
+                                pathway         pval       padj      NES
+1: REACTOME_SIGNALING_BY_ROBO_RECEPTORS 0.0002646323 0.01719986 1.687849
+2:       REACTOME_DEVELOPMENTAL_BIOLOGY 0.0003474719 0.01719986 1.471545
+
+$KR_dca_direct_JSD
+                                           pathway         pval         padj      NES
+1:             REACTOME_NERVOUS_SYSTEM_DEVELOPMENT 2.622614e-06 0.0002596388 1.924949
+2:            REACTOME_SIGNALING_BY_ROBO_RECEPTORS 1.008765e-05 0.0004993386 2.021392
+3:                     REACTOME_SIGNALING_BY_ERBB2 2.235054e-05 0.0007375678 2.026322
+4:                  REACTOME_DEVELOPMENTAL_BIOLOGY 7.918072e-05 0.0019597229 1.700909
+5:                      REACTOME_METABOLISM_OF_RNA 1.907720e-04 0.0037772856 1.870437
+6: REACTOME_CELLULAR_RESPONSES_TO_EXTERNAL_STIMULI 6.678920e-04 0.0110202185 1.810824
+7:            REACTOME_TOLL_LIKE_RECEPTOR_CASCADES 1.246679e-03 0.0176316048 1.825751
+8:                        REACTOME_CIRCADIAN_CLOCK 3.320721e-03 0.0410939253 1.752311
+
+$PS_dca_direct_Was
+                                            pathway         pval        padj      NES
+ 1:                  REACTOME_DEVELOPMENTAL_BIOLOGY 2.693380e-05 0.002666446 1.563263
+ 2:            REACTOME_SIGNALING_BY_ROBO_RECEPTORS 5.983003e-05 0.002961586 1.823819
+ 3:            REACTOME_TOLL_LIKE_RECEPTOR_CASCADES 1.774619e-04 0.005856243 1.792809
+ 4:                     REACTOME_SIGNALING_BY_ERBB2 5.092329e-04 0.010082811 1.745213
+ 5:             REACTOME_NERVOUS_SYSTEM_DEVELOPMENT 4.395162e-04 0.010082811 1.559152
+ 6:                      REACTOME_METABOLISM_OF_RNA 7.145970e-04 0.011790851 1.693711
+ 7:                       REACTOME_SIGNALING_BY_MET 1.151892e-03 0.016291038 1.705486
+ 8:                     REACTOME_SIGNALING_BY_ERBB4 1.801664e-03 0.022295587 1.681338
+ 9:           REACTOME_TRANSPORT_OF_SMALL_MOLECULES 2.320680e-03 0.025527478 1.554697
+10: REACTOME_CELLULAR_RESPONSES_TO_EXTERNAL_STIMULI 2.924422e-03 0.028951778 1.590222
+
+$PS_dca_direct_JSD
+                                            pathway         pval         padj      NES
+ 1:            REACTOME_SIGNALING_BY_ROBO_RECEPTORS 1.538327e-05 0.0009469881 2.036820
+ 2:                     REACTOME_SIGNALING_BY_ERBB2 2.791048e-05 0.0009469881 2.034909
+ 3:             REACTOME_NERVOUS_SYSTEM_DEVELOPMENT 3.599480e-05 0.0009469881 1.846937
+ 4:                  REACTOME_DEVELOPMENTAL_BIOLOGY 3.826215e-05 0.0009469881 1.697643
+ 5:                      REACTOME_METABOLISM_OF_RNA 8.190264e-05 0.0016216723 1.972233
+ 6: REACTOME_CELLULAR_RESPONSES_TO_EXTERNAL_STIMULI 7.310008e-04 0.0117761733 1.867907
+ 7:            REACTOME_TOLL_LIKE_RECEPTOR_CASCADES 8.326587e-04 0.0117761733 1.810510
+ 8:                     REACTOME_SIGNALING_BY_ERBB4 1.123319e-03 0.0139010704 1.851359
+ 9:                        REACTOME_CIRCADIAN_CLOCK 4.616190e-03 0.0415457087 1.721330
+10:                  REACTOME_ION_CHANNEL_TRANSPORT 4.409021e-03 0.0415457087 1.692038
+11:             REACTOME_VESICLE_MEDIATED_TRANSPORT 4.093073e-03 0.0415457087 1.528976
+12:                       REACTOME_SIGNALING_BY_MET 5.600635e-03 0.0426509884 1.723275
+13: REACTOME_SIGNALING_BY_RECEPTOR_TYROSINE_KINASES 5.595081e-03 0.0426509884 1.526337
+
+
+---------------------------------------------------
+PFC_Neu-mat
+---------------------------------------------------
+
+---------------------------------------------------
+PFC_Neu-NRGN-I
+---------------------------------------------------
+$DESeq2
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+5:                                                               REACTOME_SIGNALING_BY_MODERATE_KINASE_ACTIVITY_BRAF_MUTANTS
+           pval        padj      NES
+1: 2.185732e-05 0.004163820 1.568409
+2: 1.819099e-05 0.004163820 1.521486
+3: 5.299993e-05 0.006730991 1.466350
+4: 2.922455e-04 0.027836380 1.600551
+5: 6.211871e-04 0.047334456 1.665379
+
+$KR_nb_Was
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+3: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+4:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+           pval         padj      NES
+1: 1.235733e-06 0.0004708142 1.615768
+2: 5.271130e-06 0.0010041503 1.716475
+3: 2.298543e-05 0.0029191494 1.520265
+4: 4.052949e-05 0.0038604342 1.459099
+
+$KR_nb_JSD
+                                                                                                                     pathway
+1:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+2:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+3: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+4:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+           pval        padj      NES
+1: 3.202696e-05 0.005651164 1.655343
+2: 2.636975e-05 0.005651164 1.546978
+3: 4.449735e-05 0.005651164 1.497712
+4: 4.165051e-04 0.039672114 1.432752
+
+$PS_nb_Was
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+4:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+5:                                                               REACTOME_SIGNALING_BY_MODERATE_KINASE_ACTIVITY_BRAF_MUTANTS
+           pval        padj      NES
+1: 3.444094e-07 0.000131220 1.668845
+2: 6.597622e-06 0.001256847 1.560452
+3: 1.045400e-05 0.001327658 1.701401
+4: 2.383151e-05 0.002269951 1.489015
+5: 2.651538e-04 0.020204723 1.687284
+
+$PS_nb_JSD
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+           pval        padj      NES
+1: 1.241848e-05 0.004731442 1.538909
+2: 9.854837e-05 0.016721579 1.476516
+3: 1.316660e-04 0.016721579 1.435773
+4: 2.646323e-04 0.025206228 1.616701
+
+$KR_dca_direct_Was
+                                                                                                                     pathway
+1:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+2:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+3: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+           pval         padj      NES
+1: 1.437961e-09 5.478630e-07 1.768618
+2: 4.186243e-09 7.974793e-07 1.842713
+3: 9.196497e-09 1.167955e-06 1.765247
+4: 1.546822e-06 1.473348e-04 1.891621
+
+$KR_dca_direct_JSD
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+           pval         padj      NES
+1: 1.841304e-07 7.015369e-05 1.660755
+2: 6.578247e-07 1.196248e-04 1.599123
+3: 9.419277e-07 1.196248e-04 1.551891
+4: 2.693380e-05 2.565444e-03 1.677216
+
+$PS_dca_direct_Was
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+3: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+           pval         padj      NES
+1: 1.277296e-09 2.433250e-07 1.839651
+2: 6.435037e-10 2.433250e-07 1.778831
+3: 4.705457e-09 5.975930e-07 1.757933
+4: 1.181424e-07 1.125307e-05 1.935357
+
+$PS_dca_direct_JSD
+                                                                                                                     pathway
+1:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+2: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+3:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+4:                                                                                             REACTOME_COMPLEX_I_BIOGENESIS
+           pval         padj      NES
+1: 4.821605e-08 1.059250e-05 1.680891
+2: 5.560368e-08 1.059250e-05 1.632008
+3: 3.230178e-07 4.102326e-05 1.570139
+4: 9.050801e-06 8.620888e-04 1.692867
+
+
+---------------------------------------------------
+PFC_Neu-NRGN-II
+---------------------------------------------------
+
+---------------------------------------------------
+PFC_Oligodendrocytes
+---------------------------------------------------
+$PS_nb_Was
+                             pathway         pval       padj      NES
+1: REACTOME_SIGNALING_BY_RHO_GTPASES 0.0003428697 0.04731602 1.632791
+
+
+---------------------------------------------------
+PFC_OPC
+---------------------------------------------------

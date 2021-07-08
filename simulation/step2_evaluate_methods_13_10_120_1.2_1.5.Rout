@@ -1,0 +1,2769 @@
+
+R version 3.6.2 (2019-12-12) -- "Dark and Stormy Night"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> #########################################################################
+> #                                                                       #
+> #                                                                       #
+> #             Part II: Defferential Expression Analysis                 #
+> #                                                                       #
+> #                                                                       #
+> #########################################################################
+> # once simulated genes, we will do the Differential Expression Analysis
+> # Here we will implement our method, plus the DESeq2 and the MAST analysis.
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=13"   "nctrl=10"   "ncell=120"  "r_mean=1.2" "r_var=1.5" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 13      # case individuals
++   nctrl    = 10      # control individuals
++   ncell    = 360    # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> if(ncell == 0){
++   UNEQ_N_CELL = TRUE
++ }else{
++   UNEQ_N_CELL = FALSE
++ }
+> 
+> if(UNEQ_N_CELL){
++   config = sprintf("ncase_%d_nctrl_%d_unequal_n_cell", ncase, nctrl)
++ }else{
++   config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
++ }
+> 
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_13_nctrl_10_ncell_120_fold_mean_1.2_var_1.5"
+> 
+> # ---------------------------------------------------------------
+> # additional parameters
+> # ---------------------------------------------------------------
+> 
+> nCore = 6      # number of cores for multi-core computation
+> nall  = ncase + nctrl
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(MASS)
+> library(emdbook)
+> library(moments)
+> library(MAST)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: DelayedArray
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following objects are masked from ‘package:Biobase’:
+
+    anyMissing, rowMedians
+
+Loading required package: BiocParallel
+
+Attaching package: ‘DelayedArray’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colMaxs, colMins, colRanges, rowMaxs, rowMins, rowRanges
+
+The following objects are masked from ‘package:base’:
+
+    aperm, apply, rowsum
+
+
+Attaching package: ‘MAST’
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+> library(lme4)
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following object is masked from ‘package:S4Vectors’:
+
+    expand
+
+> library(DESeq2)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> library(MiRKAT)
+> library(reticulate)
+> library(transport)
+> 
+> library(data.table)
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    shift
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    shift
+
+The following object is masked from ‘package:IRanges’:
+
+    shift
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, second
+
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+
+Attaching package: ‘pryr’
+
+The following object is masked from ‘package:data.table’:
+
+    address
+
+> library(ggplot2)
+> library(ggpubr)
+Loading required package: magrittr
+> theme_set(theme_bw())
+> 
+> library(ideas)
+> 
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> sim_data     = readRDS(sprintf("data/sim_data_%s.rds", config))
+> count_matrix = sim_data$count_matrix
+> meta_cell    = sim_data$meta_cell
+> meta_ind     = sim_data$meta_ind
+> gene_index   = sim_data$gene_index
+> 
+> ls()
+ [1] "args"         "config"       "count_matrix" "gene_index"   "i"           
+ [6] "meta_cell"    "meta_ind"     "nall"         "ncase"        "ncell"       
+[11] "nCore"        "nctrl"        "r_mean"       "r_var"        "sim_data"    
+[16] "UNEQ_N_CELL" 
+> EE_index   = gene_index$EE_index
+> mean_index = gene_index$mean_index
+> var_index  = gene_index$var_index
+> 
+> dim(count_matrix)
+[1] 8000 2760
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> 
+> dim(meta_cell)
+[1] 2760    5
+> meta_cell[1:2,]
+      cell_id individual phenotype cell_rd      CDR
+cell1   cell1       ind1         1    9738 0.439125
+cell2   cell2       ind1         1    9605 0.444000
+> 
+> dim(meta_ind)
+[1] 23  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.2784552
+ind2       ind2         1 -0.7018300
+> 
+> rm(sim_data)
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  6928689 370.1   12437792 664.3         NA  9014139 481.5
+Vcells 33576791 256.2   50839049 387.9      32768 33636590 256.7
+> 
+> # ---------------------------------------------------------------
+> # 1. DESeq2 analysis 
+> # ---------------------------------------------------------------
+> # We calculate count_matrix_bulk by adding up raw counts of
+> # all cells of an individual within a gene
+> # ---------------------------------------------------------------
+> 
+> # individual level info
+> u_ind = unique(meta_cell$individual)
+> length(u_ind)
+[1] 23
+> u_ind[1:2]
+[1] "ind1" "ind2"
+> 
+> count_matrix_bulk = matrix(nrow = nrow(count_matrix),
++                          ncol = length(u_ind))
+> rownames(count_matrix_bulk) = rownames(count_matrix)
+> colnames(count_matrix_bulk) = u_ind
+> 
+> for (i_ind in 1:length(u_ind)) {
++   cur_ind   = u_ind[i_ind]
++   cur_ind_m = count_matrix[, meta_cell$individual == cur_ind]
++   count_matrix_bulk[, i_ind] = rowSums(cur_ind_m, na.rm = TRUE)
++ }
+> 
+> dim(count_matrix_bulk)
+[1] 8000   23
+> count_matrix_bulk[1:3,1:5]
+      ind1 ind2 ind3 ind4 ind5
+gene1   40   46   48   64   56
+gene2   31   30   74   35  113
+gene3   25   31   21   28   18
+> 
+> meta_ind$phenotype = as.factor(meta_ind$phenotype)
+> dim(meta_ind)
+[1] 23  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.2784552
+ind2       ind2         1 -0.7018300
+> 
+> # DESeq2 for all the genes
+> dds = DESeqDataSetFromMatrix(countData = count_matrix_bulk,
++                              colData = meta_ind,
++                              design = ~ RIN + phenotype)
+converting counts to integer mode
+> 
+> dds = DESeq(dds)
+estimating size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+> nms = resultsNames(dds)
+> nms
+[1] "Intercept"        "RIN"              "phenotype_1_vs_0"
+> 
+> deseq2_pval = results(dds)$pvalue
+> 
+> rk = results(dds, name="RIN")
+> deseq2_pval_RIN = rk$pvalue
+> 
+> summary(deseq2_pval)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.1883  0.4553  0.4635  0.7261  0.9999 
+> summary(deseq2_pval_RIN)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.1145  0.3631  0.4091  0.6808  0.9999 
+> table(deseq2_pval[EE_index] < 0.05)
+
+FALSE  TRUE 
+ 5646   354 
+> table(deseq2_pval[EE_index] < 0.05)/length(EE_index)
+
+FALSE  TRUE 
+0.941 0.059 
+> 
+> # ---------------------------------------------------------------
+> # 2. IDEAS 
+> # ---------------------------------------------------------------
+> 
+> var2test      = "phenotype"
+> var2adjust    = "RIN"
+> var2test_type = "binary"
+> var_per_cell  = "cell_rd"
+> 
+> dist_list = list()
+> 
+> for(fit_method in c("zinb", "kde")){
++   for(d_metric in c("Was", "JSD")){
++     message(sprintf("fit_method: %s, d_metric: %s\n", fit_method, d_metric))
++     message(date())
++     
++     label = paste(fit_method, d_metric, sep="_")
++     fnm = sprintf("data/dist_%s_%s.rds", label, config)
++     if(file.exists(fnm)){
++       dist_list[[label]] = readRDS(fnm)
++     }else{
++       dist1 = ideas_dist(count_matrix, meta_cell, meta_ind, 
++                          var_per_cell, var2test, var2adjust, 
++                          var2test_type, d_metric = d_metric, 
++                          fit_method = fit_method)
++       dist_list[[label]] = dist1
++       saveRDS(dist1, fnm)
++     }
++   }
++ }
+fit_method: zinb, d_metric: Was
+
+Thu Sep 10 23:04:05 2020
+the count_matrix includes 8000 genes in 2760 cells
+
+estimating distribution for each gene and each individaul by zinb
+
+fit_method: zinb, d_metric: JSD
+
+Fri Sep 11 00:38:01 2020
+the count_matrix includes 8000 genes in 2760 cells
+
+estimating distribution for each gene and each individaul by zinb
+
+fit_method: kde, d_metric: Was
+
+Fri Sep 11 02:48:58 2020
+the count_matrix includes 8000 genes in 2760 cells
+
+estimating distribution for each gene and each individaul by kde
+
+fit_method: kde, d_metric: JSD
+
+Fri Sep 11 02:50:54 2020
+the count_matrix includes 8000 genes in 2760 cells
+
+estimating distribution for each gene and each individaul by kde
+
+> 
+> date()
+[1] "Fri Sep 11 03:02:07 2020"
+> 
+> lapply(dist_list, dim)
+$zinb_Was
+[1] 8000   23   23
+
+$zinb_JSD
+[1] 8000   23   23
+
+$kde_Was
+[1] 8000   23   23
+
+$kde_JSD
+[1] 8000   23   23
+
+> 
+> dist_list$zinb_Was[1,1:3,1:3]
+           ind1       ind2       ind3
+ind1 0.00000000 0.06591209 0.03183451
+ind2 0.06591209 0.00000000 0.06452927
+ind3 0.03183451 0.06452927 0.00000000
+> dist_list$zinb_JSD[1,1:3,1:3]
+            ind1        ind2        ind3
+ind1 0.000000000 0.003052077 0.001491822
+ind2 0.003052077 0.000000000 0.001666344
+ind3 0.001491822 0.001666344 0.000000000
+> 
+> # ---------------------------------------------------------------
+> # STEP 2: pval calculation 
+> # ---------------------------------------------------------------
+> 
+> n_gene = nrow(count_matrix)
+> y = as.numeric(meta_ind$phenotype==1)
+> 
+> pval_KR = matrix(NA, nrow=n_gene, ncol=length(dist_list))
+> rownames(pval_KR) = rownames(count_matrix)
+> colnames(pval_KR) = paste("KR", names(dist_list), sep="_")
+> 
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   pval_KR[,k] = foreach(i_g = 1:dim(dist_k)[1], .combine = "c") %dopar% {
++     Di = dist_k[i_g,,]
++     if(any(is.na(Di))){
++       pval = NA 
++     }else{
++       Ki = D2K(Di)
++       m1 = MiRKAT(y = y, X = meta_ind$RIN, Ks = Ki, out_type = "D", 
++                   method = "permutation")
++       pval = m1$indivP
++     }
++     pval
++   }
++ }
+zinb_Was
+Fri Sep 11 03:02:07 2020
+zinb_JSD
+Fri Sep 11 03:03:07 2020
+kde_Was
+Fri Sep 11 03:04:06 2020
+kde_JSD
+Fri Sep 11 03:05:06 2020
+> date()
+[1] "Fri Sep 11 03:06:06 2020"
+> 
+> dim(pval_KR)
+[1] 8000    4
+> pval_KR[1:2,]
+      KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD
+gene1       0.876       0.899       0.70      0.960
+gene2       0.489       0.785       0.72      0.222
+> 
+> 
+> n_perm = 999
+> r.seed = 903
+> 
+> pval_PS = matrix(NA, nrow=n_gene, ncol=length(dist_list))
+> rownames(pval_PS) = rownames(count_matrix)
+> colnames(pval_PS) = names(dist_list)
+> colnames(pval_PS) = paste("PS", names(dist_list), sep="_")
+> 
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   pval_PS[,k] = permanova(dist_k, meta_ind, var2test, var2adjust, 
++                           var2test_type, n_perm=n_perm, 
++                           r.seed=r.seed, residulize.x = FALSE)
++ }
+zinb_Was
+Fri Sep 11 03:06:06 2020
+skip 23 gene(s) with NA in the dist_array
+
+testing for 'phenotype', a binary variable
+
+zinb_JSD
+Fri Sep 11 03:09:13 2020
+skip 23 gene(s) with NA in the dist_array
+
+testing for 'phenotype', a binary variable
+
+kde_Was
+Fri Sep 11 03:12:17 2020
+testing for 'phenotype', a binary variable
+
+kde_JSD
+Fri Sep 11 03:15:22 2020
+testing for 'phenotype', a binary variable
+
+> date()
+[1] "Fri Sep 11 03:18:19 2020"
+> 
+> summary(pval_KR)
+  KR_zinb_Was      KR_zinb_JSD       KR_kde_Was       KR_kde_JSD    
+ Min.   :0.0010   Min.   :0.0010   Min.   :0.0010   Min.   :0.0010  
+ 1st Qu.:0.1880   1st Qu.:0.1630   1st Qu.:0.1770   1st Qu.:0.2020  
+ Median :0.4250   Median :0.4130   Median :0.4210   Median :0.4500  
+ Mean   :0.4472   Mean   :0.4334   Mean   :0.4449   Mean   :0.4603  
+ 3rd Qu.:0.6910   3rd Qu.:0.6820   3rd Qu.:0.6970   3rd Qu.:0.7140  
+ Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+ NA's   :23       NA's   :23                                        
+> summary(pval_PS)
+  PS_zinb_Was      PS_zinb_JSD       PS_kde_Was       PS_kde_JSD    
+ Min.   :0.0010   Min.   :0.0010   Min.   :0.0010   Min.   :0.0010  
+ 1st Qu.:0.1830   1st Qu.:0.1590   1st Qu.:0.1740   1st Qu.:0.2030  
+ Median :0.4190   Median :0.4070   Median :0.4150   Median :0.4420  
+ Mean   :0.4435   Mean   :0.4305   Mean   :0.4416   Mean   :0.4577  
+ 3rd Qu.:0.6870   3rd Qu.:0.6820   3rd Qu.:0.6920   3rd Qu.:0.7090  
+ Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+ NA's   :23       NA's   :23                                        
+> 
+> round(cor(-log10(pval_KR), use="pair"),2)
+            KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD
+KR_zinb_Was        1.00        0.90       0.88       0.61
+KR_zinb_JSD        0.90        1.00       0.86       0.62
+KR_kde_Was         0.88        0.86       1.00       0.69
+KR_kde_JSD         0.61        0.62       0.69       1.00
+> round(cor(-log10(pval_PS), use="pair"),2)
+            PS_zinb_Was PS_zinb_JSD PS_kde_Was PS_kde_JSD
+PS_zinb_Was        1.00        0.91       0.89       0.61
+PS_zinb_JSD        0.91        1.00       0.86       0.62
+PS_kde_Was         0.89        0.86       1.00       0.69
+PS_kde_JSD         0.61        0.62       0.69       1.00
+> 
+> round(cor(-log10(pval_KR), -log10(pval_PS), use="pair"),2)
+            PS_zinb_Was PS_zinb_JSD PS_kde_Was PS_kde_JSD
+KR_zinb_Was        0.99        0.90       0.88       0.60
+KR_zinb_JSD        0.90        0.99       0.85       0.61
+KR_kde_Was         0.88        0.85       0.99       0.69
+KR_kde_JSD         0.61        0.62       0.69       0.99
+> 
+> # ---------------------------------------------------------------
+> # 3. MAST analysis 
+> # ---------------------------------------------------------------
+> #
+> # the input of MAST analysis can be matrix or SingleCellAssay.
+> #
+> # input:
+> # (1) the log-transformed expression count matrix,
+> #     with each column represents a cell and each row represents a gene.
+> # (2) the meta data, including cell and individual information.
+> 
+> # we get the p-values based on the Hurdle model ("H" model)
+> # ---------------------------------------------------------------
+> 
+> rds = colSums(count_matrix)
+> med_rds = median(rds)
+> summary(rds)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   9031    9664    9979   10042   10326   12681 
+> med_rds
+[1] 9979
+> 
+> dim(count_matrix)
+[1] 8000 2760
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> count_matrix = t(t(count_matrix)/rds)*med_rds
+> dim(count_matrix)
+[1] 8000 2760
+> count_matrix[1:3,1:6]
+         cell1    cell2 cell3    cell4    cell5    cell6
+gene1 1.024748 1.038938     0 0.000000 0.000000 0.000000
+gene2 1.024748 1.038938     0 0.000000 1.859152 0.000000
+gene3 0.000000 0.000000     0 1.993607 0.000000 1.036779
+> summary(colSums(count_matrix))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   9979    9979    9979    9979    9979    9979 
+> 
+> count_matrix_log = log2(1 + count_matrix) #log transformed data
+> 
+> dim(count_matrix_log)
+[1] 8000 2760
+> count_matrix_log[1:3, 1:4]
+         cell1    cell2 cell3    cell4
+gene1 1.017743 1.027818     0 0.000000
+gene2 1.017743 1.027818     0 0.000000
+gene3 0.000000 0.000000     0 1.581885
+> cell_id = colnames(count_matrix_log)   # get the cell id from the data
+> gene_id = rownames(count_matrix_log)   # get the gene id from the data
+> 
+> diagnosis = as.character(meta_cell$phenotype) #
+> diagnosis[diagnosis == 1] = "Case"
+> diagnosis[diagnosis == 0] = "Control"
+> 
+> fData = data.frame(primerid = gene_id)
+> cData = data.frame(wellKey  = cell_id)
+> 
+> sca = FromMatrix(count_matrix_log, cData, fData)
+Assuming data assay in position 1, with name et is log-transformed.
+> colData(sca)$cngeneson = as.numeric(meta_cell$CDR)
+> colData(sca)$diagnosis = as.factor(diagnosis)
+> colData(sca)$ind = as.factor(meta_cell$individual)
+> colData(sca)$RIN = meta_ind$RIN[match(meta_cell$individual, 
++                                       meta_ind$individual)]
+> 
+> colData(sca)
+DataFrame with 2760 rows and 5 columns
+             wellKey cngeneson diagnosis      ind                RIN
+         <character> <numeric>  <factor> <factor>          <numeric>
+cell1          cell1  0.439125      Case     ind1 -0.278455206659536
+cell2          cell2     0.444      Case     ind1 -0.278455206659536
+cell3          cell3     0.438      Case     ind1 -0.278455206659536
+cell4          cell4  0.440125      Case     ind1 -0.278455206659536
+cell5          cell5  0.442125      Case     ind1 -0.278455206659536
+...              ...       ...       ...      ...                ...
+cell2756    cell2756  0.443125   Control    ind23 -0.711802340635773
+cell2757    cell2757     0.445   Control    ind23 -0.711802340635773
+cell2758    cell2758    0.4405   Control    ind23 -0.711802340635773
+cell2759    cell2759   0.43725   Control    ind23 -0.711802340635773
+cell2760    cell2760    0.4355   Control    ind23 -0.711802340635773
+> 
+> rm(count_matrix)
+> rm(count_matrix_log)
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  7065149 377.4   15654194  836.1         NA  15654194  836.1
+Vcells 53078636 405.0  167596423 1278.7      32768 174512940 1331.5
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  7065154 377.4   15654194  836.1         NA  15654194  836.1
+Vcells 53078655 405.0  167596423 1278.7      32768 174512940 1331.5
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  7065154 377.4   15654194  836.1         NA  15654194  836.1
+Vcells 53078655 405.0  167596423 1278.7      32768 174512940 1331.5
+> 
+> getOption("mc.cores")
+[1] 6
+> 
+> date()
+[1] "Fri Sep 11 03:18:23 2020"
+> b0 = zlm(formula = ~ diagnosis + cngeneson + RIN, sca = sca, 
++          parallel = TRUE)
+
+Done!
+> date()
+[1] "Fri Sep 11 03:18:48 2020"
+> b1 = zlm(formula = ~ diagnosis + (1 | ind) + cngeneson + RIN, sca = sca, 
++          method = 'glmer', ebayes = FALSE, parallel = TRUE)
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+
+Done!
+> date()
+[1] "Fri Sep 11 03:36:57 2020"
+> 
+> b0
+Fitted zlm on 8000 genes and 2760 cells.
+ Using BayesGLMlike ~ diagnosis + cngeneson + RIN 
+> b1
+Fitted zlm on 8000 genes and 2760 cells.
+ Using LMERlike ~ diagnosis + (1 | ind) + cngeneson + RIN 
+> 
+> date()
+[1] "Fri Sep 11 03:36:57 2020"
+> lrt0 = lrTest(b0, "diagnosis")
+Refitting on reduced model...
+
+Done!
+> date()
+[1] "Fri Sep 11 03:37:26 2020"
+> lrt1 = lrTest(b1, "diagnosis")
+Refitting on reduced model...
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+
+Done!
+> date()
+[1] "Fri Sep 11 03:51:25 2020"
+> 
+> dim(lrt0)
+[1] 8000    3    3
+> lrt0[1,,]
+         metric
+test.type    lambda df Pr(>Chisq)
+   cont   0.1663909  1  0.6833395
+   disc   1.9833196  1  0.1590411
+   hurdle 2.1497105  2  0.3413472
+> 
+> dim(lrt1)
+[1] 8000    3    3
+> lrt1[1,,]
+         metric
+test.type    lambda df Pr(>Chisq)
+   cont   0.1390243  1  0.7092529
+   disc   0.0000000  0  1.0000000
+   hurdle 0.1390243  1  0.7092529
+> 
+> mast_pval_glm = apply(lrt0, 1, function(x){x[3,3]})
+> length(mast_pval_glm)
+[1] 8000
+> mast_pval_glm[1:4]
+      gene1       gene2       gene3       gene4 
+0.341347162 0.451932288 0.632424398 0.001221918 
+> 
+> mast_pval_glmer = apply(lrt1, 1, function(x){x[3,3]})
+> length(mast_pval_glmer)
+[1] 8000
+> mast_pval_glmer[1:4]
+     gene1      gene2      gene3      gene4 
+0.70925288 0.92670877 0.80371459 0.05181386 
+> 
+> # ---------------------------------------------------------------
+> # check p-value
+> # ---------------------------------------------------------------
+> 
+> idx_grp = list(meanDE=mean_index, varDE=var_index, EE=EE_index)
+> 
+> plot.hist <- function(pvals, idx_grp, label){
++   for(k in 1:length(idx_grp)){
++     idx  = idx_grp[[k]]
++     main = paste(label, names(idx_grp)[k], sep=", ")
++     hist(pvals[idx], main=main, xlab="p-value", breaks=50)
++   }
++ }
+> 
+> geneType = rep("EE", n_gene)
+> geneType[mean_index] = "meanDE"
+> geneType[var_index]  = "varDE"
+> 
+> df1 = data.frame(geneType, pval_KR, pval_PS, deseq2_pval, 
++                  mast_pval_glm, mast_pval_glmer)
+> dim(df1)
+[1] 8000   12
+> df1[1:2,]
+      geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+gene1       EE       0.876       0.899       0.70      0.960       0.889
+gene2       EE       0.489       0.785       0.72      0.222       0.459
+      PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm
+gene1       0.874      0.687      0.952   0.6918171     0.3413472
+gene2       0.803      0.688      0.198   0.9335462     0.4519323
+      mast_pval_glmer
+gene1       0.7092529
+gene2       0.9267088
+> 
+> 
+> pdf(sprintf("figures/pvalue_hist_%s.pdf", config), 
++     width = 9, height = 9)
+> par(mfrow = c(3, 3), mar=c(5,4,2,1), pty = "s", bty="n")
+> for(k in 2:ncol(df1)){
++   plot.hist(df1[,k], idx_grp, names(df1)[k])
++ }
+> dev.off()
+null device 
+          1 
+> 
+> # ---------------------------------------------------------------
+> # save results
+> # ---------------------------------------------------------------
+> 
+> 
+> fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.05)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+    FALSE      TRUE 
+0.9466667 0.0505000 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.756 0.241 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.845 0.152 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+     FALSE       TRUE 
+0.94050000 0.05666667 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.762 0.235 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.636 0.361 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+     FALSE       TRUE 
+0.94833333 0.05166667 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+0.738 0.262 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+0.766 0.234 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+     FALSE       TRUE 
+0.95166667 0.04833333 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.815 0.185 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+  0.8   0.2 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+    FALSE      TRUE 
+0.9446667 0.0525000 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.752 0.245 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.844 0.153 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+     FALSE       TRUE 
+0.94233333 0.05483333 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.762 0.235 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.637 0.360 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+     FALSE       TRUE 
+0.94866667 0.05133333 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+0.733 0.267 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.762 0.238 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+     FALSE       TRUE 
+0.95566667 0.04433333 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.815 0.185 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.801 0.199 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+FALSE  TRUE 
+0.941 0.059 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.637 0.363 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.936 0.064 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+ FALSE   TRUE 
+0.6045 0.3955 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.297 0.703 
+
+$mast_pval_glm$varDE
+
+FALSE  TRUE 
+0.012 0.988 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+     FALSE       TRUE 
+0.92850000 0.07066667 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.696 0.304 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.292 0.708 
+
+
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.01)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+      FALSE        TRUE 
+0.987333333 0.009833333 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.886 0.111 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.954 0.043 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+    FALSE      TRUE 
+0.9871667 0.0100000 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.899 0.098 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.834 0.163 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+      FALSE        TRUE 
+0.991666667 0.008333333 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+0.886 0.114 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+ 0.91  0.09 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+ FALSE   TRUE 
+0.9905 0.0095 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.926 0.074 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+0.921 0.079 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+     FALSE       TRUE 
+0.98700000 0.01016667 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.893 0.104 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.955 0.042 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+    FALSE      TRUE 
+0.9876667 0.0095000 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.907 0.090 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.835 0.162 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+      FALSE        TRUE 
+0.990833333 0.009166667 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+ 0.89  0.11 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.906 0.094 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+      FALSE        TRUE 
+0.991166667 0.008833333 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.931 0.069 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.926 0.074 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+     FALSE       TRUE 
+0.98316667 0.01683333 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.821 0.179 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.984 0.016 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+    FALSE      TRUE 
+0.7231667 0.2768333 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.399 0.601 
+
+$mast_pval_glm$varDE
+
+FALSE  TRUE 
+0.038 0.962 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+    FALSE      TRUE 
+0.9796667 0.0195000 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.843 0.157 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.448 0.552 
+
+
+> 
+> write.table(df1, file=sprintf("results/pval_%s.txt", config), append=FALSE, 
++             quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+> 
+> sessionInfo()
+R version 3.6.2 (2019-12-12)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS Catalina 10.15.6
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] ideas_0.991                 ggpubr_0.2.5               
+ [3] magrittr_1.5                ggplot2_3.3.1              
+ [5] pryr_0.1.4                  data.table_1.12.8          
+ [7] transport_0.12-2            reticulate_1.15            
+ [9] MiRKAT_1.1.0                doRNG_1.8.2                
+[11] rngtools_1.5                doParallel_1.0.15          
+[13] iterators_1.0.12            foreach_1.4.7              
+[15] DESeq2_1.24.0               lme4_1.1-21                
+[17] Matrix_1.2-18               MAST_1.10.0                
+[19] SingleCellExperiment_1.6.0  SummarizedExperiment_1.14.1
+[21] DelayedArray_0.10.0         BiocParallel_1.18.1        
+[23] matrixStats_0.55.0          Biobase_2.44.0             
+[25] GenomicRanges_1.36.1        GenomeInfoDb_1.20.0        
+[27] IRanges_2.18.3              S4Vectors_0.22.1           
+[29] BiocGenerics_0.30.0         moments_0.14               
+[31] emdbook_1.3.11              MASS_7.3-51.5              
+
+loaded via a namespace (and not attached):
+  [1] minqa_1.2.4            colorspace_1.4-1       ggsignif_0.6.0        
+  [4] ellipsis_0.3.0         htmlTable_1.13.3       XVector_0.24.0        
+  [7] base64enc_0.1-3        rstudioapi_0.11        MatrixModels_0.4-1    
+ [10] bit64_0.9-7            AnnotationDbi_1.46.1   mvtnorm_1.0-12        
+ [13] codetools_0.2-16       splines_3.6.2          pscl_1.5.5            
+ [16] geneplotter_1.62.0     knitr_1.28             jsonlite_1.6.1        
+ [19] Formula_1.2-3          nloptr_1.2.1           annotate_1.62.0       
+ [22] kernlab_0.9-29         cluster_2.1.0          png_0.1-7             
+ [25] compiler_3.6.2         backports_1.1.5        assertthat_0.2.1      
+ [28] prettyunits_1.1.1      quantreg_5.55          acepack_1.4.1         
+ [31] htmltools_0.4.0        tools_3.6.2            coda_0.19-3           
+ [34] gtable_0.3.0           glue_1.3.1             GenomeInfoDbData_1.2.1
+ [37] reshape2_1.4.3         dplyr_0.8.4            Rcpp_1.0.3            
+ [40] bbmle_1.0.23.1         vctrs_0.3.0            ape_5.3               
+ [43] nlme_3.1-144           xfun_0.12              stringr_1.4.0         
+ [46] CompQuadForm_1.4.3     lifecycle_0.2.0        GUniFrac_1.1          
+ [49] XML_3.99-0.3           PearsonDS_1.1          zlibbioc_1.30.0       
+ [52] scales_1.1.0           hms_0.5.3              SparseM_1.78          
+ [55] RColorBrewer_1.1-2     memoise_1.1.0          gridExtra_2.3         
+ [58] segmented_1.2-0        bdsmatrix_1.3-4        rpart_4.1-15          
+ [61] latticeExtra_0.6-29    stringi_1.4.5          RSQLite_2.2.0         
+ [64] genefilter_1.66.0      blme_1.0-4             checkmate_2.0.0       
+ [67] permute_0.9-5          boot_1.3-24            rlang_0.4.6           
+ [70] pkgconfig_2.0.3        bitops_1.0-6           lattice_0.20-38       
+ [73] purrr_0.3.3            htmlwidgets_1.5.1      bit_1.1-15.2          
+ [76] tidyselect_1.0.0       plyr_1.8.5             R6_2.4.1              
+ [79] Hmisc_4.4-0            DBI_1.1.0              withr_2.1.2           
+ [82] pillar_1.4.3           foreign_0.8-75         mgcv_1.8-31           
+ [85] mixtools_1.2.0         survival_3.1-8         abind_1.4-5           
+ [88] RCurl_1.98-1.1         nnet_7.3-12            tibble_3.0.1          
+ [91] crayon_1.3.4           progress_1.2.2         jpeg_0.1-8.1          
+ [94] locfit_1.5-9.4         grid_3.6.2             blob_1.2.1            
+ [97] vegan_2.5-6            digest_0.6.23          xtable_1.8-4          
+[100] numDeriv_2016.8-1.1    munsell_0.5.0         
+> 
+> mem_used()
+845 MB
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  7215968 385.4   15654194  836.1         NA  15654194  836.1
+Vcells 55081177 420.3  168752536 1287.5      32768 210940669 1609.4
+> 
+> q(save = "no")
+> proc.time()
+    user   system  elapsed 
+97031.86  3760.08 17254.38 

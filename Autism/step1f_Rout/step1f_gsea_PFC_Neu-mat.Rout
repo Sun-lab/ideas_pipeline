@@ -1,0 +1,775 @@
+> # same as step12e_gsea.R, except changing names of the files to be saved
+> # to be labeled as step11f_gsea.R
+> 
+> # ========================================================================
+> # take arguments
+> # ========================================================================
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "grp='PFC_Neu-mat'"
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'PFC_L2_3' as default.\n")
++   grp = "PFC_L2_3"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+> 
+> grp
+[1] "PFC_Neu-mat"
+> 
+> # ========================================================================
+> # libraries and path
+> # ========================================================================
+> 
+> library(MASS)
+> library(data.table)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+> library(doRNG)
+Loading required package: rngtools
+> library(qvalue)
+> library(ggplot2)
+> library(ggpubr)
+> library(ggpointdensity)
+> library(fgsea)
+> library(stringr)
+> 
+> # number of cores for multi-core computation
+> # nCore = 3
+> nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> RNGkind("L'Ecuyer-CMRG")
+> # ------------------------------------------------------------------------
+> # read in pathway information
+> # ------------------------------------------------------------------------
+> 
+> gmtfile_go_bp     = "data/c5.bp.v7.1.symbols.gmt"
+> gmtfile_reactome  = "data/c2.cp.reactome.v7.1.symbols.gmt"
+> pathways_go_bp    = gmtPathways(gmtfile_go_bp)
+> pathways_reactome = gmtPathways(gmtfile_reactome)
+> 
+> length(pathways_reactome)
+[1] 1532
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   5.00   11.00   23.00   57.02   57.00 1470.00 
+> reactome_genes = unique(unlist(pathways_reactome))
+> length(reactome_genes)
+[1] 10807
+> 
+> # ------------------------------------------------------------------------
+> # read in p-values
+> # ------------------------------------------------------------------------
+> 
+> 
+> pvals = fread(sprintf("res/step11e_pvals_%s.tsv", grp))
+> 
+> 
+> dim(pvals)
+[1] 1154   10
+> head(pvals)
+    gene     DESeq2 KR_nb_Was KR_nb_JSD PS_nb_Was PS_nb_JSD KR_dca_direct_Was
+1: KIF1B 0.69540933    0.4374    0.4558    0.4174    0.4062            0.3802
+2:  GNB1 0.21650670    0.9674    0.6554    0.9168    0.7078            0.0173
+3:  CHD5 0.15293746    0.3366    0.3538    0.2066    0.2534            0.4960
+4: PRDM2 0.32867531    0.5428    0.5824    0.5588    0.5636            0.0070
+5: ACAP3 0.91145842        NA        NA        NA        NA            0.4306
+6:  RERE 0.06516804    0.0483    0.0642    0.0546    0.0765            0.8502
+   KR_dca_direct_JSD PS_dca_direct_Was PS_dca_direct_JSD
+1:            0.2400            0.3818            0.2224
+2:            0.0186            0.0267            0.0291
+3:            0.4362            0.2404            0.2314
+4:            0.0069            0.0087            0.0173
+5:            0.3074            0.2194            0.1458
+6:            0.9806            0.8102            0.9772
+> 
+> w_ens = grep("_", pvals$gene)
+> length(w_ens)
+[1] 42
+> 
+> pvals$gene[w_ens[1:20]]
+ [1] "_ENSG00000224363"        "SDCCAG8_ENSG00000054282"
+ [3] "AKT3_ENSG00000117020"    "_ENSG00000230606"       
+ [5] "KIF5C_ENSG00000168280"   "_ENSG00000228222"       
+ [7] "_ENSG00000239268"        "KCNIP4_ENSG00000185774" 
+ [9] "_ENSG00000245958"        "BDP1_ENSG00000145734"   
+[11] "GABBR1_ENSG00000204681"  "_ENSG00000271860"       
+[13] "PTPRK_ENSG00000152894"   "_ENSG00000229618"       
+[15] "_ENSG00000205485"        "CNTNAP2_ENSG00000174469"
+[17] "DLGAP2_ENSG00000198010"  "_ENSG00000253553"       
+[19] "APBA1_ENSG00000107282"   "_ENSG00000233926"       
+> genes = pvals$gene
+> genes[w_ens] = str_extract(genes[w_ens], '(\\S+)(?=_)')  # gene symbol
+> genes[w_ens][1:20]
+ [1] NA        "SDCCAG8" "AKT3"    NA        "KIF5C"   NA        NA       
+ [8] "KCNIP4"  NA        "BDP1"    "GABBR1"  NA        "PTPRK"   NA       
+[15] NA        "CNTNAP2" "DLGAP2"  NA        "APBA1"   NA       
+> 
+> pvals$gene_symbol = genes
+> 
+> # ------------------------------------------------------------------------
+> # filter genes in reactome annoations
+> # ------------------------------------------------------------------------
+> 
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   5.00   11.00   23.00   57.02   57.00 1470.00 
+> for(p1 in names(pathways_reactome)){
++   pathways_reactome[[p1]] = intersect(pathways_reactome[[p1]], genes)
++ }
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  0.000   0.000   2.000   4.565   4.000 118.000 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # check for SFARI genes
+> # ------------------------------------------------------------------------
+> 
+> fnm = "data/SFARI-Gene_genes_10-31-2019release_04-08-2020export.csv"
+> SFARI_table = read.csv(fnm, as.is=TRUE)
+> dim(SFARI_table)
+[1] 980   8
+> SFARI_table = SFARI_table[SFARI_table$gene.symbol %in% pvals$gene, ]
+> dim(SFARI_table)
+[1] 233   8
+> 
+> table(SFARI_table$syndromic, SFARI_table$gene.score)
+   
+     1  2  3  4  5
+  0  6 20 56 86 30
+  1  5  5  7 14  0
+> w2kp = SFARI_table$syndromic == 1 | SFARI_table$gene.score %in% 1:3
+> genes_in_SFARI = SFARI_table$gene.symbol[w2kp]
+> length(genes_in_SFARI)
+[1] 117
+> genes_in_SFARI[1:5]
+[1] "AKAP9"   "ANK2"    "ANK3"    "ANKRD11" "ARHGEF9"
+> 
+> pathways_reactome[["SFARI"]] = genes_in_SFARI
+> 
+> # ------------------------------------------------------------------------
+> # GESA
+> # ------------------------------------------------------------------------
+> 
+> 
+> methods = names(pvals)[2:10]
+> 
+> gsea = list()
+> 
+> for(m1 in methods){
++   stats = unlist(-log10(pvals[[m1]]))
++   names(stats) =  pvals$gene_symbol
++   length(stats)
++   
++   stats = stats[unique(names(stats))]
++   length(stats)
++   stats = na.omit(stats)
++   length(stats)
++   
++   set.seed(918)
++   fgseaRes = fgseaMultilevel(pathways_reactome, stats, minSize=10, 
++                              maxSize=1000)
++   od1 = order(fgseaRes[,"padj"], -fgseaRes[,"NES"])
++   fgseaRes   = fgseaRes[od1,]
++   gsea[[m1]] = fgseaRes
++ }
+There were 15 warnings (use warnings() to see them)
+> 
+> lapply(gsea, head, n=10)
+$DESeq2
+                                                             pathway
+ 1:                                      REACTOME_SIGNALING_BY_ERBB4
+ 2:                         REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS
+ 3:                              REACTOME_CELL_JUNCTION_ORGANIZATION
+ 4:                         REACTOME_CELL_CELL_JUNCTION_ORGANIZATION
+ 5:                             REACTOME_G_ALPHA_Q_SIGNALLING_EVENTS
+ 6:             REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS
+ 7:                                        REACTOME_DEUBIQUITINATION
+ 8:                             REACTOME_SIGNALING_BY_ROBO_RECEPTORS
+ 9:      REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION
+10: REACTOME_HSP90_CHAPERONE_CYCLE_FOR_STEROID_HORMONE_RECEPTORS_SHR
+           pval      padj   log2err        ES      NES size
+ 1: 0.003264028 0.5449041 0.4317077 0.7430180 1.566639   15
+ 2: 0.009466084 0.5449041 0.3807304 0.7196365 1.480482   13
+ 3: 0.009831913 0.5449041 0.3807304 0.6853280 1.467658   17
+ 4: 0.015136226 0.5449041 0.3760393 0.6860322 1.446486   15
+ 5: 0.015090543 0.5449041 0.3760393 0.6470643 1.412383   22
+ 6: 0.024948025 0.7484407 0.2940667 0.7303947 1.451619   10
+ 7: 0.071721311 0.9224194 0.1669338 0.6585341 1.336381   12
+ 8: 0.045135406 0.9224194 0.2114002 0.5987304 1.327035   25
+ 9: 0.056338028 0.9224194 0.1882041 0.6068401 1.318355   20
+10: 0.085062241 0.9224194 0.1531588 0.6566691 1.317407   11
+                                       leadingEdge
+ 1:        ERBB4,STMN1,WWOX,GABRB3,GABRB1,NRG3,...
+ 2:         CDH18,CDH9,CDH13,CDH12,CDH11,CADM2,...
+ 3:         CDH18,CDH9,CDH13,CDH12,CDH11,CADM2,...
+ 4:         CDH18,CDH9,CDH13,CDH12,CDH11,CADM2,...
+ 5:              GRM1,CHRM3,GNAQ,DGKZ,APP,GNG3,...
+ 6:                  RPS15,RPL32,ROBO1,SLIT2,ROBO2
+ 7:                                   UCHL1,OTUD7A
+ 8:      RPS15,SRGAP3,RPL32,ROBO1,SLIT2,PRKACB,...
+ 9: MAN1A1,TUBA1A,DYNLL1,TUBA1B,MGAT4C,DYNC1H1,...
+10:      TUBA1A,DYNLL1,TUBA1B,NR3C2,DYNC1H1,TUBB2A
+
+$KR_nb_Was
+                                                              pathway
+ 1:                                               REACTOME_DNA_REPAIR
+ 2:       REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION
+ 3:                        REACTOME_ASPARAGINE_N_LINKED_GLYCOSYLATION
+ 4:       REACTOME_ANCHORING_OF_THE_BASAL_BODY_TO_THE_PLASMA_MEMBRANE
+ 5:          REACTOME_COPI_INDEPENDENT_GOLGI_TO_ER_RETROGRADE_TRAFFIC
+ 6: REACTOME_RECRUITMENT_OF_MITOTIC_CENTROSOME_PROTEINS_AND_COMPLEXES
+ 7:                           REACTOME_MITOTIC_METAPHASE_AND_ANAPHASE
+ 8:                          REACTOME_SEPARATION_OF_SISTER_CHROMATIDS
+ 9:                            REACTOME_RAB_REGULATION_OF_TRAFFICKING
+10:                  REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+           pval      padj   log2err        ES      NES size
+ 1: 0.015307506 0.4043646 0.3807304 0.7300989 1.526668   11
+ 2: 0.010943535 0.4043646 0.3807304 0.6544394 1.479418   20
+ 3: 0.004318373 0.4043646 0.4070179 0.6391906 1.475134   26
+ 4: 0.018051263 0.4043646 0.3524879 0.6710279 1.474324   16
+ 5: 0.026721480 0.4043646 0.2820134 0.6992920 1.462250   11
+ 6: 0.019230769 0.4043646 0.3322631 0.6613559 1.439431   15
+ 7: 0.024969143 0.4043646 0.3524879 0.6357680 1.433110   19
+ 8: 0.024969143 0.4043646 0.3524879 0.6357680 1.433110   19
+ 9: 0.029682702 0.4043646 0.2663507 0.6694051 1.430141   13
+10: 0.017102616 0.4043646 0.3521714 0.6391660 1.428582   18
+                                        leadingEdge
+ 1:                               PIAS1,UBE2B,SPIDR
+ 2:    TUBA1A,DYNLL1,MAN1A2,MGAT4C,DYNC1H1,ANK2,...
+ 3: TUBA1A,DYNLL1,MAN1A2,MGAT4C,ST8SIA5,DYNC1H1,...
+ 4:         TUBA1A,DYNLL1,AHI1,DYNC1H1,YWHAE,RAB11A
+ 5:                     TUBA1A,BICD1,DYNLL1,DYNC1H1
+ 6:                TUBA1A,DYNLL1,NME7,DYNC1H1,YWHAE
+ 7:       TUBA1A,HDAC8,DYNLL1,PDS5A,DYNC1H1,PPP2R5E
+ 8:       TUBA1A,HDAC8,DYNLL1,PDS5A,DYNC1H1,PPP2R5E
+ 9:    SBF2,DENND4A,RABGAP1,RAB3A,DENND1A,YWHAE,...
+10:       TUBA1A,HDAC8,DYNLL1,PDS5A,DYNC1H1,PPP2R5E
+
+$KR_nb_JSD
+                                                              pathway
+ 1:              REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS
+ 2:       REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION
+ 3:                        REACTOME_ASPARAGINE_N_LINKED_GLYCOSYLATION
+ 4:                                               REACTOME_DNA_REPAIR
+ 5:                  REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 6: REACTOME_RECRUITMENT_OF_MITOTIC_CENTROSOME_PROTEINS_AND_COMPLEXES
+ 7:                           REACTOME_MITOTIC_METAPHASE_AND_ANAPHASE
+ 8:                          REACTOME_SEPARATION_OF_SISTER_CHROMATIDS
+ 9:                                       REACTOME_POTASSIUM_CHANNELS
+10:                              REACTOME_METABOLISM_OF_CARBOHYDRATES
+           pval      padj   log2err        ES      NES size
+ 1: 0.012390508 0.4185162 0.3807304 0.7598398 1.502642   10
+ 2: 0.009886936 0.4185162 0.3807304 0.6783678 1.460258   20
+ 3: 0.004919176 0.4185162 0.4070179 0.6640506 1.457649   26
+ 4: 0.023589744 0.4185162 0.3006821 0.7229001 1.447347   11
+ 5: 0.031712223 0.4185162 0.3217759 0.6625849 1.411779   18
+ 6: 0.021233569 0.4185162 0.3153248 0.6742283 1.401416   15
+ 7: 0.027759317 0.4185162 0.3524879 0.6519799 1.399733   19
+ 8: 0.027759317 0.4185162 0.3524879 0.6519799 1.399733   19
+ 9: 0.021105528 0.4185162 0.3153248 0.6549037 1.395413   18
+10: 0.018072289 0.4185162 0.3417934 0.6444277 1.387199   20
+                                      leadingEdge
+ 1:                                   RPS15,RPL32
+ 2:  TUBA1A,DYNLL1,MAN1A2,MGAT4C,DYNC1H1,ANK2,...
+ 3:  TUBA1A,DYNLL1,MAN1A2,MGAT4C,DYNC1H1,ANK2,...
+ 4:                             UBE2B,PIAS1,SPIDR
+ 5: TUBA1A,HDAC8,DYNLL1,DYNC1H1,PPP2R5E,PDS5A,...
+ 6:              TUBA1A,DYNLL1,NME7,DYNC1H1,YWHAE
+ 7: TUBA1A,HDAC8,DYNLL1,DYNC1H1,PPP2R5E,PDS5A,...
+ 8: TUBA1A,HDAC8,DYNLL1,DYNC1H1,PPP2R5E,PDS5A,...
+ 9:                              KCNQ5,KCND2,GNG3
+10:    CSGALNACT1,HS6ST3,ALDOA,IDS,GAPDH,FUT9,...
+
+$PS_nb_Was
+                                                                  pathway
+ 1:                                                   REACTOME_DNA_REPAIR
+ 2:                               REACTOME_MITOTIC_METAPHASE_AND_ANAPHASE
+ 3:                              REACTOME_SEPARATION_OF_SISTER_CHROMATIDS
+ 4:                      REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 5:                              REACTOME_ADHERENS_JUNCTIONS_INTERACTIONS
+ 6:                          REACTOME_COPI_MEDIATED_ANTEROGRADE_TRANSPORT
+ 7:                            REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT
+ 8: REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+ 9:           REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION
+10:                            REACTOME_ASPARAGINE_N_LINKED_GLYCOSYLATION
+           pval      padj   log2err        ES      NES size
+ 1: 0.006796693 0.5705706 0.4070179 0.7434898 1.582331   11
+ 2: 0.017141137 0.5705706 0.3524879 0.6453631 1.483037   19
+ 3: 0.017141137 0.5705706 0.3524879 0.6453631 1.483037   19
+ 4: 0.019148200 0.5705706 0.3524879 0.6496540 1.480503   18
+ 5: 0.026639344 0.5705706 0.2820134 0.6676927 1.451792   13
+ 6: 0.037909836 0.5705706 0.2343926 0.6501076 1.413556   13
+ 7: 0.027383367 0.5705706 0.2765006 0.6352870 1.407638   15
+ 8: 0.030425963 0.5705706 0.2616635 0.6328273 1.402188   15
+ 9: 0.025100402 0.5705706 0.2878571 0.5988889 1.381165   20
+10: 0.027054108 0.5705706 0.2765006 0.5831429 1.374079   26
+                                     leadingEdge
+ 1:                            UBE2B,SPIDR,PIAS1
+ 2:    TUBA1A,HDAC8,DYNLL1,PDS5A,PPP2R5E,DYNC1H1
+ 3:    TUBA1A,HDAC8,DYNLL1,PDS5A,PPP2R5E,DYNC1H1
+ 4:    TUBA1A,HDAC8,DYNLL1,PDS5A,PPP2R5E,DYNC1H1
+ 5:                       CDH18,CADM2,CDH12,CDH9
+ 6:     TUBA1A,DYNLL1,ANK2,DYNC1H1,TUBA1B,TUBB2A
+ 7:                   TUBA1A,DYNLL1,ANK2,DYNC1H1
+ 8:    COX7C,COX4I1,MT-ND1,MT-ND2,BSG,MT-CO2,...
+ 9: TUBA1A,DYNLL1,MAN1A2,MGAT4C,ANK2,DYNC1H1,...
+10: TUBA1A,DYNLL1,MAN1A2,MGAT4C,ANK2,DYNC1H1,...
+
+$PS_nb_JSD
+                                                        pathway       pval
+ 1:              REACTOME_RAB_GEFS_EXCHANGE_GTP_FOR_GDP_ON_RABS 0.01840695
+ 2:        REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS 0.01902566
+ 3:                      REACTOME_RAB_REGULATION_OF_TRAFFICKING 0.01934827
+ 4:                                         REACTOME_DNA_REPAIR 0.02358974
+ 5:            REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION 0.01623101
+ 6:                     REACTOME_MITOTIC_METAPHASE_AND_ANAPHASE 0.02435641
+ 7:                    REACTOME_SEPARATION_OF_SISTER_CHROMATIDS 0.02435641
+ 8: REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION 0.01907631
+ 9:     REACTOME_INTRA_GOLGI_AND_RETROGRADE_GOLGI_TO_ER_TRAFFIC 0.01865801
+10:                  REACTOME_ASPARAGINE_N_LINKED_GLYCOSYLATION 0.01744451
+         padj   log2err        ES      NES size
+ 1: 0.3212851 0.3524879 0.7503253 1.498064   10
+ 2: 0.3212851 0.3524879 0.7487446 1.494909   10
+ 3: 0.3212851 0.3322631 0.7158620 1.480945   13
+ 4: 0.3212851 0.3006821 0.7216273 1.459834   11
+ 5: 0.3212851 0.3524879 0.6625742 1.428630   18
+ 6: 0.3212851 0.3524879 0.6519597 1.416802   19
+ 7: 0.3212851 0.3524879 0.6519597 1.416802   19
+ 8: 0.3212851 0.3322631 0.6327046 1.378653   20
+ 9: 0.3212851 0.3524879 0.6172766 1.376980   27
+10: 0.3212851 0.3524879 0.6185527 1.375464   26
+                                      leadingEdge
+ 1: RAB3A,SBF2,DENND4A,DENND1A,YWHAE,RAB3GAP1,...
+ 2:                                   RPS15,RPL32
+ 3: RAB3A,SBF2,DENND4A,DENND1A,YWHAE,RAB3GAP1,...
+ 4:                             UBE2B,SPIDR,PIAS1
+ 5: TUBA1A,HDAC8,DYNLL1,DYNC1H1,PPP2R5E,PDS5A,...
+ 6: TUBA1A,HDAC8,DYNLL1,DYNC1H1,PPP2R5E,PDS5A,...
+ 7: TUBA1A,HDAC8,DYNLL1,DYNC1H1,PPP2R5E,PDS5A,...
+ 8:  TUBA1A,DYNLL1,MAN1A2,MGAT4C,DYNC1H1,ANK2,...
+ 9:     VPS53,TUBA1A,DYNLL1,BICD1,MAN1A2,NBAS,...
+10:  TUBA1A,DYNLL1,MAN1A2,MGAT4C,DYNC1H1,ANK2,...
+
+$KR_dca_direct_Was
+                                                              pathway
+ 1:                               REACTOME_MITOTIC_SPINDLE_CHECKPOINT
+ 2:                                 REACTOME_AURKA_ACTIVATION_BY_TPX2
+ 3:           REACTOME_REGULATION_OF_PLK1_ACTIVITY_AT_G2_M_TRANSITION
+ 4: REACTOME_RECRUITMENT_OF_MITOTIC_CENTROSOME_PROTEINS_AND_COMPLEXES
+ 5:            REACTOME_PLATELET_ACTIVATION_SIGNALING_AND_AGGREGATION
+ 6:                     REACTOME_ORGANELLE_BIOGENESIS_AND_MAINTENANCE
+ 7:                  REACTOME_POST_TRANSLATIONAL_PROTEIN_MODIFICATION
+ 8:                         REACTOME_INTEGRATION_OF_ENERGY_METABOLISM
+ 9:       REACTOME_ANCHORING_OF_THE_BASAL_BODY_TO_THE_PLASMA_MEMBRANE
+10:              REACTOME_RESPONSE_TO_ELEVATED_PLATELET_CYTOSOLIC_CA2
+            pval      padj   log2err        ES      NES size
+ 1: 0.0024044311 0.1052504 0.4317077 0.7566500 1.615451   11
+ 2: 0.0022829461 0.1052504 0.4317077 0.7086073 1.575893   14
+ 3: 0.0015864458 0.1052504 0.4550599 0.6752070 1.556865   18
+ 4: 0.0033394959 0.1052504 0.4317077 0.6824768 1.538866   15
+ 5: 0.0008648735 0.1052504 0.4772708 0.6325594 1.526723   28
+ 6: 0.0036058429 0.1052504 0.4317077 0.5742429 1.421102   38
+ 7: 0.0040930727 0.1052504 0.4070179 0.4938405 1.288091   89
+ 8: 0.0056701819 0.1275791 0.4070179 0.5890634 1.421743   28
+ 9: 0.0093746245 0.1874925 0.3807304 0.6652887 1.519093   16
+10: 0.0108989225 0.1961806 0.3807304 0.6686306 1.486988   14
+                                         leadingEdge
+ 1:           DYNC1I2,CLASP1,DYNC1H1,PAFAH1B1,DYNLL1
+ 2: DYNC1I2,CLASP1,DYNC1H1,PAFAH1B1,TUBA1A,AKAP9,...
+ 3: DYNC1I2,CLASP1,DYNC1H1,PAFAH1B1,TUBA1A,AKAP9,...
+ 4: DYNC1I2,CLASP1,DYNC1H1,PAFAH1B1,TUBA1A,AKAP9,...
+ 5:          FAM49B,ITPR1,TMSB4X,PCDH7,DGKB,GNB1,...
+ 6:  CHD9,DYNC1I2,CLASP1,DYNC1H1,PAFAH1B1,TUBA1A,...
+ 7:  MGAT4C,DYNC1I2,DYNC1H1,RAB6A,SPTAN1,GALNT13,...
+ 8:          ITPR1,CHRM3,ADCY1,GNB1,GNG3,CACNA1E,...
+ 9: DYNC1I2,CLASP1,DYNC1H1,PAFAH1B1,TUBA1A,AKAP9,...
+10:            FAM49B,TMSB4X,PCDH7,PPIA,CFL1,CLU,...
+
+$KR_dca_direct_JSD
+                                                        pathway        pval
+ 1:                REACTOME_COPI_MEDIATED_ANTEROGRADE_TRANSPORT 0.004939525
+ 2:    REACTOME_COPI_INDEPENDENT_GOLGI_TO_ER_RETROGRADE_TRAFFIC 0.003250775
+ 3: REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION 0.006946895
+ 4:                                    REACTOME_CILIUM_ASSEMBLY 0.008226570
+ 5:                  REACTOME_ASPARAGINE_N_LINKED_GLYCOSYLATION 0.008830338
+ 6:               REACTOME_ORGANELLE_BIOGENESIS_AND_MAINTENANCE 0.004318373
+ 7:                  REACTOME_ER_TO_GOLGI_ANTEROGRADE_TRANSPORT 0.012575654
+ 8:                                          REACTOME_AUTOPHAGY 0.019230769
+ 9:                                    REACTOME_PROTEIN_FOLDING 0.038622129
+10: REACTOME_ANCHORING_OF_THE_BASAL_BODY_TO_THE_PLASMA_MEMBRANE 0.024242424
+         padj   log2err        ES      NES size
+ 1: 0.2649102 0.4070179 0.7210243 1.566258   13
+ 2: 0.2649102 0.4317077 0.7359355 1.556502   11
+ 3: 0.2649102 0.4070179 0.6425346 1.481586   20
+ 4: 0.2649102 0.3807304 0.6161899 1.454260   25
+ 5: 0.2649102 0.3807304 0.5974882 1.415333   26
+ 6: 0.2649102 0.4070179 0.5782449 1.412685   38
+ 7: 0.3064541 0.3807304 0.6502596 1.449360   15
+ 8: 0.3064541 0.3322631 0.6383124 1.422730   15
+ 9: 0.3064541 0.2343926 0.6816417 1.422498   10
+10: 0.3064541 0.2940667 0.6284006 1.418102   16
+                                         leadingEdge
+ 1:    DYNC1H1,DYNC1I2,SPTAN1,TUBA1A,TUBB2A,ANK3,...
+ 2:  PAFAH1B1,DYNC1H1,RAB6A,DYNC1I2,TUBA1A,BICD1,...
+ 3:  MGAT4C,DYNC1H1,DYNC1I2,SPTAN1,TUBA1A,MAN1A1,...
+ 4: PAFAH1B1,DYNC1H1,CLASP1,WDR60,DYNC1I2,TUBA1A,...
+ 5:  MGAT4C,DYNC1H1,DYNC1I2,SPTAN1,TUBA1A,MAN1A1,...
+ 6:   PAFAH1B1,DYNC1H1,CLASP1,CHD9,WDR60,DYNC1I2,...
+ 7:    DYNC1H1,DYNC1I2,SPTAN1,TUBA1A,TUBB2A,ANK3,...
+ 8:  DYNC1H1,DYNC1I2,TUBA1A,RB1CC1,PRKAA2,TUBB2A,...
+ 9:              TUBA1A,GNB1,TUBB2A,RGS6,GNG3,TUBA1B
+10: PAFAH1B1,DYNC1H1,CLASP1,DYNC1I2,TUBA1A,AKAP9,...
+
+$PS_dca_direct_Was
+                                                        pathway         pval
+ 1: REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION 0.0009574636
+ 2:                  REACTOME_ASPARAGINE_N_LINKED_GLYCOSYLATION 0.0016081507
+ 3:                   REACTOME_INTEGRATION_OF_ENERGY_METABOLISM 0.0021485767
+ 4:                         REACTOME_MITOTIC_SPINDLE_CHECKPOINT 0.0030672590
+ 5:    REACTOME_COPI_INDEPENDENT_GOLGI_TO_ER_RETROGRADE_TRAFFIC 0.0047097842
+ 6:     REACTOME_REGULATION_OF_PLK1_ACTIVITY_AT_G2_M_TRANSITION 0.0058203833
+ 7:                    REACTOME_REGULATION_OF_INSULIN_SECRETION 0.0065713906
+ 8:                                    REACTOME_CILIUM_ASSEMBLY 0.0061958868
+ 9:               REACTOME_ORGANELLE_BIOGENESIS_AND_MAINTENANCE 0.0053697795
+10:                           REACTOME_AURKA_ACTIVATION_BY_TPX2 0.0079269202
+         padj   log2err        ES      NES size
+ 1: 0.1289146 0.4772708 0.6674278 1.602545   20
+ 2: 0.1289146 0.4550599 0.6100467 1.508048   26
+ 3: 0.1289146 0.4317077 0.6026928 1.500568   28
+ 4: 0.1314278 0.4317077 0.7193864 1.573052   11
+ 5: 0.1314278 0.4070179 0.7069136 1.545778   11
+ 6: 0.1314278 0.4070179 0.6346156 1.504280   18
+ 7: 0.1314278 0.4070179 0.6049094 1.462695   22
+ 8: 0.1314278 0.4070179 0.5896207 1.452653   25
+ 9: 0.1314278 0.4070179 0.5539865 1.416562   38
+10: 0.1359429 0.3807304 0.6667609 1.521676   14
+                                         leadingEdge
+ 1:    MGAT4C,DYNC1H1,MAN1A1,DYNC1I2,FUT8,SPTAN1,...
+ 2:    MGAT4C,DYNC1H1,MAN1A1,DYNC1I2,FUT8,SPTAN1,...
+ 3:           ITPR1,CHRM3,GNAQ,PRKAA2,GNG3,ADCY1,...
+ 4:           DYNC1H1,CLASP1,PAFAH1B1,DYNC1I2,DYNLL1
+ 5:  RAB6A,DYNC1H1,PAFAH1B1,DYNC1I2,TUBA1A,BICD1,...
+ 6: AKAP9,DYNC1H1,CLASP1,PAFAH1B1,DYNC1I2,TUBA1A,...
+ 7:            ITPR1,CHRM3,GNAQ,GNG3,CACNB2,GNB1,...
+ 8:  AKAP9,WDR60,DYNC1H1,CLASP1,PAFAH1B1,DYNC1I2,...
+ 9:        AKAP9,WDR60,NCOR1,DYNC1H1,CHD9,CLASP1,...
+10: AKAP9,DYNC1H1,CLASP1,PAFAH1B1,DYNC1I2,TUBA1A,...
+
+$PS_dca_direct_JSD
+                                                        pathway        pval
+ 1: REACTOME_TRANSPORT_TO_THE_GOLGI_AND_SUBSEQUENT_MODIFICATION 0.005144478
+ 2:                  REACTOME_ASPARAGINE_N_LINKED_GLYCOSYLATION 0.006571391
+ 3:               REACTOME_ORGANELLE_BIOGENESIS_AND_MAINTENANCE 0.004468574
+ 4:    REACTOME_COPI_INDEPENDENT_GOLGI_TO_ER_RETROGRADE_TRAFFIC 0.019812304
+ 5:                REACTOME_COPI_MEDIATED_ANTEROGRADE_TRANSPORT 0.018442623
+ 6:                                 REACTOME_SIGNALING_BY_NOTCH 0.017003650
+ 7:                                    REACTOME_CILIUM_ASSEMBLY 0.015045135
+ 8:     REACTOME_INTRA_GOLGI_AND_RETROGRADE_GOLGI_TO_ER_TRAFFIC 0.015030060
+ 9:            REACTOME_POST_TRANSLATIONAL_PROTEIN_MODIFICATION 0.009735993
+10:                    REACTOME_CELL_CELL_JUNCTION_ORGANIZATION 0.022267206
+         padj   log2err        ES      NES size
+ 1: 0.3942834 0.4070179 0.6307408 1.506845   20
+ 2: 0.3942834 0.4070179 0.5822092 1.431941   26
+ 3: 0.3942834 0.4070179 0.5546831 1.410291   38
+ 4: 0.3962461 0.3322631 0.6922451 1.506727   11
+ 5: 0.3962461 0.3417934 0.6714506 1.505167   13
+ 6: 0.3962461 0.3524879 0.6251710 1.467793   17
+ 7: 0.3962461 0.3760393 0.5830209 1.428186   25
+ 8: 0.3962461 0.3760393 0.5682760 1.404614   27
+ 9: 0.3962461 0.3807304 0.4724459 1.270399   89
+10: 0.4008097 0.3077500 0.6153656 1.418659   15
+                                         leadingEdge
+ 1:   DYNC1H1,MGAT4C,MAN1A1,TUBB2A,TUBA1A,SPTAN1,...
+ 2:   DYNC1H1,MGAT4C,MAN1A1,TUBB2A,TUBA1A,SPTAN1,...
+ 3:    AKAP9,NCOR1,DYNC1H1,WDR60,CLASP1,PAFAH1B1,...
+ 4: RAB6A,DYNC1H1,PAFAH1B1,TUBB2A,TUBA1A,DYNC1I2,...
+ 5:  DYNC1H1,TUBB2A,TUBA1A,SPTAN1,DYNC1I2,DYNLL1,...
+ 6:            PBX1,NCOR1,RAB6A,TNRC6B,CNTN1,UBC,...
+ 7:   AKAP9,DYNC1H1,WDR60,CLASP1,PAFAH1B1,TUBB2A,...
+ 8:  RAB6A,DYNC1H1,MAN1A1,PAFAH1B1,TUBB2A,TUBA1A,...
+ 9:        DDX5,RAB6A,DYNC1H1,MGAT4C,UCHL1,SATB2,...
+10:          CDH9,CDH13,CDH18,SDK1,CDH12,NECTIN3,...
+
+> lapply(gsea, dim)
+$DESeq2
+[1] 180   8
+
+$KR_nb_Was
+[1] 180   8
+
+$KR_nb_JSD
+[1] 180   8
+
+$PS_nb_Was
+[1] 180   8
+
+$PS_nb_JSD
+[1] 180   8
+
+$KR_dca_direct_Was
+[1] 180   8
+
+$KR_dca_direct_JSD
+[1] 180   8
+
+$PS_dca_direct_Was
+[1] 180   8
+
+$PS_dca_direct_JSD
+[1] 180   8
+
+> 
+> lapply(gsea, function(x){x[which(x$pathway=="SFARI"),]})
+$DESeq2
+   pathway      pval      padj    log2err        ES       NES size
+1:   SFARI 0.5394605 0.9904117 0.04216194 0.4103183 0.9910363  117
+                                 leadingEdge
+1: DPP10,ZNF804A,ASTN2,WWOX,ARID1B,HDAC8,...
+
+$KR_nb_Was
+   pathway      pval      padj    log2err        ES       NES size
+1:   SFARI 0.6273726 0.9750594 0.03516523 0.3880911 0.9639827  117
+                                 leadingEdge
+1: HDAC8,HECW2,GABRB3,SETD5,RERE,ANKRD11,...
+
+$KR_nb_JSD
+   pathway      pval     padj    log2err        ES       NES size
+1:   SFARI 0.8601399 0.955711 0.01839732 0.3791368 0.8909948  117
+                                leadingEdge
+1: HDAC8,HECW2,GABRB3,SETD5,OTUD7A,RERE,...
+
+$PS_nb_Was
+   pathway      pval     padj    log2err        ES       NES size
+1:   SFARI 0.8381618 0.999001 0.02004804 0.3517591 0.8952867  117
+                               leadingEdge
+1: HDAC8,HECW2,GABRB3,SETD5,RERE,NRXN1,...
+
+$PS_nb_JSD
+   pathway     pval      padj    log2err        ES       NES size
+1:   SFARI 0.951049 0.9781499 0.01035046 0.3484519 0.8312696  117
+                                  leadingEdge
+1: HDAC8,HECW2,GABRB3,SETD5,DYNC1H1,NRXN1,...
+
+$KR_dca_direct_Was
+   pathway      pval      padj    log2err        ES     NES size
+1:   SFARI 0.2317682 0.5386751 0.08312913 0.4108378 1.08156  117
+                                   leadingEdge
+1: TANC2,CLASP1,ASTN2,DYNC1H1,GABRB3,AKAP9,...
+
+$KR_dca_direct_JSD
+   pathway      pval      padj    log2err       ES     NES size
+1:   SFARI 0.4765235 0.7184108 0.04782996 0.387195 1.00625  117
+                                     leadingEdge
+1: DYNC1H1,CDH13,CLASP1,TANC2,ZNF804A,GABRB3,...
+
+$PS_dca_direct_Was
+   pathway      pval      padj    log2err       ES      NES size
+1:   SFARI 0.2367632 0.5532929 0.08197788 0.396439 1.082114  117
+                                   leadingEdge
+1: AKAP9,NCOR1,SATB2,SRSF11,DYNC1H1,STXBP5,...
+
+$PS_dca_direct_JSD
+   pathway      pval      padj   log2err        ES      NES size
+1:   SFARI 0.4905095 0.7086614 0.0465084 0.3688446 1.001655  117
+                                  leadingEdge
+1: AKAP9,NCOR1,SRSF11,DYNC1H1,SATB2,TANC2,...
+
+> 
+> saveRDS(gsea, file = sprintf("res/step11f_gsea_%s.rds",grp))
+> 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # compare GESA results across methods
+> # ------------------------------------------------------------------------
+> 
+> ps2 = merge(gsea$PS_nb_Was, gsea$PS_dca_direct_Was, by=c("pathway"), 
++             suffixes = c( "_PS_nb_Was", "_PS_dca_direct_Was"))
+> ps2 = merge(gsea$DESeq2, ps2, by=c("pathway"))
+> change_labels = names(ps2)[2:8]
+> change_labels = paste(change_labels, "_DESeq2", sep = "")
+> names(ps2)[2:8] = change_labels
+> 
+> dim(ps2)
+[1] 180  22
+> ps2[1:2,]
+                                                         pathway pval_DESeq2
+1: REACTOME_ACTIVATION_OF_NMDA_RECEPTORS_AND_POSTSYNAPTIC_EVENTS   0.1668332
+2:                               REACTOME_ADAPTIVE_IMMUNE_SYSTEM   0.4665335
+   padj_DESeq2 log2err_DESeq2 ES_DESeq2 NES_DESeq2 size_DESeq2
+1:   0.9224194     0.10208011 0.5086252   1.156852          35
+2:   0.9710290     0.04879897 0.4304573   1.012796          58
+                             leadingEdge_DESeq2 pval_PS_nb_Was padj_PS_nb_Was
+1:     ERBB4,GRIA4,TUBA1A,NEFL,TUBA1B,LRRC7,...      0.8571429      0.9990010
+2: TUBA1A,PPP3CA,DYNLL1,TUBA1B,ITPR1,UBE2E2,...      0.1218781      0.5929206
+   log2err_PS_nb_Was ES_PS_nb_Was NES_PS_nb_Was size_PS_nb_Was
+1:        0.01862588    0.3385585     0.8151031             35
+2:        0.12267919    0.4733816     1.1722738             58
+                         leadingEdge_PS_nb_Was pval_PS_dca_direct_Was
+1:                         TUBA1A,RPS6KA2,NEFL              0.1178821
+2: TUBA1A,HECW2,RNF130,UBE2B,DYNLL1,PPP3CA,...              0.2497502
+   padj_PS_dca_direct_Was log2err_PS_dca_direct_Was ES_PS_dca_direct_Was
+1:              0.3536464                0.12503337            0.4715017
+2:              0.5690512                0.07913167            0.4136001
+   NES_PS_dca_direct_Was size_PS_dca_direct_Was
+1:              1.198904                     35
+2:              1.094892                     58
+              leadingEdge_PS_dca_direct_Was
+1: GRIA2,GRIA4,NEFL,LRRC7,PRKAA2,TUBA1A,...
+2:  ITPR1,HERC1,DYNC1H1,EVL,PAK3,PPP3CA,...
+> 
+> pvals.df = ps2[,.(pval_DESeq2, pval_PS_nb_Was, pval_PS_dca_direct_Was)]
+> dim(pvals.df)
+[1] 180   3
+> pvals.df[1:2,]
+   pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+1:   0.1668332      0.8571429              0.1178821
+2:   0.4665335      0.1218781              0.2497502
+> 
+> cor(-log10(pvals.df))
+                       pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+pval_DESeq2              1.0000000      0.3706041              0.3574871
+pval_PS_nb_Was           0.3706041      1.0000000              0.3806684
+pval_PS_dca_direct_Was   0.3574871      0.3806684              1.0000000
+> cor(-log10(pvals.df), method="spearman")
+                       pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+pval_DESeq2               1.000000      0.4104940              0.4031090
+pval_PS_nb_Was            0.410494      1.0000000              0.3078923
+pval_PS_dca_direct_Was    0.403109      0.3078923              1.0000000
+> 
+> # ------------------------------------------------------------------------
+> # compare p-values of SFARI genes
+> # ------------------------------------------------------------------------
+> 
+> wSFARI = which(pvals$gene %in% genes_in_SFARI)
+> length(wSFARI)
+[1] 117
+> 
+> fun.pi0 = function(v){ 2 * length(which(v>0.5)) / length(v) }
+> pi0 = matrix(NA, nrow=length(methods), ncol=2)
+> 
+> pvals$SFARI = rep("No", nrow(pvals))
+> pvals$SFARI[wSFARI] = "Yes"
+> 
+> 
+> gh = list()
+> k  = 0
+> for(m1 in methods){
++   
++   nm = paste0(m1, "_SFARI")
++   gh[[nm]] = ggplot(pvals[wSFARI,], aes_string(x = m1)) + 
++     geom_histogram(color = "darkblue", fill = "lightblue", 
++                    breaks = seq(0,1,by = 0.05)) + 
++     labs(title = nm)
++   
++   nm = paste0(m1, "_non_SFARI")
++   gh[[nm]] = ggplot(pvals[-wSFARI,], aes_string(x = m1)) + 
++     geom_histogram(color = "darkblue", fill = "lightblue", 
++                    breaks = seq(0,1,by = 0.05)) + 
++     labs(title = nm)
++   
++   k = k + 1
++   pi0[k,] = tapply(pvals[[m1]], pvals$SFARI, fun.pi0)
++ }
+> 
+> pdf(sprintf("figures/step11f_pval_hist_SFARI_non_%s.pdf", grp), 
++     width=8, height=12)
+> ggarrange(plotlist=gh, ncol = 2, nrow = 4)
+$`1`
+
+$`2`
+
+$`3`
+
+attr(,"class")
+[1] "list"      "ggarrange"
+Warning messages:
+1: Removed 4 rows containing non-finite values (stat_bin). 
+2: Removed 4 rows containing non-finite values (stat_bin). 
+3: Removed 4 rows containing non-finite values (stat_bin). 
+4: Removed 4 rows containing non-finite values (stat_bin). 
+> dev.off()
+null device 
+          1 
+> 
+> pi0
+           [,1]      [,2]
+ [1,] 0.8601736 0.9401709
+ [2,] 0.9720347 1.0940171
+ [3,] 1.0067502 1.1965812
+ [4,] 0.9045323 1.0427350
+ [5,] 0.9623915 1.1111111
+ [6,] 0.6364513 0.6324786
+ [7,] 0.6730955 0.6324786
+ [8,] 0.5419479 0.5641026
+ [9,] 0.5959499 0.5470085
+> 
+> 
+> 
+> 
+> 
+> sessionInfo()
+R version 4.0.2 (2020-06-22)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.4 LTS
+
+Matrix products: default
+BLAS:   /fh/scratch/delete90/sun_w/si_liu/R/R-4.0.2/lib/libRblas.so
+LAPACK: /fh/scratch/delete90/sun_w/si_liu/R/R-4.0.2/lib/libRlapack.so
+
+Random number generation:
+ RNG:     L'Ecuyer-CMRG 
+ Normal:  Inversion 
+ Sample:  Rejection 
+ 
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] stringr_1.4.0        fgsea_1.14.0         ggpointdensity_0.1.0
+ [4] ggpubr_0.4.0         ggplot2_3.3.2        qvalue_2.20.0       
+ [7] doRNG_1.8.2          rngtools_1.5         doParallel_1.0.16   
+[10] iterators_1.0.13     foreach_1.5.1        data.table_1.13.2   
+[13] MASS_7.3-51.6       
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.1.0    reshape2_1.4.4      purrr_0.3.4        
+ [4] lattice_0.20-41     splines_4.0.2       haven_2.3.1        
+ [7] carData_3.0-4       colorspace_1.4-1    vctrs_0.3.4        
+[10] generics_0.0.2      rlang_0.4.8         pillar_1.4.6       
+[13] foreign_0.8-80      glue_1.4.2          withr_2.3.0        
+[16] BiocParallel_1.22.0 readxl_1.3.1        lifecycle_0.2.0    
+[19] plyr_1.8.6          munsell_0.5.0       ggsignif_0.6.0     
+[22] gtable_0.3.0        cellranger_1.1.0    zip_2.1.1          
+[25] codetools_0.2-16    labeling_0.3        rio_0.5.16         
+[28] forcats_0.5.0       curl_4.3            broom_0.7.2        
+[31] Rcpp_1.0.5          scales_1.1.1        backports_1.1.10   
+[34] abind_1.4-5         farver_2.0.3        gridExtra_2.3      
+[37] fastmatch_1.1-0     hms_0.5.3           digest_0.6.26      
+[40] stringi_1.5.3       openxlsx_4.2.2      rstatix_0.6.0      
+[43] dplyr_1.0.2         cowplot_1.1.0       grid_4.0.2         
+[46] tools_4.0.2         magrittr_1.5        tibble_3.0.4       
+[49] crayon_1.3.4        tidyr_1.1.2         car_3.0-10         
+[52] pkgconfig_2.0.3     Matrix_1.2-18       ellipsis_0.3.1     
+[55] R6_2.4.1            compiler_4.0.2     
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+  8.564   1.334  25.056 

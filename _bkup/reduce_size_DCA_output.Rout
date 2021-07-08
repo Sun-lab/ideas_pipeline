@@ -1,0 +1,149 @@
+
+R version 3.6.0 (2019-04-26) -- "Planting of a Tree"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library("data.table")
+> 
+> # -----------------------------------------------------------------
+> # try to reduce the output file of DCA using signif function
+> # -----------------------------------------------------------------
+> 
+> setwd("/fh/fast/sun_w/mengqi/Data_PRJNA434002/res_dca_rawM3k10/")
+> t_mean       = fread("mean.tsv")
+> t_dispersion = fread("dispersion.tsv")
+> t_dropout    = fread("dropout.tsv")
+> 
+> rnms = as.character(unlist(t_mean[, 1]))
+> rnms[1:5]
+[1] "MALAT1"    "LINC00486" "RASGEF1B"  "PCDH9"     "CADM2"    
+> length(rnms)
+[1] 3000
+> length(unique(rnms))
+[1] 3000
+> 
+> t_mean[1:2,1:5]
+          V1 AAAGTAGGTAGCCTCG-1_1823_BA24 AACCATGGTCTAAAGA-1_1823_BA24
+1:    MALAT1                    30.612581                     36.60988
+2: LINC00486                     4.187902                      8.04127
+   AACTTTCTCGGCTACG-1_1823_BA24 AAGGTTCCATGGTTGT-1_1823_BA24
+1:                    23.953827                     96.49688
+2:                     2.384782                     21.25529
+> t_mean = data.matrix(t_mean[,-1])
+> t_mean = signif(t_mean, 4)
+> rownames(t_mean) = rnms
+> dim(t_mean)
+[1]  3000 10455
+> t_mean[1:2,1:5]
+          AAAGTAGGTAGCCTCG-1_1823_BA24 AACCATGGTCTAAAGA-1_1823_BA24
+MALAT1                          30.610                       36.610
+LINC00486                        4.188                        8.041
+          AACTTTCTCGGCTACG-1_1823_BA24 AAGGTTCCATGGTTGT-1_1823_BA24
+MALAT1                          23.950                        96.50
+LINC00486                        2.385                        21.26
+          ACACCAATCTCTGAGA-1_1823_BA24
+MALAT1                          31.580
+LINC00486                        5.104
+> 
+> write.table(t_mean, file = "mean_signif4.tsv", append = FALSE, 
++             quote = FALSE, sep = "\t", row.names = TRUE, col.names = TRUE)
+> 
+> t_dispersion[1:2,1:5]
+          V1       V2       V3       V4      V5
+1:    MALAT1 6.761626 7.032973 5.797677 7.80318
+2: LINC00486 4.487039 7.760149 4.248128 8.88972
+> table(t_dispersion[,1] == rnms)
+
+TRUE 
+3000 
+> t_dispersion = data.matrix(t_dispersion[,-1])
+> t_dispersion = signif(t_dispersion, 4)
+> rownames(t_dispersion) = rnms
+> colnames(t_dispersion) = colnames(t_mean)
+> dim(t_dispersion)
+[1]  3000 10455
+> t_dispersion[1:2,1:5]
+          AAAGTAGGTAGCCTCG-1_1823_BA24 AACCATGGTCTAAAGA-1_1823_BA24
+MALAT1                           6.762                        7.033
+LINC00486                        4.487                        7.760
+          AACTTTCTCGGCTACG-1_1823_BA24 AAGGTTCCATGGTTGT-1_1823_BA24
+MALAT1                           5.798                        7.803
+LINC00486                        4.248                        8.890
+          ACACCAATCTCTGAGA-1_1823_BA24
+MALAT1                           6.564
+LINC00486                        4.015
+> 
+> write.table(t_dispersion, file = "dispersion_signif4.tsv", append = FALSE, 
++             quote = FALSE, sep = "\t", row.names = TRUE, col.names = TRUE)
+> 
+> t_dropout[1:2,1:5]
+          V1      V2      V3    V4      V5
+1:    MALAT1 3.0e-06 1.1e-05 9e-06 2.2e-05
+2: LINC00486 1.1e-05 2.4e-05 3e-05 3.3e-05
+> table(t_dropout[,1] == rnms)
+
+TRUE 
+3000 
+> t_dropout = data.matrix(t_dropout[,-1])
+> t_dropout = signif(t_dropout, 4)
+> rownames(t_dropout) = rnms
+> colnames(t_dropout) = colnames(t_mean)
+> dim(t_dropout)
+[1]  3000 10455
+> t_dropout[1:2,1:5]
+          AAAGTAGGTAGCCTCG-1_1823_BA24 AACCATGGTCTAAAGA-1_1823_BA24
+MALAT1                         3.0e-06                      1.1e-05
+LINC00486                      1.1e-05                      2.4e-05
+          AACTTTCTCGGCTACG-1_1823_BA24 AAGGTTCCATGGTTGT-1_1823_BA24
+MALAT1                           9e-06                      2.2e-05
+LINC00486                        3e-05                      3.3e-05
+          ACACCAATCTCTGAGA-1_1823_BA24
+MALAT1                         5.0e-06
+LINC00486                      1.6e-05
+> 
+> write.table(t_dropout, file = "dropout_signif4.tsv", append = FALSE, 
++             quote = FALSE, sep = "\t", row.names = TRUE, col.names = TRUE)
+> 
+> sessionInfo()
+R version 3.6.0 (2019-04-26)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 14.04.5 LTS
+
+Matrix products: default
+BLAS/LAPACK: /app/easybuild/software/OpenBLAS/0.2.18-GCC-5.4.0-2.26-LAPACK-3.6.1/lib/libopenblas_prescottp-r0.2.18.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] data.table_1.12.2
+
+loaded via a namespace (and not attached):
+[1] compiler_3.6.0
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+107.212   2.708 107.828 

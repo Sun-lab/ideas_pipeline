@@ -1,0 +1,702 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> #########################################################################
+> #                                                                       #
+> #                                                                       #
+> #             Part II: Defferential Expression Analysis                 #
+> #                                                                       #
+> #                                                                       #
+> #########################################################################
+> # once simulated genes, we will do the Differential Expression Analysis
+> # Here we will implement our method, plus the DESeq2 and the MAST analysis.
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=5"    "nctrl=5"    "ncell=120"  "r_mean=1.2" "r_var=1.5" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 13      # case individuals
++   nctrl    = 10      # control individuals
++   ncell    = 360    # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> if(ncell == 0){
++   UNEQ_N_CELL = TRUE
++ }else{
++   UNEQ_N_CELL = FALSE
++ }
+> 
+> if(UNEQ_N_CELL){
++   config = sprintf("ncase_%d_nctrl_%d_unequal_n_cell", ncase, nctrl)
++ }else{
++   config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
++ }
+> 
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_5_nctrl_5_ncell_120_fold_mean_1.2_var_1.5"
+> 
+> # ---------------------------------------------------------------
+> # additional parameters
+> # ---------------------------------------------------------------
+> 
+> nCore = 6      # number of cores for multi-core computation
+> nall  = ncase + nctrl
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> 
+> library(data.table)
+> library(ggplot2)
+> theme_set(theme_bw())
+> 
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> sim_data     = readRDS(sprintf("data/sim_data_%s.rds", config))
+> count_matrix = sim_data$count_matrix
+> meta_cell    = sim_data$meta_cell
+> meta_ind     = sim_data$meta_ind
+> gene_index   = sim_data$gene_index
+> 
+> ls()
+ [1] "args"         "config"       "count_matrix" "gene_index"   "i"           
+ [6] "meta_cell"    "meta_ind"     "nall"         "ncase"        "ncell"       
+[11] "nCore"        "nctrl"        "r_mean"       "r_var"        "sim_data"    
+[16] "UNEQ_N_CELL" 
+> EE_index   = gene_index$EE_index
+> mean_index = gene_index$mean_index
+> var_index  = gene_index$var_index
+> 
+> dim(count_matrix)
+[1] 8000 1200
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> 
+> dim(meta_cell)
+[1] 1200    5
+> meta_cell[1:2,]
+      cell_id individual phenotype cell_rd      CDR
+cell1   cell1       ind1         1    9493 0.441875
+cell2   cell2       ind1         1    9472 0.440750
+> 
+> dim(meta_ind)
+[1] 10  3
+> 
+> rm(sim_data)
+> gc()
+           used (Mb) gc trigger  (Mb) max used (Mb)
+Ncells   614752 32.9    1231080  65.8  1231080 65.8
+Vcells 10656379 81.4   17854908 136.3 10721922 81.9
+> 
+> 
+> # ---------------------------------------------------------------
+> # 4. ranksum analysis 
+> # ---------------------------------------------------------------
+> #
+> # the input of ranksum analysis can be matrix.
+> #
+> # input:
+> # (1) the expression count matrix,
+> #     with each column represents a cell and each row represents a gene.
+> # (2) the meta data, including cell individual information.
+> 
+> # ---------------------------------------------------------------
+> 
+> rds = colSums(count_matrix)
+> med_rds = median(rds)
+> summary(rds)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   9027    9646    9979   10063   10337   13197 
+> med_rds
+[1] 9979
+> 
+> dim(count_matrix)
+[1] 8000 1200
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> count_matrix = t(t(count_matrix)/rds)*med_rds
+> dim(count_matrix)
+[1] 8000 1200
+> count_matrix[1:3,1:6]
+         cell1    cell2 cell3   cell4    cell5    cell6
+gene1 1.051196 1.053526     0 0.00000 0.000000 0.000000
+gene2 1.051196 1.053526     0 0.00000 2.039236 0.000000
+gene3 0.000000 0.000000     0 2.04383 0.000000 1.055755
+> summary(colSums(count_matrix))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   9979    9979    9979    9979    9979    9979 
+> 
+> diagnosis = as.character(meta_cell$phenotype) #
+> diagnosis[diagnosis == 1] = "Case"
+> diagnosis[diagnosis == 0] = "Control"
+>  
+> date()
+[1] "Thu Jun 10 15:03:27 2021"
+> ranksum_pval=apply(count_matrix,1,function(x) wilcox.test(x[diagnosis=="Case"],x[diagnosis=="Control"])$p.value)
+> date()
+[1] "Thu Jun 10 15:03:51 2021"
+> 
+> #rm(count_matrix)
+> 
+> length(ranksum_pval)
+[1] 8000
+> ranksum_pval[1:4]
+       gene1        gene2        gene3        gene4 
+4.312052e-06 8.499597e-01 8.041861e-02 1.346244e-02 
+> 
+> # ---------------------------------------------------------------
+> # check p-value
+> # ---------------------------------------------------------------
+> 
+> idx_grp = list(meanDE=mean_index, varDE=var_index, EE=EE_index)
+> 
+> plot.hist <- function(pvals, idx_grp, label){
++   for(k in 1:length(idx_grp)){
++     idx  = idx_grp[[k]]
++     main = paste(label, names(idx_grp)[k], sep=", ")
++     hist(pvals[idx], main=main, xlab="p-value", breaks=50)
++   }
++ }
+> 
+> geneType = rep("EE", nrow(count_matrix))
+> geneType[mean_index] = "meanDE"
+> geneType[var_index]  = "varDE"
+> 
+> 
+> df1=read.table(file=sprintf("results/pval_%s.txt", config), header=TRUE)
+> 
+> df1 = cbind(df1, data.frame(ranksum_pval))
+> #data.frame(geneType, pval_KR, pval_PS, deseq2_pval, 
+> #                 mast_pval_glm, mast_pval_glmer,ranksum_pval)
+> dim(df1)
+[1] 8000   13
+> df1[1:2,]
+      geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+gene1       EE       0.178       0.214      0.178      0.559       0.155
+gene2       EE       0.716       0.752      0.156      0.773       0.924
+      PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm
+gene1       0.197      0.186      0.578   0.2680017   0.001813863
+gene2       0.852      0.191      0.870   0.2274567   0.202122130
+      mast_pval_glmer ranksum_pval
+gene1       0.1359516 4.312052e-06
+gene2       0.2089702 8.499597e-01
+> 
+> 
+> pdf(sprintf("figures/pvalue_hist_ranksum_%s.pdf", config), 
++     width = 9, height = 9)
+> par(mfrow = c(3, 3), mar=c(5,4,2,1), pty = "s", bty="n")
+> for(k in 2:ncol(df1)){
++   plot.hist(df1[,k], idx_grp, names(df1)[k])
++ }
+> dev.off()
+null device 
+          1 
+> 
+> # ---------------------------------------------------------------
+> # save results
+> # ---------------------------------------------------------------
+> 
+> 
+> fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.05)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+     FALSE       TRUE 
+0.96033333 0.03766667 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.938 0.060 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.957 0.042 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+FALSE  TRUE 
+0.962 0.036 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.942 0.056 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.943 0.056 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+     FALSE       TRUE 
+0.96683333 0.03316667 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+0.936 0.064 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+0.955 0.045 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+ FALSE   TRUE 
+0.9725 0.0275 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.966 0.034 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+0.963 0.037 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+FALSE  TRUE 
+0.957 0.041 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.925 0.073 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.947 0.052 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+     FALSE       TRUE 
+0.95483333 0.04316667 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.928 0.070 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.914 0.085 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+     FALSE       TRUE 
+0.96033333 0.03966667 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+0.919 0.081 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.941 0.059 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+ FALSE   TRUE 
+0.9565 0.0435 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.937 0.063 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.943 0.057 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+FALSE  TRUE 
+0.937 0.063 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.895 0.105 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.942 0.058 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+    FALSE      TRUE 
+0.5703333 0.4296667 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.491 0.509 
+
+$mast_pval_glm$varDE
+
+FALSE  TRUE 
+0.328 0.672 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+    FALSE      TRUE 
+0.8423333 0.1558333 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.767 0.228 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.673 0.326 
+
+
+$ranksum_pval
+$ranksum_pval$EE
+
+ FALSE   TRUE 
+0.5415 0.4585 
+
+$ranksum_pval$meanDE
+
+FALSE  TRUE 
+0.434 0.566 
+
+$ranksum_pval$varDE
+
+FALSE  TRUE 
+0.509 0.491 
+
+
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.01)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+      FALSE        TRUE 
+0.991666667 0.006333333 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.986 0.012 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.985 0.014 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+      FALSE        TRUE 
+0.990833333 0.007166667 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.986 0.012 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.980 0.019 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+      FALSE        TRUE 
+0.992833333 0.007166667 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+0.986 0.014 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+0.987 0.013 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+FALSE  TRUE 
+0.996 0.004 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.993 0.007 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+0.994 0.006 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+     FALSE       TRUE 
+0.98683333 0.01116667 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.977 0.021 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.982 0.017 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+ FALSE   TRUE 
+0.9835 0.0145 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.971 0.027 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.970 0.029 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+      FALSE        TRUE 
+0.990833333 0.009166667 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+0.981 0.019 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.986 0.014 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+     FALSE       TRUE 
+0.98483333 0.01516667 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+ 0.98  0.02 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.984 0.016 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+ FALSE   TRUE 
+0.9775 0.0225 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.967 0.033 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.979 0.021 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+    FALSE      TRUE 
+0.6961667 0.3038333 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.632 0.368 
+
+$mast_pval_glm$varDE
+
+FALSE  TRUE 
+0.495 0.505 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+    FALSE      TRUE 
+0.9376667 0.0605000 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.895 0.100 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.837 0.162 
+
+
+$ranksum_pval
+$ranksum_pval$EE
+
+    FALSE      TRUE 
+0.6528333 0.3471667 
+
+$ranksum_pval$meanDE
+
+FALSE  TRUE 
+0.553 0.447 
+
+$ranksum_pval$varDE
+
+FALSE  TRUE 
+0.608 0.392 
+
+
+> 
+> write.table(df1, file=sprintf("results/pval_ranksum_%s.txt", config), append=FALSE, 
++             quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.5 LTS
+
+Matrix products: default
+BLAS/LAPACK: /opt/intel/compilers_and_libraries_2018.2.199/linux/mkl/lib/intel64_lin/libmkl_rt.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+[1] ggplot2_3.3.3     data.table_1.14.0 doRNG_1.8.2       rngtools_1.5     
+[5] doParallel_1.0.16 iterators_1.0.13  foreach_1.5.1    
+
+loaded via a namespace (and not attached):
+ [1] magrittr_2.0.1   tidyselect_1.1.1 munsell_0.5.0    colorspace_2.0-1
+ [5] R6_2.5.0         rlang_0.4.11     fansi_0.5.0      dplyr_1.0.6     
+ [9] grid_4.1.0       gtable_0.3.0     utf8_1.2.1       withr_2.4.2     
+[13] ellipsis_0.3.2   digest_0.6.27    tibble_3.1.2     lifecycle_1.0.0 
+[17] crayon_1.4.1     purrr_0.3.4      vctrs_0.3.8      codetools_0.2-18
+[21] glue_1.4.2       compiler_4.1.0   pillar_1.6.1     generics_0.1.0  
+[25] scales_1.1.1     pkgconfig_2.0.3 
+> 
+> #mem_used()
+> gc()
+           used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells   644092 34.4    1231080  65.8  1231080  65.8
+Vcells 10851567 82.8   37935024 289.5 36747705 280.4
+> 
+> q(save = "no")
+> proc.time()
+   user  system elapsed 
+ 26.010   0.500  29.104 

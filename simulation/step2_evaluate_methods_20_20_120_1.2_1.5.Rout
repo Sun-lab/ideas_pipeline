@@ -1,0 +1,1559 @@
+
+R version 3.6.2 (2019-12-12) -- "Dark and Stormy Night"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> #########################################################################
+> #                                                                       #
+> #                                                                       #
+> #             Part II: Defferential Expression Analysis                 #
+> #                                                                       #
+> #                                                                       #
+> #########################################################################
+> # once simulated genes, we will do the Differential Expression Analysis
+> # Here we will implement our method, plus the DESeq2 and the MAST analysis.
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=20"   "nctrl=20"   "ncell=120"  "r_mean=1.2" "r_var=1.5" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 13      # case individuals
++   nctrl    = 10      # control individuals
++   ncell    = 360    # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> if(ncell == 0){
++   UNEQ_N_CELL = TRUE
++ }else{
++   UNEQ_N_CELL = FALSE
++ }
+> 
+> if(UNEQ_N_CELL){
++   config = sprintf("ncase_%d_nctrl_%d_unequal_n_cell", ncase, nctrl)
++ }else{
++   config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
++ }
+> 
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_20_nctrl_20_ncell_120_fold_mean_1.2_var_1.5"
+> 
+> # ---------------------------------------------------------------
+> # additional parameters
+> # ---------------------------------------------------------------
+> 
+> nCore = 6      # number of cores for multi-core computation
+> nall  = ncase + nctrl
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(MASS)
+> library(emdbook)
+> library(moments)
+> library(MAST)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: DelayedArray
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following objects are masked from ‘package:Biobase’:
+
+    anyMissing, rowMedians
+
+Loading required package: BiocParallel
+
+Attaching package: ‘DelayedArray’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colMaxs, colMins, colRanges, rowMaxs, rowMins, rowRanges
+
+The following objects are masked from ‘package:base’:
+
+    aperm, apply, rowsum
+
+
+Attaching package: ‘MAST’
+
+The following object is masked from ‘package:stats’:
+
+    filter
+
+> library(lme4)
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following object is masked from ‘package:S4Vectors’:
+
+    expand
+
+> library(DESeq2)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> library(MiRKAT)
+> library(reticulate)
+> library(transport)
+> 
+> library(data.table)
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    shift
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    shift
+
+The following object is masked from ‘package:IRanges’:
+
+    shift
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, second
+
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+
+Attaching package: ‘pryr’
+
+The following object is masked from ‘package:data.table’:
+
+    address
+
+> library(ggplot2)
+> library(ggpubr)
+Loading required package: magrittr
+> theme_set(theme_bw())
+> 
+> library(ideas)
+> 
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> sim_data     = readRDS(sprintf("data/sim_data_%s.rds", config))
+> count_matrix = sim_data$count_matrix
+> meta_cell    = sim_data$meta_cell
+> meta_ind     = sim_data$meta_ind
+> gene_index   = sim_data$gene_index
+> 
+> ls()
+ [1] "args"         "config"       "count_matrix" "gene_index"   "i"           
+ [6] "meta_cell"    "meta_ind"     "nall"         "ncase"        "ncell"       
+[11] "nCore"        "nctrl"        "r_mean"       "r_var"        "sim_data"    
+[16] "UNEQ_N_CELL" 
+> EE_index   = gene_index$EE_index
+> mean_index = gene_index$mean_index
+> var_index  = gene_index$var_index
+> 
+> dim(count_matrix)
+[1] 8000 4800
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     1     0     0
+gene2     0     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> 
+> dim(meta_cell)
+[1] 4800    5
+> meta_cell[1:2,]
+      cell_id individual phenotype cell_rd      CDR
+cell1   cell1       ind1         1    9451 0.442875
+cell2   cell2       ind1         1    9471 0.443500
+> 
+> dim(meta_ind)
+[1] 40  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.7018300
+ind2       ind2         1  0.3460781
+> 
+> rm(sim_data)
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  6930746 370.2   12437792 664.3         NA  9014139 481.5
+Vcells 49919316 380.9   74339849 567.2      32768 49979115 381.4
+> 
+> # ---------------------------------------------------------------
+> # 1. DESeq2 analysis 
+> # ---------------------------------------------------------------
+> # We calculate count_matrix_bulk by adding up raw counts of
+> # all cells of an individual within a gene
+> # ---------------------------------------------------------------
+> 
+> # individual level info
+> u_ind = unique(meta_cell$individual)
+> length(u_ind)
+[1] 40
+> u_ind[1:2]
+[1] "ind1" "ind2"
+> 
+> count_matrix_bulk = matrix(nrow = nrow(count_matrix),
++                          ncol = length(u_ind))
+> rownames(count_matrix_bulk) = rownames(count_matrix)
+> colnames(count_matrix_bulk) = u_ind
+> 
+> for (i_ind in 1:length(u_ind)) {
++   cur_ind   = u_ind[i_ind]
++   cur_ind_m = count_matrix[, meta_cell$individual == cur_ind]
++   count_matrix_bulk[, i_ind] = rowSums(cur_ind_m, na.rm = TRUE)
++ }
+> 
+> dim(count_matrix_bulk)
+[1] 8000   40
+> count_matrix_bulk[1:3,1:5]
+      ind1 ind2 ind3 ind4 ind5
+gene1   44   18   25   33   42
+gene2   21   34   29   13   37
+gene3   34   30   27   35   18
+> 
+> meta_ind$phenotype = as.factor(meta_ind$phenotype)
+> dim(meta_ind)
+[1] 40  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.7018300
+ind2       ind2         1  0.3460781
+> 
+> # DESeq2 for all the genes
+> dds = DESeqDataSetFromMatrix(countData = count_matrix_bulk,
++                              colData = meta_ind,
++                              design = ~ RIN + phenotype)
+converting counts to integer mode
+> 
+> dds = DESeq(dds)
+estimating size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+> nms = resultsNames(dds)
+> nms
+[1] "Intercept"        "RIN"              "phenotype_1_vs_0"
+> 
+> deseq2_pval = results(dds)$pvalue
+> 
+> rk = results(dds, name="RIN")
+> deseq2_pval_RIN = rk$pvalue
+> 
+> summary(deseq2_pval)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.1733  0.4398  0.4527  0.7200  1.0000 
+> summary(deseq2_pval_RIN)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+0.00000 0.06349 0.28010 0.35493 0.60368 0.99914 
+> table(deseq2_pval[EE_index] < 0.05)
+
+FALSE  TRUE 
+ 5665   335 
+> table(deseq2_pval[EE_index] < 0.05)/length(EE_index)
+
+     FALSE       TRUE 
+0.94416667 0.05583333 
+> 
+> # ---------------------------------------------------------------
+> # 2. IDEAS 
+> # ---------------------------------------------------------------
+> 
+> var2test      = "phenotype"
+> var2adjust    = "RIN"
+> var2test_type = "binary"
+> var_per_cell  = "cell_rd"
+> 
+> dist_list = list()
+> 
+> for(fit_method in c("zinb", "kde")){
++   for(d_metric in c("Was", "JSD")){
++     message(sprintf("fit_method: %s, d_metric: %s\n", fit_method, d_metric))
++     message(date())
++     
++     label = paste(fit_method, d_metric, sep="_")
++     fnm = sprintf("data/dist_%s_%s.rds", label, config)
++     if(file.exists(fnm)){
++       dist_list[[label]] = readRDS(fnm)
++     }else{
++       dist1 = ideas_dist(count_matrix, meta_cell, meta_ind, 
++                          var_per_cell, var2test, var2adjust, 
++                          var2test_type, d_metric = d_metric, 
++                          fit_method = fit_method)
++       dist_list[[label]] = dist1
++       saveRDS(dist1, fnm)
++     }
++   }
++ }
+fit_method: zinb, d_metric: Was
+
+Sat Sep 12 11:18:44 2020
+the count_matrix includes 8000 genes in 4800 cells
+
+estimating distribution for each gene and each individaul by zinb
+
+fit_method: zinb, d_metric: JSD
+
+Sat Sep 12 13:46:08 2020
+the count_matrix includes 8000 genes in 4800 cells
+
+estimating distribution for each gene and each individaul by zinb
+
+fit_method: kde, d_metric: Was
+
+Sat Sep 12 16:12:43 2020
+the count_matrix includes 8000 genes in 4800 cells
+
+estimating distribution for each gene and each individaul by kde
+
+fit_method: kde, d_metric: JSD
+
+Sat Sep 12 16:15:51 2020
+the count_matrix includes 8000 genes in 4800 cells
+
+estimating distribution for each gene and each individaul by kde
+
+> 
+> date()
+[1] "Sat Sep 12 16:39:20 2020"
+> 
+> lapply(dist_list, dim)
+$zinb_Was
+[1] 8000   40   40
+
+$zinb_JSD
+[1] 8000   40   40
+
+$kde_Was
+[1] 8000   40   40
+
+$kde_JSD
+[1] 8000   40   40
+
+> 
+> dist_list$zinb_Was[1,1:3,1:3]
+          ind1       ind2       ind3
+ind1 0.0000000 0.40361268 0.36945447
+ind2 0.4036127 0.00000000 0.02472575
+ind3 0.3694545 0.02472575 0.00000000
+> dist_list$zinb_JSD[1,1:3,1:3]
+           ind1         ind2         ind3
+ind1 0.00000000 0.0538216408 0.0431314744
+ind2 0.05382164 0.0000000000 0.0005988504
+ind3 0.04313147 0.0005988504 0.0000000000
+> 
+> # ---------------------------------------------------------------
+> # STEP 2: pval calculation 
+> # ---------------------------------------------------------------
+> 
+> n_gene = nrow(count_matrix)
+> y = as.numeric(meta_ind$phenotype==1)
+> 
+> pval_KR = matrix(NA, nrow=n_gene, ncol=length(dist_list))
+> rownames(pval_KR) = rownames(count_matrix)
+> colnames(pval_KR) = paste("KR", names(dist_list), sep="_")
+> 
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   pval_KR[,k] = foreach(i_g = 1:dim(dist_k)[1], .combine = "c") %dopar% {
++     Di = dist_k[i_g,,]
++     if(any(is.na(Di))){
++       pval = NA 
++     }else{
++       Ki = D2K(Di)
++       m1 = MiRKAT(y = y, X = meta_ind$RIN, Ks = Ki, out_type = "D", 
++                   method = "permutation")
++       pval = m1$indivP
++     }
++     pval
++   }
++ }
+zinb_Was
+Sat Sep 12 16:39:20 2020
+zinb_JSD
+Sat Sep 12 16:40:09 2020
+kde_Was
+Sat Sep 12 16:41:00 2020
+kde_JSD
+Sat Sep 12 16:41:53 2020
+> date()
+[1] "Sat Sep 12 16:42:44 2020"
+> 
+> dim(pval_KR)
+[1] 8000    4
+> pval_KR[1:2,]
+      KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD
+gene1       0.686       0.973       0.91      0.481
+gene2       0.226       0.206       0.23      0.655
+> 
+> 
+> n_perm = 999
+> r.seed = 903
+> 
+> pval_PS = matrix(NA, nrow=n_gene, ncol=length(dist_list))
+> rownames(pval_PS) = rownames(count_matrix)
+> colnames(pval_PS) = names(dist_list)
+> colnames(pval_PS) = paste("PS", names(dist_list), sep="_")
+> 
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   pval_PS[,k] = permanova(dist_k, meta_ind, var2test, var2adjust, 
++                           var2test_type, n_perm=n_perm, 
++                           r.seed=r.seed, residulize.x = FALSE)
++ }
+zinb_Was
+Sat Sep 12 16:42:44 2020
+skip 49 gene(s) with NA in the dist_array
+
+testing for 'phenotype', a binary variable
+
+zinb_JSD
+Sat Sep 12 16:49:11 2020
+skip 49 gene(s) with NA in the dist_array
+
+testing for 'phenotype', a binary variable
+
+kde_Was
+Sat Sep 12 16:55:40 2020
+testing for 'phenotype', a binary variable
+
+kde_JSD
+Sat Sep 12 17:02:24 2020
+testing for 'phenotype', a binary variable
+
+> date()
+[1] "Sat Sep 12 17:08:47 2020"
+> 
+> summary(pval_KR)
+  KR_zinb_Was      KR_zinb_JSD       KR_kde_Was      KR_kde_JSD    
+ Min.   :0.0010   Min.   :0.0010   Min.   :0.001   Min.   :0.0010  
+ 1st Qu.:0.1665   1st Qu.:0.1405   1st Qu.:0.147   1st Qu.:0.1630  
+ Median :0.4080   Median :0.3950   Median :0.386   Median :0.3980  
+ Mean   :0.4362   Mean   :0.4278   Mean   :0.414   Mean   :0.4292  
+ 3rd Qu.:0.6930   3rd Qu.:0.6900   3rd Qu.:0.652   3rd Qu.:0.6800  
+ Max.   :1.0000   Max.   :1.0000   Max.   :1.000   Max.   :1.0000  
+ NA's   :49       NA's   :49                                       
+> summary(pval_PS)
+  PS_zinb_Was      PS_zinb_JSD       PS_kde_Was       PS_kde_JSD    
+ Min.   :0.0010   Min.   :0.0010   Min.   :0.0010   Min.   :0.0010  
+ 1st Qu.:0.1590   1st Qu.:0.1360   1st Qu.:0.1420   1st Qu.:0.1570  
+ Median :0.4020   Median :0.3870   Median :0.3765   Median :0.3890  
+ Mean   :0.4316   Mean   :0.4230   Mean   :0.4080   Mean   :0.4246  
+ 3rd Qu.:0.6880   3rd Qu.:0.6855   3rd Qu.:0.6470   3rd Qu.:0.6760  
+ Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+ NA's   :49       NA's   :49                                        
+> 
+> round(cor(-log10(pval_KR), use="pair"),2)
+            KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD
+KR_zinb_Was        1.00        0.86       0.83       0.57
+KR_zinb_JSD        0.86        1.00       0.82       0.55
+KR_kde_Was         0.83        0.82       1.00       0.62
+KR_kde_JSD         0.57        0.55       0.62       1.00
+> round(cor(-log10(pval_PS), use="pair"),2)
+            PS_zinb_Was PS_zinb_JSD PS_kde_Was PS_kde_JSD
+PS_zinb_Was        1.00        0.87       0.84       0.57
+PS_zinb_JSD        0.87        1.00       0.82       0.55
+PS_kde_Was         0.84        0.82       1.00       0.62
+PS_kde_JSD         0.57        0.55       0.62       1.00
+> 
+> round(cor(-log10(pval_KR), -log10(pval_PS), use="pair"),2)
+            PS_zinb_Was PS_zinb_JSD PS_kde_Was PS_kde_JSD
+KR_zinb_Was        0.99        0.86       0.83       0.57
+KR_zinb_JSD        0.86        0.99       0.82       0.55
+KR_kde_Was         0.83        0.82       0.99       0.62
+KR_kde_JSD         0.57        0.55       0.62       0.99
+> 
+> # ---------------------------------------------------------------
+> # 3. MAST analysis 
+> # ---------------------------------------------------------------
+> #
+> # the input of MAST analysis can be matrix or SingleCellAssay.
+> #
+> # input:
+> # (1) the log-transformed expression count matrix,
+> #     with each column represents a cell and each row represents a gene.
+> # (2) the meta data, including cell and individual information.
+> 
+> # we get the p-values based on the Hurdle model ("H" model)
+> # ---------------------------------------------------------------
+> 
+> rds = colSums(count_matrix)
+> med_rds = median(rds)
+> summary(rds)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   8990    9681   10024   10477   10906   20085 
+> med_rds
+[1] 10024
+> 
+> dim(count_matrix)
+[1] 8000 4800
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     1     0     0
+gene2     0     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> count_matrix = t(t(count_matrix)/rds)*med_rds
+> dim(count_matrix)
+[1] 8000 4800
+> count_matrix[1:3,1:6]
+         cell1    cell2 cell3    cell4    cell5    cell6
+gene1 1.060629 1.058389     0 1.059172 0.000000 0.000000
+gene2 0.000000 1.058389     0 0.000000 2.066165 0.000000
+gene3 0.000000 0.000000     0 2.118343 0.000000 1.052388
+> summary(colSums(count_matrix))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  10024   10024   10024   10024   10024   10024 
+> 
+> count_matrix_log = log2(1 + count_matrix) #log transformed data
+> 
+> dim(count_matrix_log)
+[1] 8000 4800
+> count_matrix_log[1:3, 1:4]
+         cell1    cell2 cell3    cell4
+gene1 1.043084 1.041515     0 1.042064
+gene2 0.000000 1.041515     0 0.000000
+gene3 0.000000 0.000000     0 1.640780
+> cell_id = colnames(count_matrix_log)   # get the cell id from the data
+> gene_id = rownames(count_matrix_log)   # get the gene id from the data
+> 
+> diagnosis = as.character(meta_cell$phenotype) #
+> diagnosis[diagnosis == 1] = "Case"
+> diagnosis[diagnosis == 0] = "Control"
+> 
+> fData = data.frame(primerid = gene_id)
+> cData = data.frame(wellKey  = cell_id)
+> 
+> sca = FromMatrix(count_matrix_log, cData, fData)
+Assuming data assay in position 1, with name et is log-transformed.
+> colData(sca)$cngeneson = as.numeric(meta_cell$CDR)
+> colData(sca)$diagnosis = as.factor(diagnosis)
+> colData(sca)$ind = as.factor(meta_cell$individual)
+> colData(sca)$RIN = meta_ind$RIN[match(meta_cell$individual, 
++                                       meta_ind$individual)]
+> 
+> colData(sca)
+DataFrame with 4800 rows and 5 columns
+             wellKey cngeneson diagnosis      ind                RIN
+         <character> <numeric>  <factor> <factor>          <numeric>
+cell1          cell1  0.442875      Case     ind1 -0.701830004143882
+cell2          cell2    0.4435      Case     ind1 -0.701830004143882
+cell3          cell3  0.446375      Case     ind1 -0.701830004143882
+cell4          cell4  0.441375      Case     ind1 -0.701830004143882
+cell5          cell5  0.439375      Case     ind1 -0.701830004143882
+...              ...       ...       ...      ...                ...
+cell4796    cell4796  0.431875   Control    ind40 -0.182522788414853
+cell4797    cell4797  0.444125   Control    ind40 -0.182522788414853
+cell4798    cell4798     0.441   Control    ind40 -0.182522788414853
+cell4799    cell4799  0.442625   Control    ind40 -0.182522788414853
+cell4800    cell4800    0.4395   Control    ind40 -0.182522788414853
+> 
+> rm(count_matrix)
+> rm(count_matrix_log)
+> gc()
+            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   7068938 377.6   19523068 1042.7         NA  19523068 1042.7
+Vcells 104323756 796.0  303470482 2315.3      32768 316048419 2411.3
+> gc()
+            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   7068943 377.6   19523068 1042.7         NA  19523068 1042.7
+Vcells 104323775 796.0  303470482 2315.3      32768 316048419 2411.3
+> gc()
+            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   7068943 377.6   19523068 1042.7         NA  19523068 1042.7
+Vcells 104323775 796.0  303470482 2315.3      32768 316048419 2411.3
+> 
+> getOption("mc.cores")
+[1] 6
+> 
+> date()
+[1] "Sat Sep 12 17:08:53 2020"
+> b0 = zlm(formula = ~ diagnosis + cngeneson + RIN, sca = sca, 
++          parallel = TRUE)
+
+Done!
+> date()
+[1] "Sat Sep 12 17:09:31 2020"
+> b1 = zlm(formula = ~ diagnosis + (1 | ind) + cngeneson + RIN, sca = sca, 
++          method = 'glmer', ebayes = FALSE, parallel = TRUE)
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+
+Done!
+Warning message:
+In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00547895 (tol = 0.001, component 1)
+> date()
+[1] "Sat Sep 12 17:28:26 2020"
+> 
+> b0
+Fitted zlm on 8000 genes and 4800 cells.
+ Using BayesGLMlike ~ diagnosis + cngeneson + RIN 
+> b1
+Fitted zlm on 8000 genes and 4800 cells.
+ Using LMERlike ~ diagnosis + (1 | ind) + cngeneson + RIN 
+> 
+> date()
+[1] "Sat Sep 12 17:28:26 2020"
+> lrt0 = lrTest(b0, "diagnosis")
+Refitting on reduced model...
+
+Done!
+> date()
+[1] "Sat Sep 12 17:28:58 2020"
+> lrt1 = lrTest(b1, "diagnosis")
+Refitting on reduced model...
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+boundary (singular) fit: see ?isSingular
+
+Done!
+Warning message:
+In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0014394 (tol = 0.001, component 1)
+> date()
+[1] "Sat Sep 12 17:43:00 2020"
+> 
+> dim(lrt0)
+[1] 8000    3    3
+> lrt0[1,,]
+         metric
+test.type      lambda df Pr(>Chisq)
+   cont   0.146477163  1  0.7019249
+   disc   0.008128753  1  0.9281604
+   hurdle 0.154605916  2  0.9256094
+> 
+> dim(lrt1)
+[1] 8000    3    3
+> lrt1[1,,]
+         metric
+test.type     lambda df Pr(>Chisq)
+   cont   0.07076381  1  0.7902279
+   disc   0.00000000  0  1.0000000
+   hurdle 0.07076381  1  0.7902279
+> 
+> mast_pval_glm = apply(lrt0, 1, function(x){x[3,3]})
+> length(mast_pval_glm)
+[1] 8000
+> mast_pval_glm[1:4]
+       gene1        gene2        gene3        gene4 
+9.256094e-01 5.421422e-02 1.636418e-02 1.014174e-08 
+> 
+> mast_pval_glmer = apply(lrt1, 1, function(x){x[3,3]})
+> length(mast_pval_glmer)
+[1] 8000
+> mast_pval_glmer[1:4]
+     gene1      gene2      gene3      gene4 
+0.79022790 0.34996795 0.45591940 0.06020286 
+> 
+> # ---------------------------------------------------------------
+> # check p-value
+> # ---------------------------------------------------------------
+> 
+> idx_grp = list(meanDE=mean_index, varDE=var_index, EE=EE_index)
+> 
+> plot.hist <- function(pvals, idx_grp, label){
++   for(k in 1:length(idx_grp)){
++     idx  = idx_grp[[k]]
++     main = paste(label, names(idx_grp)[k], sep=", ")
++     hist(pvals[idx], main=main, xlab="p-value", breaks=50)
++   }
++ }
+> 
+> geneType = rep("EE", n_gene)
+> geneType[mean_index] = "meanDE"
+> geneType[var_index]  = "varDE"
+> 
+> df1 = data.frame(geneType, pval_KR, pval_PS, deseq2_pval, 
++                  mast_pval_glm, mast_pval_glmer)
+> dim(df1)
+[1] 8000   12
+> df1[1:2,]
+      geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+gene1       EE       0.686       0.973       0.91      0.481       0.673
+gene2       EE       0.226       0.206       0.23      0.655       0.220
+      PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm
+gene1       0.969      0.898      0.505   0.9887163    0.92560939
+gene2       0.171      0.218      0.618   0.2992154    0.05421422
+      mast_pval_glmer
+gene1       0.7902279
+gene2       0.3499680
+> 
+> 
+> pdf(sprintf("figures/pvalue_hist_%s.pdf", config), 
++     width = 9, height = 9)
+> par(mfrow = c(3, 3), mar=c(5,4,2,1), pty = "s", bty="n")
+> for(k in 2:ncol(df1)){
++   plot.hist(df1[,k], idx_grp, names(df1)[k])
++ }
+> dev.off()
+null device 
+          1 
+> 
+> # ---------------------------------------------------------------
+> # save results
+> # ---------------------------------------------------------------
+> 
+> 
+> fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.05)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+     FALSE       TRUE 
+0.94116667 0.05283333 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.690 0.301 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.850 0.146 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+     FALSE       TRUE 
+0.94616667 0.04783333 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.707 0.284 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.559 0.437 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+     FALSE       TRUE 
+0.95016667 0.04983333 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+0.633 0.367 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+0.698 0.302 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+     FALSE       TRUE 
+0.93666667 0.06333333 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.769 0.231 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+0.763 0.237 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+     FALSE       TRUE 
+0.93616667 0.05783333 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.684 0.307 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.835 0.161 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+     FALSE       TRUE 
+0.94066667 0.05333333 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.698 0.293 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.533 0.463 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+     FALSE       TRUE 
+0.94516667 0.05483333 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+0.623 0.377 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.686 0.314 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+     FALSE       TRUE 
+0.93583333 0.06416667 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.762 0.238 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.753 0.247 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+     FALSE       TRUE 
+0.94416667 0.05583333 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.497 0.503 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.941 0.059 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+FALSE  TRUE 
+0.557 0.443 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.183 0.817 
+
+$mast_pval_glm$varDE
+
+FALSE  TRUE 
+0.006 0.994 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+     FALSE       TRUE 
+0.95966667 0.04016667 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.705 0.294 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.231 0.769 
+
+
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.01)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+ FALSE   TRUE 
+0.9805 0.0135 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.856 0.135 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.965 0.031 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+     FALSE       TRUE 
+0.98333333 0.01066667 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.862 0.129 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.773 0.223 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+     FALSE       TRUE 
+0.98816667 0.01183333 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+ 0.84  0.16 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+0.886 0.114 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+     FALSE       TRUE 
+0.98683333 0.01316667 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.892 0.108 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+ 0.91  0.09 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+     FALSE       TRUE 
+0.98116667 0.01283333 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.844 0.147 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.962 0.034 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+     FALSE       TRUE 
+0.98066667 0.01333333 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.856 0.135 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.777 0.219 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+     FALSE       TRUE 
+0.98716667 0.01283333 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+0.829 0.171 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.884 0.116 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+ FALSE   TRUE 
+0.9865 0.0135 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.892 0.108 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.906 0.094 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+     FALSE       TRUE 
+0.98716667 0.01283333 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.678 0.322 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.985 0.015 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+ FALSE   TRUE 
+0.6905 0.3095 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.286 0.714 
+
+$mast_pval_glm$varDE
+
+FALSE  TRUE 
+0.014 0.986 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+     FALSE       TRUE 
+0.98916667 0.01066667 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.824 0.175 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.382 0.618 
+
+
+> 
+> write.table(df1, file=sprintf("results/pval_%s.txt", config), append=FALSE, 
++             quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+> 
+> sessionInfo()
+R version 3.6.2 (2019-12-12)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS Catalina 10.15.6
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] ideas_0.991                 ggpubr_0.2.5               
+ [3] magrittr_1.5                ggplot2_3.3.1              
+ [5] pryr_0.1.4                  data.table_1.12.8          
+ [7] transport_0.12-2            reticulate_1.15            
+ [9] MiRKAT_1.1.0                doRNG_1.8.2                
+[11] rngtools_1.5                doParallel_1.0.15          
+[13] iterators_1.0.12            foreach_1.4.7              
+[15] DESeq2_1.24.0               lme4_1.1-21                
+[17] Matrix_1.2-18               MAST_1.10.0                
+[19] SingleCellExperiment_1.6.0  SummarizedExperiment_1.14.1
+[21] DelayedArray_0.10.0         BiocParallel_1.18.1        
+[23] matrixStats_0.55.0          Biobase_2.44.0             
+[25] GenomicRanges_1.36.1        GenomeInfoDb_1.20.0        
+[27] IRanges_2.18.3              S4Vectors_0.22.1           
+[29] BiocGenerics_0.30.0         moments_0.14               
+[31] emdbook_1.3.11              MASS_7.3-51.5              
+
+loaded via a namespace (and not attached):
+  [1] minqa_1.2.4            colorspace_1.4-1       ggsignif_0.6.0        
+  [4] ellipsis_0.3.0         htmlTable_1.13.3       XVector_0.24.0        
+  [7] base64enc_0.1-3        rstudioapi_0.11        MatrixModels_0.4-1    
+ [10] bit64_0.9-7            AnnotationDbi_1.46.1   mvtnorm_1.0-12        
+ [13] codetools_0.2-16       splines_3.6.2          pscl_1.5.5            
+ [16] geneplotter_1.62.0     knitr_1.28             jsonlite_1.6.1        
+ [19] Formula_1.2-3          nloptr_1.2.1           annotate_1.62.0       
+ [22] kernlab_0.9-29         cluster_2.1.0          png_0.1-7             
+ [25] compiler_3.6.2         backports_1.1.5        assertthat_0.2.1      
+ [28] prettyunits_1.1.1      quantreg_5.55          acepack_1.4.1         
+ [31] htmltools_0.4.0        tools_3.6.2            coda_0.19-3           
+ [34] gtable_0.3.0           glue_1.3.1             GenomeInfoDbData_1.2.1
+ [37] reshape2_1.4.3         dplyr_0.8.4            Rcpp_1.0.3            
+ [40] bbmle_1.0.23.1         vctrs_0.3.0            ape_5.3               
+ [43] nlme_3.1-144           xfun_0.12              stringr_1.4.0         
+ [46] CompQuadForm_1.4.3     lifecycle_0.2.0        GUniFrac_1.1          
+ [49] XML_3.99-0.3           PearsonDS_1.1          zlibbioc_1.30.0       
+ [52] scales_1.1.0           hms_0.5.3              SparseM_1.78          
+ [55] RColorBrewer_1.1-2     memoise_1.1.0          gridExtra_2.3         
+ [58] segmented_1.2-0        bdsmatrix_1.3-4        rpart_4.1-15          
+ [61] latticeExtra_0.6-29    stringi_1.4.5          RSQLite_2.2.0         
+ [64] genefilter_1.66.0      blme_1.0-4             checkmate_2.0.0       
+ [67] permute_0.9-5          boot_1.3-24            rlang_0.4.6           
+ [70] pkgconfig_2.0.3        bitops_1.0-6           lattice_0.20-38       
+ [73] purrr_0.3.3            htmlwidgets_1.5.1      bit_1.1-15.2          
+ [76] tidyselect_1.0.0       plyr_1.8.5             R6_2.4.1              
+ [79] Hmisc_4.4-0            DBI_1.1.0              withr_2.1.2           
+ [82] pillar_1.4.3           foreign_0.8-75         mgcv_1.8-31           
+ [85] mixtools_1.2.0         survival_3.1-8         abind_1.4-5           
+ [88] RCurl_1.98-1.1         nnet_7.3-12            tibble_3.0.1          
+ [91] crayon_1.3.4           progress_1.2.2         jpeg_0.1-8.1          
+ [94] locfit_1.5-9.4         grid_3.6.2             blob_1.2.1            
+ [97] vegan_2.5-6            digest_0.6.23          xtable_1.8-4          
+[100] numDeriv_2016.8-1.1    munsell_0.5.0         
+> 
+> mem_used()
+1.26 GB
+> gc()
+            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   7221337 385.7   19523068 1042.7         NA  19523068 1042.7
+Vcells 106653944 813.8  338270859 2580.9      32768 338270859 2580.9
+> 
+> q(save = "no")
+> proc.time()
+      user     system    elapsed 
+129103.490   6690.446  23076.226 

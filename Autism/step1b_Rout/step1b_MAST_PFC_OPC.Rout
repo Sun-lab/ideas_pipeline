@@ -1,0 +1,2006 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(Matrix)
+> library(data.table)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(MAST)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following object is masked from ‘package:dplyr’:
+
+    count
+
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:dplyr’:
+
+    combine, intersect, setdiff, union
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following objects are masked from ‘package:dplyr’:
+
+    first, rename
+
+The following objects are masked from ‘package:data.table’:
+
+    first, second
+
+The following objects are masked from ‘package:Matrix’:
+
+    expand, unname
+
+The following objects are masked from ‘package:base’:
+
+    expand.grid, I, unname
+
+Loading required package: IRanges
+
+Attaching package: ‘IRanges’
+
+The following objects are masked from ‘package:dplyr’:
+
+    collapse, desc, slice
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+> library(lme4)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> 
+> 
+> data.dir = "data"
+> 
+> args=(commandArgs(TRUE))
+> args
+[1] "grp='PFC_OPC'"
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'PFC_L2_3' as default.\n")
++   grp = "PFC_L2_3"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+> 
+> grp
+[1] "PFC_OPC"
+> 
+> # ------------------------------------------------------------------------
+> # read in cell information
+> # ------------------------------------------------------------------------
+> 
+> cell_info = fread(file.path(data.dir, "meta.tsv"))
+> dim(cell_info)
+[1] 104559     16
+> cell_info[1:2,]
+                           cell     cluster    sample individual region age sex
+1: AAACCTGGTACGCACC-1_1823_BA24 Neu-NRGN-II 1823_BA24       1823    ACC  15   M
+2: AAACGGGCACCAGATT-1_1823_BA24        L5/6 1823_BA24       1823    ACC  15   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB8      SB3                           18
+2:   Control      CB8      SB3                           18
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                    7   622   774               2.4547804
+2:                    7  6926 24042               0.4450545
+   RNA ribosomal percent
+1:             1.4211886
+2:             0.4284169
+> 
+> table(cell_info$region)
+
+  ACC   PFC 
+42393 62166 
+> 
+> cell_info = cell_info[which(cell_info$region=="PFC"),]
+> 
+> sort(table(paste(cell_info$diagnosis, cell_info$sample, sep=":")))
+
+         ASD:5978_BA9      Control:5976_BA9          ASD:5403_PFC 
+                  926                  1054                  1112 
+Control:5879_PFC_Nova          ASD:6033_BA9          ASD:5419_PFC 
+                 1850                  1970                  1972 
+Control:5936_PFC_Nova          ASD:5144_PFC      Control:5958_BA9 
+                 2033                  2047                  2083 
+         ASD:5864_BA9 Control:5408_PFC_Nova          ASD:5565_BA9 
+                 2148                  2255                  2319 
+         ASD:5945_PFC          ASD:5294_BA9          ASD:5278_PFC 
+                 2522                  2568                  2819 
+Control:5538_PFC_Nova          ASD:5531_BA9          ASD:5939_BA9 
+                 3034                  3054                  3085 
+     Control:5893_PFC     Control:4341_BA46      Control:5577_BA9 
+                 3317                  3849                  4131 
+         ASD:5841_BA9      Control:5387_BA9 
+                 5477                  6541 
+> 
+> # ------------------------------------------------------------------------
+> # read in count data of one region and one cluster
+> # ------------------------------------------------------------------------
+> 
+> dat1 = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+> dim(dat1)
+[1] 18041  6251
+> class(dat1)
+[1] "dgCMatrix"
+attr(,"package")
+[1] "Matrix"
+> 
+> # ------------------------------------------------------------------------
+> # subset cell information
+> # ------------------------------------------------------------------------
+> 
+> table(colnames(dat1) %in% cell_info$cell)
+
+TRUE 
+6251 
+> meta = cell_info[match(colnames(dat1), cell_info$cell),]
+> dim(meta)
+[1] 6251   16
+> meta[1:2,]
+                           cell cluster    sample individual region age sex
+1: AAACGGGAGCGGCTTC-1_4341_BA46     OPC 4341_BA46       4341    PFC  13   M
+2: AAAGATGAGCTACCGC-1_4341_BA46     OPC 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB6      SB2                           16
+2:   Control      CB6      SB2                           16
+   RNA Integrity Number genes UMIs RNA mitochondr. percent
+1:                  7.2  1620 2457               1.2617013
+2:                  7.2  1545 2792               0.1074499
+   RNA ribosomal percent
+1:             1.2617013
+2:             0.3581662
+> 
+> summary(meta$UMIs/meta$genes)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.135   1.421   1.543   1.539   1.641   2.775 
+> 
+> # check each individual has a unique sample
+> table(tapply(meta$sample, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> # check each individual has a unique Capbatch
+> table(tapply(meta$Capbatch, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> table(meta$cluster)
+
+ OPC 
+6251 
+> table(meta$region)
+
+ PFC 
+6251 
+> 
+> sort(table(paste(meta$diagnosis, meta$sample, sep=":")))
+
+     Control:5976_BA9          ASD:5978_BA9          ASD:6033_BA9 
+                  129                   143                   166 
+         ASD:5294_BA9      Control:5958_BA9          ASD:5864_BA9 
+                  169                   178                   185 
+         ASD:5144_PFC Control:5879_PFC_Nova      Control:5893_PFC 
+                  197                   213                   231 
+         ASD:5939_BA9      Control:5577_BA9          ASD:5419_PFC 
+                  237                   247                   252 
+         ASD:5945_PFC          ASD:5403_PFC          ASD:5565_BA9 
+                  254                   260                   262 
+Control:5936_PFC_Nova          ASD:5531_BA9 Control:5538_PFC_Nova 
+                  272                   279                   290 
+Control:5408_PFC_Nova     Control:4341_BA46          ASD:5278_PFC 
+                  293                   383                   399 
+         ASD:5841_BA9      Control:5387_BA9 
+                  494                   718 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # run MAST
+> # ------------------------------------------------------------------------
+> 
+> rds = colSums(dat1)
+> med_rds = median(rds)
+> summary(rds)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    570    1331    1908    2008    2524    9866 
+> med_rds
+[1] 1908
+> 
+> dim(dat1)
+[1] 18041  6251
+> dat1[1:3,1:6]
+3 x 6 sparse Matrix of class "dgCMatrix"
+        AAACGGGAGCGGCTTC-1_4341_BA46 AAAGATGAGCTACCGC-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAAGCAAAGGCGTACA-1_4341_BA46 AAAGCAAGTGGTGTAG-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAAGTAGGTCAAAGCG-1_4341_BA46 AAATGCCTCACGATGT-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+> dat1 = t(t(dat1)/rds)*med_rds
+> dim(dat1)
+[1] 18041  6251
+> dat1[1:3,1:6]
+3 x 6 sparse Matrix of class "dgCMatrix"
+        AAACGGGAGCGGCTTC-1_4341_BA46 AAAGATGAGCTACCGC-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAAGCAAAGGCGTACA-1_4341_BA46 AAAGCAAGTGGTGTAG-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAAGTAGGTCAAAGCG-1_4341_BA46 AAATGCCTCACGATGT-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+> summary(colSums(dat1))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   1908    1908    1908    1908    1908    1908 
+> 
+> dat1_log = as.matrix(log2(1 + dat1)) #log transformed data
+> 
+> dim(dat1_log)
+[1] 18041  6251
+> dat1_log[1:3, 1:4]
+        AAACGGGAGCGGCTTC-1_4341_BA46 AAAGATGAGCTACCGC-1_4341_BA46
+DNAJC11                            0                            0
+NADK                               0                            0
+MASP2                              0                            0
+        AAAGCAAAGGCGTACA-1_4341_BA46 AAAGCAAGTGGTGTAG-1_4341_BA46
+DNAJC11                            0                            0
+NADK                               0                            0
+MASP2                              0                            0
+> cell_id = colnames(dat1_log)   # get the cell id from the data
+> gene_id = rownames(dat1_log)   # get the gene id from the data
+> 
+> fData = data.frame(primerid = gene_id)
+> cData = data.frame(wellKey  = cell_id)
+> 
+> # Cell info for meta
+> cell_rd = colSums(dat1)
+> CDR     = colSums(dat1 > 0) / nrow(dat1)
+> 
+> meta_ind = meta[, c("individual", "diagnosis")]
+> meta_ind = unique(meta_ind)
+> rownames(meta_ind) = meta_ind$individual
+> 
+> dim(meta)
+[1] 6251   16
+> meta[1:2,]
+                           cell cluster    sample individual region age sex
+1: AAACGGGAGCGGCTTC-1_4341_BA46     OPC 4341_BA46       4341    PFC  13   M
+2: AAAGATGAGCTACCGC-1_4341_BA46     OPC 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB6      SB2                           16
+2:   Control      CB6      SB2                           16
+   RNA Integrity Number genes UMIs RNA mitochondr. percent
+1:                  7.2  1620 2457               1.2617013
+2:                  7.2  1545 2792               0.1074499
+   RNA ribosomal percent
+1:             1.2617013
+2:             0.3581662
+> dim(meta_ind)
+[1] 23  2
+> meta_ind[1:2,]
+   individual diagnosis
+1:       4341   Control
+2:       5144       ASD
+> 
+> gc()
+            used   (Mb) gc trigger (Mb)  max used   (Mb)
+Ncells   6041880  322.7    9473505  506   7738029  413.3
+Vcells 136391120 1040.6  361353912 2757 272808871 2081.4
+> sca = FromMatrix(dat1_log, cData, fData)
+Assuming data assay in position 1, with name et is log-transformed.
+> colData(sca)$cngeneson = as.numeric(CDR)
+> colData(sca)$diagnosis = as.factor(meta$diagnosis)
+> colData(sca)$ind = as.factor(meta$individual)
+> colData(sca)$RIN = meta$'RNA Integrity Number'
+> colData(sca)
+DataFrame with 6251 rows and 5 columns
+                                            wellKey cngeneson diagnosis
+                                        <character> <numeric>  <factor>
+AAACGGGAGCGGCTTC-1_4341_BA46 AAACGGGAGCGGCTTC-1_4.. 0.0879109   Control
+AAAGATGAGCTACCGC-1_4341_BA46 AAAGATGAGCTACCGC-1_4.. 0.0839754   Control
+AAAGCAAAGGCGTACA-1_4341_BA46 AAAGCAAAGGCGTACA-1_4.. 0.0887977   Control
+AAAGCAAGTGGTGTAG-1_4341_BA46 AAAGCAAGTGGTGTAG-1_4.. 0.0878554   Control
+AAAGTAGGTCAAAGCG-1_4341_BA46 AAAGTAGGTCAAAGCG-1_4.. 0.0604179   Control
+...                                             ...       ...       ...
+TTGTAGGCATGGGAAC-1_6033_BA9  TTGTAGGCATGGGAAC-1_6.. 0.0319827       ASD
+TTTGGTTGTCGAACAG-1_6033_BA9  TTTGGTTGTCGAACAG-1_6.. 0.0344216       ASD
+TTTGTCAAGACTAGAT-1_6033_BA9  TTTGTCAAGACTAGAT-1_6.. 0.0375256       ASD
+TTTGTCACAAGGCTCC-1_6033_BA9  TTTGTCACAAGGCTCC-1_6.. 0.0498864       ASD
+TTTGTCATCGTTACGA-1_6033_BA9  TTTGTCATCGTTACGA-1_6.. 0.0610831       ASD
+                                  ind       RIN
+                             <factor> <numeric>
+AAACGGGAGCGGCTTC-1_4341_BA46     4341       7.2
+AAAGATGAGCTACCGC-1_4341_BA46     4341       7.2
+AAAGCAAAGGCGTACA-1_4341_BA46     4341       7.2
+AAAGCAAGTGGTGTAG-1_4341_BA46     4341       7.2
+AAAGTAGGTCAAAGCG-1_4341_BA46     4341       7.2
+...                               ...       ...
+TTGTAGGCATGGGAAC-1_6033_BA9      6033         8
+TTTGGTTGTCGAACAG-1_6033_BA9      6033         8
+TTTGTCAAGACTAGAT-1_6033_BA9      6033         8
+TTTGTCACAAGGCTCC-1_6033_BA9      6033         8
+TTTGTCATCGTTACGA-1_6033_BA9      6033         8
+> 
+> #sca=sca[1:10,]
+> 
+> rm(dat1_log)
+> gc()
+            used   (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells   6071945  324.3    9473505  506.0   7738029  413.3
+Vcells 136464468 1041.2  403321021 3077.1 419316402 3199.2
+> 
+> getOption("mc.cores")
+NULL
+> 
+> date()
+[1] "Thu Jun 10 22:09:59 2021"
+> b0 = zlm(formula = ~ diagnosis + cngeneson + RIN, sca = sca, 
++          parallel = TRUE)
+
+Done!
+> date()
+[1] "Thu Jun 10 22:19:43 2021"
+> b1 = zlm(formula = ~ diagnosis + (1 | ind) + cngeneson + RIN, sca = sca, 
++          method = 'glmer', ebayes = FALSE, parallel = TRUE)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00306161 (tol = 0.002, component 1)
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00227098 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0888428 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0443163 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00221985 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.890588 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : grouping factors must have > 1 sampled level
+In addition: There were 15 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 12 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 43 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00264409 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00217407 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00250226 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00273262 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00396214 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0213823 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00237207 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00235553 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00481427 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0025928 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0557445 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 14 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0021088 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00247961 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00308673 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00240223 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00254909 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00225637 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0341992 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00242341 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00410501 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00673249 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00314113 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00210665 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0123386 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0934673 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: large eigenvalue ratio
+ - Rescale variables?
+Error : grouping factors must have > 1 sampled level
+In addition: There were 46 warnings (use warnings() to see them)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error : grouping factors must have > 1 sampled level
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 31 warnings (use warnings() to see them)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 38 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00253148 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0308975 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0318127 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: large eigenvalue ratio
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 25 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00214518 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0202447 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00227572 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 17 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 37 warnings (use warnings() to see them)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 28 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00207928 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00244901 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0053552 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00629068 (tol = 0.002, component 1)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00207643 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00332666 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0030815 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00538997 (tol = 0.002, component 1)
+6: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00347646 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00216986 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.251495 (tol = 0.002, component 1)
+10: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 19 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 16 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 30 warnings (use warnings() to see them)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 17 warnings (use warnings() to see them)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 40 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 23 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 13 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00232749 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00316279 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 12 warnings (use warnings() to see them)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 29 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0534067 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00253963 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00546832 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.630012 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 40 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00327156 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.031856 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0118599 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00217261 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.185601 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0032713 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00478044 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0713768 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00279248 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00243097 (tol = 0.002, component 1)
+10: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00226222 (tol = 0.002, component 1)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error : grouping factors must have > 1 sampled level
+In addition: There were 29 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 12 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00209473 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.994614 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00292877 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0031126 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0023315 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00211686 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.003633 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00260319 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00351671 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00260785 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0132572 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0031274 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00209685 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0459202 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00401889 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.041301 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0021832 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00213163 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0046706 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0117388 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.117784 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : grouping factors must have > 1 sampled level
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00203407 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00405071 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00250005 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00313239 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00438318 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00451907 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.240033 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00272746 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00348498 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.004168 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0351909 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0253423 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0237435 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0024711 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 14 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 12 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00241905 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00221286 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00200505 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00222553 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00282578 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0504207 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0413141 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.044917 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00850306 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00247381 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 28 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0020065 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00216676 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00258775 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00200547 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00208862 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0032769 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00207906 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00287062 (tol = 0.002, component 1)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 42 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 21 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 18 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00284429 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00330176 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00303776 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00490038 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0467547 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00233939 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00227066 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00277011 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00226352 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.41761 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00210136 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00299219 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00251886 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00242233 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00402409 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.193857 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 23 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 41 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 17 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 33 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 22 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00922088 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 13 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 13 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 23 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00315464 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00309369 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00437463 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0401939 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 25 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 39 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 21 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 40 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 19 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 27 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 11 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0213793 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.259564 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0031002 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00201892 (tol = 0.002, component 1)
+fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 45 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+
+Done!
+Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00479978 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00416218 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00203161 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0022333 (tol = 0.002, component 1)
+> date()
+[1] "Fri Jun 11 08:32:38 2021"
+> 
+> b0
+Fitted zlm on 18041 genes and 6251 cells.
+ Using BayesGLMlike ~ diagnosis + cngeneson + RIN 
+> b1
+Fitted zlm on 18041 genes and 6251 cells.
+ Using LMERlike ~ diagnosis + (1 | ind) + cngeneson + RIN 
+> 
+> date()
+[1] "Fri Jun 11 08:32:38 2021"
+> lrt0 = lrTest(b0, "diagnosis")
+Refitting on reduced model...
+
+Done!
+> date()
+[1] "Fri Jun 11 08:41:55 2021"
+> lrt1 = lrTest(b1, "diagnosis")
+Refitting on reduced model...
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00205953 (tol = 0.002, component 1)
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0022349 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.336999 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0246098 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00224763 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0459286 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00348212 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0328514 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00351729 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00477461 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0024637 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00343287 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00304007 (tol = 0.002, component 1)
+8: In optwrap(optimizer, devfun, start, rho$lower, control = control,  :
+  convergence code 3 from bobyqa: bobyqa -- a trust region step failed to reduce q
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00209399 (tol = 0.002, component 1)
+10: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0399921 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 16 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 35 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00381051 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00322053 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00348448 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00659398 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00322122 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00210675 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00339575 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0567202 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 15 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 13 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00279441 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00424051 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0027678 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00258699 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00253532 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0324415 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00252791 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00267554 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0464764 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 16 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 16 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 41 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 16 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 49 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0209248 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00225771 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00218349 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0022353 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00203651 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00531306 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00263566 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00212782 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0320926 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: large eigenvalue ratio
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 27 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00300712 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00200366 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00232078 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0200307 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0024077 (tol = 0.002, component 1)
+Error in eval_f(x, ...) : Downdated VtV is not positive definite
+In addition: There were 13 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 39 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 24 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00297439 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00260598 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00320944 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00218069 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0105671 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00251675 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00428329 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00201567 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00295957 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.002091 (tol = 0.002, component 1)
+6: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.251495 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.323374 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00254807 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0380521 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: large eigenvalue ratio
+ - Rescale variables?
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00377809 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00322138 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 18 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.03447 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00348091 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 38 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 14 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 42 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 11 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00215408 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00401699 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00258587 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00250198 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00208122 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00204327 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00233251 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00210101 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00266017 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00302898 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00204275 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00214874 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.034261 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00225612 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0023781 (tol = 0.002, component 1)
+10: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00235861 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00403459 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0296946 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00209772 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0030678 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00220246 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00304962 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 15 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 24 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 30 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00206601 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0452979 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0201758 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00278884 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0299453 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00205454 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0305542 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00327543 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00415304 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.002479 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0418293 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0718682 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0249413 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00265816 (tol = 0.002, component 1)
+10: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00205846 (tol = 0.002, component 1)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 30 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00710145 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00409237 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00322527 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00275027 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00214639 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00289512 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00226927 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0212936 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00261777 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0023245 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0370632 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0213269 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00247826 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0025201 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00247641 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00260578 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0367526 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: large eigenvalue ratio
+ - Rescale variables?
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00296075 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0468729 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00211084 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00218685 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00385012 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00267295 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: large eigenvalue ratio
+ - Rescale variables?
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.37173 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : grouping factors must have > 1 sampled level
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00266728 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0021193 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00320792 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00235963 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00324253 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00312718 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00286612 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0501122 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00322125 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00204163 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 15 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00247571 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00414201 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00280618 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0021002 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00308517 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00205227 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00345887 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00255848 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00301658 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0510834 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00448126 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00208527 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0020661 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0472823 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00208797 (tol = 0.002, component 1)
+10: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0467915 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error : grouping factors must have > 1 sampled level
+In addition: There were 16 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0330501 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00283901 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00208436 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00280357 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0681689 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 22 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.041072 (tol = 0.002, component 1)
+3: In optwrap(optimizer, devfun, getStart(start, rho$pp), lower = rho$lower,  :
+  convergence code -4 from nloptwrap: NLOPT_ROUNDOFF_LIMITED: Roundoff errors led to a breakdown of the optimization algorithm. In this case, the returned minimum may still be useful. (e.g. this error occurs in NEWUOA if one tries to achieve a tolerance too close to machine precision.)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  unable to evaluate scaled gradient
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge: degenerate  Hessian with 1 negative eigenvalues
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00403922 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00233122 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0696318 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00336728 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00236289 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00320604 (tol = 0.002, component 1)
+5: In optwrap(optimizer, devfun, getStart(start, rho$pp), lower = rho$lower,  :
+  convergence code -4 from nloptwrap: NLOPT_ROUNDOFF_LIMITED: Roundoff errors led to a breakdown of the optimization algorithm. In this case, the returned minimum may still be useful. (e.g. this error occurs in NEWUOA if one tries to achieve a tolerance too close to machine precision.)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  unable to evaluate scaled gradient
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge: degenerate  Hessian with 1 negative eigenvalues
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.240521 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 22 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00206277 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0027755 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0022513 (tol = 0.002, component 1)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 15 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00978332 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00221241 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0415122 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: large eigenvalue ratio
+ - Rescale variables?
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.185709 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 33 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 50 or more warnings (use warnings() to see the first 50)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0288782 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0247276 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.725604 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model is nearly unidentifiable: very large eigenvalue
+ - Rescale variables?
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 22 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 15 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 25 warnings (use warnings() to see them)
+Error : grouping factors must have > 1 sampled level
+In addition: There were 13 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 23 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 13 warnings (use warnings() to see them)
+Error in (function (cl, name, valueClass)  : 
+  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
+In addition: There were 27 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00927716 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00295219 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00200816 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00210816 (tol = 0.002, component 1)
+6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00532228 (tol = 0.002, component 1)
+7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00218007 (tol = 0.002, component 1)
+8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0293333 (tol = 0.002, component 1)
+9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.002448 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00886533 (tol = 0.002, component 1)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: There were 40 warnings (use warnings() to see them)
+Error : number of levels of each grouping factor must be < number of observations (problems: ind)
+In addition: Warning message:
+In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+
+Done!
+Warning messages:
+1: In nobs.default(object, use.fallback = use.fallback) :
+  no 'nobs' method is available
+2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00285803 (tol = 0.002, component 1)
+3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0028678 (tol = 0.002, component 1)
+4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.00336606 (tol = 0.002, component 1)
+5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
+  Model failed to converge with max|grad| = 0.0325949 (tol = 0.002, component 1)
+> date()
+[1] "Fri Jun 11 16:04:45 2021"
+> 
+> dim(lrt0)
+[1] 18041     3     3
+> lrt0[1,,]
+         metric
+test.type    lambda df Pr(>Chisq)
+   cont   0.0360261  1  0.8494616
+   disc   2.3934967  1  0.1218408
+   hurdle 2.4295228  2  0.2967808
+> 
+> dim(lrt1)
+[1] 18041     3     3
+> lrt1[1,,]
+         metric
+test.type     lambda df Pr(>Chisq)
+   cont   0.02657719  1  0.8704987
+   disc   2.04179678  1  0.1530288
+   hurdle 2.06837397  2  0.3555153
+> 
+> mast_pval_glm = apply(lrt0, 1, function(x){x[3,3]})
+> length(mast_pval_glm)
+[1] 18041
+> mast_pval_glm[1:4]
+  DNAJC11      NADK     MASP2     CLCN6 
+0.2967808 0.8693528 0.5815472 0.9403690 
+> 
+> mast_pval_glmer = apply(lrt1, 1, function(x){x[3,3]})
+> length(mast_pval_glmer)
+[1] 18041
+> mast_pval_glmer[1:4]
+  DNAJC11      NADK     MASP2     CLCN6 
+0.3555153 0.7257969 0.3584483 0.8638432 
+> 
+> pdf(sprintf("figures/step1b_MAST_glmer_%s_pval_hist_final.pdf", grp), 
++     width=6, height=3)
+> par(mfrow=c(1,2), bty="n", mar=c(5,4,2,1))
+>   hist(mast_pval_glm, main="MAST_glm", xlab="p-value", breaks=50)
+>   hist(mast_pval_glmer, main="MAST_glmer", xlab="p-value", breaks=50)
+> dev.off()
+null device 
+          1 
+> 
+> # ------------------------------------------------------------------------
+> # summarize p-value distribution
+> # ------------------------------------------------------------------------
+> 
+> pdf(sprintf("figures/step1b_MAST_%s_compare_pval_Seq.pdf", grp), 
++     width=9, height=3)
+> par(mfrow=c(1,3), bty="n", mar=c(5,4,1,1))
+> hist(mast_pval_glm, main="MAST glm", xlab="p-value")
+> hist(mast_pval_glmer, main="MAST glmer", xlab="p-value")
+> plot(-log10(mast_pval_glm), -log10(mast_pval_glmer), main="-log10(p-value)", 
++      xlab="MAST glm", ylab="MAST glmer", 
++      pch=20, cex=0.2, col=rgb(0.8, 0.1, 0.1, 0.5))
+> abline(0, 1, col="darkblue")
+> dev.off()
+null device 
+          1 
+> # ------------------------------------------------------------------------
+> # save the results
+> # ------------------------------------------------------------------------
+> 
+> 
+> fwrite(data.frame(mast_pval_glm), file=sprintf("res/step1b_MAST_%s_glm.tsv", grp), 
++        sep = "\t", row.names=TRUE, col.names=FALSE)
+> 
+> fwrite(data.frame(mast_pval_glmer), file=sprintf("res/step1b_MAST_%s_glmer.tsv", grp), 
++             sep = "\t", row.names=TRUE, col.names=FALSE)
+> 
+> gc()
+            used   (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells   6257525  334.2   12537132  669.6  12537132  669.6
+Vcells 140144115 1069.3  479646404 3659.5 599558005 4574.3
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.5 LTS
+
+Matrix products: default
+BLAS/LAPACK: /opt/intel/compilers_and_libraries_2018.2.199/linux/mkl/lib/intel64_lin/libmkl_rt.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] doRNG_1.8.2                 rngtools_1.5               
+ [3] doParallel_1.0.16           iterators_1.0.13           
+ [5] foreach_1.5.1               lme4_1.1-27                
+ [7] MAST_1.18.0                 SingleCellExperiment_1.14.1
+ [9] SummarizedExperiment_1.22.0 Biobase_2.52.0             
+[11] GenomicRanges_1.44.0        GenomeInfoDb_1.28.0        
+[13] IRanges_2.26.0              S4Vectors_0.30.0           
+[15] BiocGenerics_0.38.0         MatrixGenerics_1.4.0       
+[17] matrixStats_0.59.0          dplyr_1.0.6                
+[19] data.table_1.14.0           Matrix_1.3-3               
+
+loaded via a namespace (and not attached):
+ [1] progress_1.2.2         tidyselect_1.1.1       purrr_0.3.4           
+ [4] reshape2_1.4.4         splines_4.1.0          lattice_0.20-44       
+ [7] colorspace_2.0-1       vctrs_0.3.8            generics_0.1.0        
+[10] utf8_1.2.1             rlang_0.4.11           pillar_1.6.1          
+[13] nloptr_1.2.2.2         glue_1.4.2             GenomeInfoDbData_1.2.6
+[16] lifecycle_1.0.0        plyr_1.8.6             stringr_1.4.0         
+[19] zlibbioc_1.38.0        munsell_0.5.0          gtable_0.3.0          
+[22] codetools_0.2-18       fansi_0.5.0            Rcpp_1.0.6            
+[25] scales_1.1.1           DelayedArray_0.18.0    XVector_0.32.0        
+[28] abind_1.4-5            hms_1.1.0              digest_0.6.27         
+[31] ggplot2_3.3.3          stringi_1.6.2          grid_4.1.0            
+[34] tools_4.1.0            bitops_1.0-7           magrittr_2.0.1        
+[37] RCurl_1.98-1.3         tibble_3.1.2           crayon_1.4.1          
+[40] pkgconfig_2.0.3        ellipsis_0.3.2         MASS_7.3-54           
+[43] prettyunits_1.1.1      minqa_1.2.4            R6_2.5.0              
+[46] boot_1.3-28            nlme_3.1-152           compiler_4.1.0        
+> q(save="no")
+> proc.time()
+      user     system    elapsed 
+146606.806    417.849  64507.184 

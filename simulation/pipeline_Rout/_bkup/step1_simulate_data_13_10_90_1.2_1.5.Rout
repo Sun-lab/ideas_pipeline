@@ -1,0 +1,1081 @@
+
+R version 3.6.2 (2019-12-12) -- "Dark and Stormy Night"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #########################################################################
+> #                                                                       #
+> #                                                                       #
+> #                 Part I: scRNA seq data Simulation                     #
+> #                                                                       #
+> #                                                                       #
+> #########################################################################
+> 
+> # We simulate several groups of genes
+> #    The first group has mean expression difference,
+> #    The second group has variance difference.
+> 
+> # we simulate scRNAseq data per gene per cell from a zero inflated 
+> # negative binomial distribution.
+> # In the following codes, we simulate our data based on the
+> # real dataset from Velmeshev et al, 2019
+> 
+> # This dataset was generated using 10x Genomics platform. The read count
+> # data were downloaded from the link of "Gene / cell matrix (raw)" .
+> # from the interactive web browser at Velmeshev et al, 2019
+> # (https://cells.ucsc.edu/autism/).
+> 
+> # We apply the Deep count autoencoder(DCA) for denoising
+> # (https://github.com/theislab/dca) the data. Then we use the output of 
+> # DCA as reference to simulate our data.
+> 
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=13"   "nctrl=10"   "ncell=90"   "r_mean=1.2" "r_var=1.5" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 13      # case individuals
++   nctrl    = 10      # control individuals
++   ncell    = 360    # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_13_nctrl_10_ncell_90_fold_mean_1.2_var_1.5"
+> 
+> # ---------------------------------------------------------------
+> # additional parameters
+> # ---------------------------------------------------------------
+> 
+> nCore = 10          # number of cores for multi-core computation
+> nGeneMean  = 500    # number of genes with different means in cases
+> nGeneVar   = 500    # number of genes with different variance in cases
+> nGeneBlank = 3000   # number of genes equivalently expressed
+> nGeneTotal = nGeneMean + nGeneVar + nGeneBlank # total numbers of genes
+> nall       = ncase + nctrl
+> 
+> # we use the cells from one cell type (specifieid by grp1) for simulation
+> grp = "PFC_L2_3"
+> grp1 = gsub("PFC_", "", grp)
+> grp1
+[1] "L2_3"
+> 
+> data.dir.github = "../Autism/data/"
+> 
+> # The outpuf of DCA are too large to save at GitHub, e.g., 
+> # -rw-r--r--  1 wsun  staff   549M Mar 21 21:36 L2_3_dispersion.tsv.gz
+> # -rw-r--r--  1 wsun  staff   519M Mar 21 21:34 L2_3_mean.tsv.gz
+> # -rw-r--r--  1 wsun  staff   464M Mar 21 21:35 L2_3_pi.tsv.gz
+> # so we access them from this local folder:
+> data.dir.local  = "~/research/scRNAseq/data/autism/dca_PFC_all/"
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(MASS)
+> library(Matrix)
+> library(emdbook)
+> library(moments)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+> library(foreach)
+> library(data.table)
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+
+Attaching package: ‘pryr’
+
+The following object is masked from ‘package:data.table’:
+
+    address
+
+> library(ggplot2)
+> library(ggpubr)
+Loading required package: magrittr
+> library(doRNG)
+Loading required package: rngtools
+> theme_set(theme_bw())
+> 
+> source("../functions/ZINB_fit_functions.R")
+Classes and Methods for R developed in the
+Political Science Computational Laboratory
+Department of Political Science
+Stanford University
+Simon Jackman
+hurdle and zeroinfl functions by Achim Zeileis
+> source("../functions/kl_divergence_functions.R")
+> source("../functions/Fstat_functions.R")
+> 
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> ## NOTE: gene and sample index will be permuted later
+> ## so these indexes are the index in thepermuted data. 
+> 
+> # setting the index for the genes in three categories
+> i_mean  = 1:nGeneMean
+> i_var   = (nGeneMean + 1):(nGeneMean + nGeneVar)
+> i_blank = (nGeneMean + nGeneVar + 1):nGeneTotal
+> 
+> # setting the index for the cells in cases and controls
+> i_case = 1:(ncase * ncell)
+> i_ctrl = (ncase * ncell + 1):((ncase + nctrl) * ncell)
+> 
+> # sample gene index for genes differential expressed by mean or variance.
+> special_index = sample.int(nGeneTotal, (nGeneMean + nGeneVar))
+> mean_index    = as.numeric(special_index[i_mean])
+> var_index     = as.numeric(special_index[i_var])
+> EE_index      = (1:nGeneTotal)[-special_index]
+> 
+> geneIndex = list(mean_index=mean_index, var_index=var_index, 
++                  EE_index=EE_index)
+> 
+> # ------------------------------------------------------------------------
+> # load real data as reference for simulation
+> # ------------------------------------------------------------------------
+> 
+> dat1 = readRDS(file.path(data.dir.github, sprintf("ct_mtx/%s.rds", grp)))
+> class(dat1)
+[1] "dgCMatrix"
+attr(,"package")
+[1] "Matrix"
+> 
+> dim(dat1)
+[1] 18041  8626
+> dat1[1:5,1:4]
+5 x 4 sparse Matrix of class "dgCMatrix"
+         AAACCTGCACCCATTC-1_4341_BA46 AAACGGGGTCGGCATC-1_4341_BA46
+DNAJC11                             1                            3
+NADK                                .                            .
+MASP2                               .                            .
+CLCN6                               .                            .
+TNFRSF1B                            .                            .
+         AAAGATGCAGCGTCCA-1_4341_BA46 AAAGATGGTCCGAATT-1_4341_BA46
+DNAJC11                             .                            .
+NADK                                .                            .
+MASP2                               .                            .
+CLCN6                               .                            .
+TNFRSF1B                            .                            .
+> 
+> n.zeros = rowSums(dat1 == 0)
+> summary(n.zeros)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+      0    5334    7141    6380    8037    8619 
+> 
+> table(n.zeros < 0.6*ncol(dat1))
+
+FALSE  TRUE 
+13781  4260 
+> table(n.zeros < 0.8*ncol(dat1))
+
+FALSE  TRUE 
+ 9781  8260 
+> 
+> # only keep the top nGeneTotal genes for our simulations
+> w2kp = which(rank(n.zeros) <= nGeneTotal)
+> summary(n.zeros[w2kp]/ncol(dat1))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.2195  0.3869  0.3494  0.4946  0.5784 
+> 
+> # ------------------------------------------------------------------------
+> # read in DCA output for this dataset
+> # ------------------------------------------------------------------------
+> 
+> # The major output of DCA includes 3 files, which describes the 
+> # mean/dipersion/dropout probabilities of each gene in each cell.
+> # According to their official website(https://github.com/theislab/dca):
+> # 
+> # mean.tsv represents the mean parameter of the ZINB distribution
+> # for each cell and gene.
+> # dispersion.tsv, the dispersion for each cell and gene.
+> # pi.tsv represent dropout probabilities for each cell and gene.
+> 
+> f_mean = file.path(data.dir.local, paste0(grp1, "_mean.tsv.gz"))
+> f_disp = file.path(data.dir.local, paste0(grp1, "_dispersion.tsv.gz"))
+> f_pi   = file.path(data.dir.local, paste0(grp1, "_pi.tsv.gz"))
+> 
+> dca_mean = fread(f_mean)
+> dca_disp = fread(f_disp)
+> dca_pi   = fread(f_pi)
+> 
+> dim(dca_mean)
+[1] 18041  8627
+> dim(dca_disp)
+[1] 18041  8627
+> dim(dca_pi)
+[1] 18041  8627
+> 
+> dca_mean[1:2,1:5]
+        V1 AAACCTGCACCCATTC-1_4341_BA46 AAACGGGGTCGGCATC-1_4341_BA46
+1: DNAJC11                     0.397500                     1.086740
+2:    NADK                     0.119555                     0.232555
+   AAAGATGCAGCGTCCA-1_4341_BA46 AAAGATGGTCCGAATT-1_4341_BA46
+1:                     0.555399                     0.316952
+2:                     0.148995                     0.083042
+> dca_disp[1:2,1:5]
+        V1 AAACCTGCACCCATTC-1_4341_BA46 AAACGGGGTCGGCATC-1_4341_BA46
+1: DNAJC11                     5.850218                     6.774821
+2:    NADK                     2.734374                     3.223318
+   AAAGATGCAGCGTCCA-1_4341_BA46 AAAGATGGTCCGAATT-1_4341_BA46
+1:                     5.961337                     5.427999
+2:                     2.737568                     2.492160
+> dca_pi[1:2,1:5]
+        V1 AAACCTGCACCCATTC-1_4341_BA46 AAACGGGGTCGGCATC-1_4341_BA46
+1: DNAJC11                     0.045510                     0.027179
+2:    NADK                     0.297938                     0.265238
+   AAAGATGCAGCGTCCA-1_4341_BA46 AAAGATGGTCCGAATT-1_4341_BA46
+1:                     0.050768                     0.058722
+2:                     0.334650                     0.393266
+> 
+> t_mean = data.matrix(dca_mean[,-1, with=FALSE])
+> t_disp = data.matrix(dca_disp[,-1, with=FALSE])
+> t_drop = data.matrix(dca_pi[,-1, with=FALSE])
+> 
+> rownames(t_mean) = dca_mean$V1
+> rownames(t_disp) = dca_disp$V1
+> rownames(t_drop) = dca_pi$V1
+> 
+> t_mean = t_mean[w2kp,]
+> t_disp = t_disp[w2kp,]
+> t_drop = t_drop[w2kp,]
+> 
+> dim(t_mean)
+[1] 4000 8626
+> t_mean[1:2,1:5]
+       AAACCTGCACCCATTC-1_4341_BA46 AAACGGGGTCGGCATC-1_4341_BA46
+VPS13D                     1.239637                     3.773921
+KIF1B                      2.775907                     7.985585
+       AAAGATGCAGCGTCCA-1_4341_BA46 AAAGATGGTCCGAATT-1_4341_BA46
+VPS13D                     1.761853                     1.004892
+KIF1B                      4.188724                     2.388040
+       AAAGTAGAGCTGTTCA-1_4341_BA46
+VPS13D                     0.479149
+KIF1B                      1.042084
+> 
+> dim(t_disp)
+[1] 4000 8626
+> t_disp[1:2,1:5]
+       AAACCTGCACCCATTC-1_4341_BA46 AAACGGGGTCGGCATC-1_4341_BA46
+VPS13D                     8.964484                     10.69026
+KIF1B                     15.370356                     17.84746
+       AAAGATGCAGCGTCCA-1_4341_BA46 AAAGATGGTCCGAATT-1_4341_BA46
+VPS13D                      9.04363                     8.194643
+KIF1B                      15.56455                    14.012970
+       AAAGTAGAGCTGTTCA-1_4341_BA46
+VPS13D                     7.582349
+KIF1B                     13.008091
+> 
+> dim(t_drop)
+[1] 4000 8626
+> t_drop[1:2,1:5]
+       AAACCTGCACCCATTC-1_4341_BA46 AAACGGGGTCGGCATC-1_4341_BA46
+VPS13D                     0.006862                     0.001988
+KIF1B                      0.001566                     0.000529
+       AAAGATGCAGCGTCCA-1_4341_BA46 AAAGATGGTCCGAATT-1_4341_BA46
+VPS13D                     0.007177                     0.010549
+KIF1B                      0.001790                     0.003596
+       AAAGTAGAGCTGTTCA-1_4341_BA46
+VPS13D                      0.01505
+KIF1B                       0.00586
+> 
+> summary(apply(t_drop,1,median))
+    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+0.000102 0.007664 0.018058 0.024584 0.031847 0.296203 
+> 
+> gc()
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   2069477  110.6    3754561   200.6         NA    3536624   188.9
+Vcells 681405227 5198.8 1539588286 11746.2      32768 1539584855 11746.2
+> rm(dca_mean)
+> rm(dca_disp)
+> rm(dca_pi)
+> 
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used    (Mb)
+Ncells   2043565  109.2    3754561  200.6         NA    3536624   188.9
+Vcells 214449579 1636.2 1231670629 9397.0      32768 1539584855 11746.2
+> 
+> # ------------------------------------------------------------------------
+> # summarize these parameters at sample level
+> # we want to estimate the sample_log_mean, sample_log_disp, and 
+> # sample_logit_drop per gene and per sample, by averaging across cells. 
+> # 
+> # In addition, we want to estimate the sd of sample_log_mean, after 
+> # removing the variation due to read-depth difference.
+> # ------------------------------------------------------------------------
+> 
+> col_info   = strsplit(colnames(t_mean), split="_")
+> sample_ids = sapply(col_info, function(x){paste(x[-1], collapse="_")})
+> sort(table(sample_ids))
+sample_ids
+     5978_BA9      5403_PFC      5976_BA9 5408_PFC_Nova 5936_PFC_Nova 
+           65            69           106           162           193 
+     5144_PFC      5577_BA9      5864_BA9 5879_PFC_Nova      5893_PFC 
+          202           215           275           278           284 
+     5419_PFC      6033_BA9     4341_BA46 5538_PFC_Nova      5565_BA9 
+          327           362           388           391           414 
+     5294_BA9      5945_PFC      5531_BA9      5841_BA9      5958_BA9 
+          415           422           431           451           542 
+     5939_BA9      5278_PFC      5387_BA9 
+          733           759          1142 
+> median(sort(table(sample_ids)))
+[1] 362
+> 
+> cell_rd = colSums(dat1)
+> cell_mean_sum = colSums(t_mean)
+> 
+> summary(cell_rd)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   2579    7746   12090   14177   18168  113632 
+> summary(cell_mean_sum)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   2112    6456   10036   11734   15043   98047 
+> cor(cell_rd, cell_mean_sum)
+[1] 0.9988887
+> 
+> log_t_mean   = log(t(t(t_mean)*(10000/cell_mean_sum)))
+> logit_t_drop = log(t_drop/(1 - t_drop))
+> 
+> xmt = model.matrix(~log(cell_mean_sum))
+> dim(xmt)
+[1] 8626    2
+> xmt[1:2,]
+  (Intercept) log(cell_mean_sum)
+1           1           8.854839
+2           1           9.854138
+> 
+> log_t_mean_resid = matrix(NA, nrow=nrow(t_mean), ncol=ncol(t_mean))
+> 
+> coef = matrix(NA, nrow=nrow(log_t_mean), ncol=2)
+> for(i in 1:nrow(log_t_mean)){
++   yi = log_t_mean[i,]
++   li = lm.fit(x=xmt, y=yi)
++   coef[i,] = li$coefficients
++   log_t_mean_resid[i,] = li$residuals
++ }
+> summary(coef)
+       V1                V2          
+ Min.   :-7.4373   Min.   :-0.70244  
+ 1st Qu.:-0.2764   1st Qu.:-0.08624  
+ Median : 0.4810   Median :-0.01986  
+ Mean   : 0.5183   Mean   :-0.01699  
+ 3rd Qu.: 1.2329   3rd Qu.: 0.04874  
+ Max.   : 7.2305   Max.   : 0.87004  
+> 
+> dim(log_t_mean_resid)
+[1] 4000 8626
+> log_t_mean_resid[1:2,1:2]
+             [,1]        [,2]
+[1,] -0.001732369  0.10745127
+[2,] -0.097511243 -0.06751755
+> 
+> tapply_median <- function(x){tapply(x, sample_ids, median)}
+> tapply_sd <- function(x){tapply(x, sample_ids, sd)}
+> 
+> sample_log_mean   = t(apply(log_t_mean,   1, tapply_median))
+> sample_log_disp   = t(apply(log(t_disp),  1, tapply_median))
+> sample_logit_drop = t(apply(logit_t_drop, 1, tapply_median))
+> 
+> dim(sample_log_mean)
+[1] 4000   23
+> sample_log_mean[1:2,1:3]
+       4341_BA46  5144_PFC  5278_PFC
+VPS13D 0.5916273 0.5596431 0.6224135
+KIF1B  1.4354638 1.3559097 1.4230302
+> summary(c(sample_log_mean))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+-2.0377 -0.1982  0.1780  0.3630  0.7417  7.0947 
+> 
+> dim(sample_log_disp)
+[1] 4000   23
+> sample_log_disp[1:2,1:3]
+       4341_BA46 5144_PFC 5278_PFC
+VPS13D  2.178705 2.202396 2.241818
+KIF1B   2.714130 2.687603 2.704526
+> summary(c(sample_log_disp))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ -1.022   1.790   1.976   1.946   2.168   3.114 
+> 
+> dim(sample_logit_drop)
+[1] 4000   23
+> sample_logit_drop[1:2,1:3]
+       4341_BA46  5144_PFC  5278_PFC
+VPS13D -4.890173 -5.104641 -5.276758
+KIF1B  -6.256382 -6.178136 -6.249342
+> summary(c(sample_logit_drop))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ -9.626  -4.821  -3.962  -4.098  -3.308   2.355 
+> 
+> sample_log_mean_sd = t(apply(log_t_mean_resid, 1, tapply_sd))
+> dim(sample_log_mean_sd)
+[1] 4000   23
+> sample_log_mean_sd[1:2,1:3]
+      4341_BA46   5144_PFC   5278_PFC
+[1,] 0.05868881 0.06815270 0.06262805
+[2,] 0.05890278 0.05634325 0.04802228
+> summary(c(sample_log_mean_sd))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+0.01531 0.08852 0.12615 0.15705 0.19644 0.83479 
+> 
+> # the sd of log_mean across individuals: it is calculted by 
+> # taking the medidan of log_mean within individual, and then 
+> # calculate sd across individuals
+> summary(apply(sample_log_mean, 1, sd))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+0.02437 0.11284 0.15791 0.19477 0.23190 0.97386 
+> 
+> # the median of the sd of log_mean within individuals
+> summary(apply(sample_log_mean_sd, 1, median))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+0.02759 0.08875 0.12531 0.15535 0.19560 0.72032 
+> 
+> # ------------------------------------------------------------------------
+> # check the effect of covariates
+> # ------------------------------------------------------------------------
+> 
+> meta0 = fread(file.path(data.dir.github, "meta.tsv"))
+> dim(meta0)
+[1] 104559     16
+> meta0[1:2,]
+                           cell     cluster    sample individual region age sex
+1: AAACCTGGTACGCACC-1_1823_BA24 Neu-NRGN-II 1823_BA24       1823    ACC  15   M
+2: AAACGGGCACCAGATT-1_1823_BA24        L5/6 1823_BA24       1823    ACC  15   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB8      SB3                           18
+2:   Control      CB8      SB3                           18
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                    7   622   774               2.4547804
+2:                    7  6926 24042               0.4450545
+   RNA ribosomal percent
+1:             1.4211886
+2:             0.4284169
+> 
+> meta0_ind = base::unique(meta0[,3:12])
+> dim(meta0_ind)
+[1] 41 10
+> meta0_ind[1:2,]
+      sample individual region age sex diagnosis Capbatch Seqbatch
+1: 1823_BA24       1823    ACC  15   M   Control      CB8      SB3
+2: 4341_BA24       4341    ACC  13   M   Control      CB8      SB3
+   post-mortem interval (hours) RNA Integrity Number
+1:                           18                  7.0
+2:                           16                  7.5
+> names(meta0_ind)[9:10] = c("PMI", "RIN")
+> 
+> meta0_ind = meta0_ind[which(meta0_ind$region=="PFC"),]
+> dim(meta0_ind)
+[1] 23 10
+> meta0_ind[1:2,]
+      sample individual region age sex diagnosis Capbatch Seqbatch PMI RIN
+1: 4341_BA46       4341    PFC  13   M   Control      CB6      SB2  16 7.2
+2:  5144_PFC       5144    PFC   7   M       ASD      CB1      SB1   3 8.0
+> 
+> table(meta0_ind$sex)
+
+ F  M 
+ 6 17 
+> table(meta0_ind$Seqbatch)
+
+SB1 SB2 
+ 10  13 
+> 
+> table(meta0_ind$sex, meta0_ind$diagnosis)
+   
+    ASD Control
+  F   3       3
+  M  10       7
+> table(meta0_ind$Seqbatch, meta0_ind$diagnosis)
+     
+      ASD Control
+  SB1   5       5
+  SB2   8       5
+> 
+> table(meta0_ind$sample == colnames(sample_log_mean))
+
+TRUE 
+  23 
+> 
+> pvals = matrix(NA, nrow=nGeneTotal, ncol=4)
+> colnames(pvals) = c("age", "sex", "seqBatch", "RIN")
+> 
+> for(i in 1:nGeneTotal){
++   yi = sample_log_mean[i,]
++   lmi = lm(yi ~ age, data=meta0_ind)
++   pvals[i,1] = as.numeric(summary(lmi)$coefficients[2,4])
++   
++   lmi = lm(yi ~ sex, data=meta0_ind)
++   pvals[i,2] = as.numeric(summary(lmi)$coefficients[2,4])
++   
++   lmi = lm(yi ~ Seqbatch, data=meta0_ind)
++   pvals[i,3] = as.numeric(summary(lmi)$coefficients[2,4])
++   
++   lmi = lm(yi ~ RIN, data=meta0_ind)
++   pvals[i,4] = as.numeric(summary(lmi)$coefficients[2,4])
++ }
+> 
+> summary(pvals)
+      age              sex               seqBatch             RIN           
+ Min.   :0.0000   Min.   :0.0006409   Min.   :0.000000   Min.   :0.0000296  
+ 1st Qu.:0.1168   1st Qu.:0.2199639   1st Qu.:0.002907   1st Qu.:0.0694227  
+ Median :0.3386   Median :0.4553677   Median :0.053079   Median :0.2651181  
+ Mean   :0.3910   Mean   :0.4714504   Mean   :0.203934   Mean   :0.3418826  
+ 3rd Qu.:0.6472   3rd Qu.:0.7174192   3rd Qu.:0.333667   3rd Qu.:0.5696323  
+ Max.   :0.9997   Max.   :0.9998505   Max.   :0.999482   Max.   :0.9990601  
+> 
+> # ------------------------------------------------------------------------
+> # simulation the 4 parameters for each gene across samples based on 
+> # a multivariate-normal distribution estimation for 
+> # log_mean, log_disp, logit_drop, log of log_mean_sd.
+> # ------------------------------------------------------------------------
+> 
+> par.names = c("mean", "dispersion", "dropout", "mean_sd")
+> sample_ctrl = array(dim = c(nGeneTotal, nall, 4), 
++                     dimnames = list(paste0("gene", 1:nGeneTotal), 
++                                     paste0("ind", 1:nall), par.names))
+> 
+> # first apply a normal quantile transformation to RIN, so that 
+> # later we can simply simulate RIN from standard normal distribution
+> normscore = function(vec) {
++   len  = length(na.omit(vec))+1
++   rank = rank(na.omit(vec))
++   ties = (rank - floor(rank)) > 0
++   new.vec = vec[!is.na(vec)] 
++   new.vec[!ties]=qnorm(rank[!ties]/len)
++   new.vec[ties] =0.5*(qnorm((rank[ties]+0.5)/len)+qnorm((rank[ties]-0.5)/len))
++   vec[!is.na(vec)] = new.vec
++   vec
++ }
+> 
+> RIN.qn = normscore(meta0_ind$RIN)
+> RIN.simu = rnorm(nall)
+> 
+> set.seed(2020)
+> 
+> for (ig in 1:nGeneTotal) {
++   sample_data = cbind(
++     c(sample_log_mean[ig, ]),
++     c(sample_log_disp[ig, ]),
++     c(sample_logit_drop[ig, ]),
++     c(log(sample_log_mean_sd[ig, ]))
++   )
++   
++   sample_data_mean = apply(sample_data, 2, mean, na.rm = TRUE)
++   cov_matrix = cov(sample_data)
++   
++   log_mean_ig = sample_data[,1]
++   lmi  = lm(log_mean_ig ~ RIN.qn)
++   beta = lmi$coefficients
++   
++   # add some extra variance for the mean parameter
++   e1 = rnorm(nall, mean=0, sd=sqrt(cov_matrix[1,1]))
++   log_mean_ig_simu = beta[1] + beta[2]*RIN.simu + e1
++   
++   for(j in 1:nall){
++     sample_data_mean_j    = sample_data_mean
++     sample_data_mean_j[1] = log_mean_ig_simu[j]
++     sample_ctrl[ig, j, ]  = exp(mvrnorm(1, mu = sample_data_mean_j, 
++                                       Sigma = cov_matrix))  
++   }
++ }
+> 
+> # double check the p-value of the covariate RIN
+> pvals.check = rep(NA, nGeneTotal)
+> for (ig in 1:nGeneTotal) {
++   y_ig = log(sample_ctrl[ig, , 1])
++   lm2  = lm(y_ig ~ RIN.simu)
++   pvals.check[ig] = summary(lm2)$coef[2,4]
++ }
+> summary(pvals.check)
+    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+0.000003 0.069229 0.267260 0.347360 0.591822 0.999571 
+> 
+> # the dropout
+> sample_ctrl[, , 3] = sample_ctrl[, , 3] / (1 + sample_ctrl[, , 3])
+> 
+> dim(sample_ctrl)
+[1] 4000   23    4
+> sample_ctrl[1,1:2,]
+         mean dispersion     dropout    mean_sd
+ind1 1.789084   9.534357 0.005117825 0.07960428
+ind2 1.738272   8.695974 0.007859031 0.07317690
+> 
+> set.seed(2019)
+> # random shuffle genes and samples
+> random_idx_gene = sample.int(nGeneTotal)
+> random_idx_sam  = sample.int(nall)
+> sample_ctrl = sample_ctrl[random_idx_gene, random_idx_sam, ]
+> RIN.simu = RIN.simu[random_idx_sam]
+> 
+> sample_param_case = sample_ctrl[, 1:ncase, ] 
+> sample_param_ctrl = sample_ctrl[, (ncase + 1):nall, ]
+> 
+> dim(sample_param_case)
+[1] 4000   13    4
+> dim(sample_param_ctrl)
+[1] 4000   10    4
+> 
+> sample_param_ctrl[1,1:2,]
+          mean dispersion    dropout   mean_sd
+ind22 3.686715   5.593221 0.01062656 0.2794028
+ind15 5.576798   6.332410 0.01207441 0.3082068
+> sample_param_case[1,1:2,]
+         mean dispersion     dropout  mean_sd
+ind8 4.659858   6.223139 0.005912901 0.260109
+ind7 4.246613   5.396777 0.012601071 0.303256
+> 
+> # check the mean value parameter across genes
+> rd_case = (colSums(sample_param_case[, , 1]))
+> rd_ctrl = (colSums(sample_param_ctrl[, , 1]))
+> 
+> t1 = t.test(rd_case, rd_ctrl)
+> t1
+
+	Welch Two Sample t-test
+
+data:  rd_case and rd_ctrl
+t = -0.91212, df = 10.543, p-value = 0.3821
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -1575.9626   655.9233
+sample estimates:
+mean of x mean of y 
+ 10239.60  10699.62 
+
+> 
+> quantile(rd_case)
+       0%       25%       50%       75%      100% 
+ 9456.557  9995.915 10152.106 10423.034 11533.470 
+> quantile(rd_ctrl)
+       0%       25%       50%       75%      100% 
+ 9406.201 10168.945 10372.520 10616.627 14851.931 
+> 
+> # ------------------------------------------------------------------------
+> # modify the parameters to simulate differences between cases and controls
+> # ------------------------------------------------------------------------
+> 
+> # To make sure all parameters are non-negative, we do some transformation
+> r_mean2 = r_mean
+> r_var2  = r_var
+> 
+> if (r_mean > 1) {
++   r_mean2 = 1 / r_mean
++ }
+> 
+> if (r_var < 1) {
++   r_var2 = 1 / r_var
++ }
+> 
+> # ------------------------------------------------------------------------
+> # set up parameters for the genes with change in mean expression
+> # ------------------------------------------------------------------------
+> 
+> set.seed(2019)
+> runifs = runif(length(mean_index))
+> 
+> # randomly choose half of the genes to modify in cases and 
+> # half of the genes to modify in controls
+> k = 0
+> for (i in mean_index) {
++   k = k + 1
++   if(runifs[k] > 0.5){
++     for (j in 1:ncase) {
++       sample_param_case[i, j, 1] = sample_param_case[i, j, 1]*r_mean2
++     }
++   }else{
++     for (j in 1:nctrl) {
++       sample_param_ctrl[i, j, 1] = sample_param_ctrl[i, j, 1]*r_mean2
++     }
++   }
++ }
+> 
+> sample_param_case[1:2, 1:2, ]
+, , mean
+
+             ind8     ind7
+gene1305 4.659858 4.246613
+gene1661 1.605312 1.420446
+
+, , dispersion
+
+              ind8     ind7
+gene1305  6.223139 5.396777
+gene1661 10.259656 9.225548
+
+, , dropout
+
+                ind8        ind7
+gene1305 0.005912901 0.012601071
+gene1661 0.005138283 0.007894661
+
+, , mean_sd
+
+               ind8       ind7
+gene1305 0.26010902 0.30325597
+gene1661 0.02968965 0.02933842
+
+> sample_param_case[1:2, 1:2, ]
+, , mean
+
+             ind8     ind7
+gene1305 4.659858 4.246613
+gene1661 1.605312 1.420446
+
+, , dispersion
+
+              ind8     ind7
+gene1305  6.223139 5.396777
+gene1661 10.259656 9.225548
+
+, , dropout
+
+                ind8        ind7
+gene1305 0.005912901 0.012601071
+gene1661 0.005138283 0.007894661
+
+, , mean_sd
+
+               ind8       ind7
+gene1305 0.26010902 0.30325597
+gene1661 0.02968965 0.02933842
+
+> 
+> rd_case    = colSums(sample_param_case[mean_index, , 1])
+> rd_control = colSums(sample_param_ctrl[mean_index, , 1])
+> 
+> summary(rd_case)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  923.1   943.1   968.8   971.2   989.8  1062.2 
+> summary(rd_control)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  890.0   914.1   946.8   947.1   987.9  1000.9 
+> t.test(rd_case, rd_control)
+
+	Welch Two Sample t-test
+
+data:  rd_case and rd_control
+t = 1.3891, df = 18.885, p-value = 0.181
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -12.21401  60.36332
+sample estimates:
+mean of x mean of y 
+ 971.1987  947.1240 
+
+> 
+> # ------------------------------------------------------------------------
+> # set up parameters for the genes with change in variance
+> # ------------------------------------------------------------------------
+> 
+> # the function calc_nb_param_var returns the parameters for changing 
+> # variance of a negative binomial distribution. 
+> # to make sure theta is larger than 0, r_v should be > 1. 
+> 
+> calc_nb_param_var = function(mu, theta, r_v) {
++   theta2 = theta  * mu / (mu * r_v + (r_v - 1) * theta)
++   if(theta2 < 0){ stop("negative theta2.") }
++   theta2
++ }
+> 
+> for (i in var_index) {
++   if(runif(1) > 0.5){
++     for (j in 1:ncase) {
++       x = sample_param_case[i, j, ]
++       sample_param_case[i,j,2] = calc_nb_param_var(mu = x[1], theta = x[2],
++                                                    r_v = r_var2)
++     }
++   }else{
++     for (j in 1:nctrl) {
++       x = sample_param_ctrl[i, j, ]
++       sample_param_ctrl[i,j,2] = calc_nb_param_var(mu = x[1], theta = x[2],
++                                                    r_v = r_var2)
++     }
++   }
++ }
+> 
+> quantile(colSums(sample_param_case[var_index, , 1]))
+      0%      25%      50%      75%     100% 
+1138.271 1195.639 1211.107 1245.090 1388.839 
+> quantile(colSums(sample_param_ctrl[var_index, , 1]))
+      0%      25%      50%      75%     100% 
+1143.558 1194.752 1240.097 1260.210 1309.345 
+> 
+> # ------------------------------------------------------------------------
+> # check the parameters
+> # ------------------------------------------------------------------------
+> 
+> # check the total read depth
+> rd_case    = colSums(sample_param_case[, , 1])
+> rd_control = colSums(sample_param_ctrl[, , 1])
+> 
+> summary(rd_case)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   9385    9920   10079   10162   10339   11448 
+> summary(rd_control)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   9312   10073   10274   10604   10523   14759 
+> t.test(rd_case, rd_control)
+
+	Welch Two Sample t-test
+
+data:  rd_case and rd_control
+t = -0.87694, df = 10.525, p-value = 0.4001
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+ -1558.6837   674.0082
+sample estimates:
+mean of x mean of y 
+ 10161.60  10603.94 
+
+> 
+> # scatter plot
+> pdf(sprintf("figures/check_simulation_scatter_%s.pdf", config), 
++     width = 9, height = 6)
+> par(mfrow = c(2, 3), pty = "s")
+> 
+> gene.list = list(non_DE=EE_index, mean_DE=mean_index, Var_DE=var_index)
+> 
+> for(k in 1:length(gene.list)){
++   glistk = gene.list[[k]]
++   nmk    = gsub("_", "-", names(gene.list)[k])
++   plot(apply(log10(sample_param_ctrl[glistk,,1]), 1, median),
++        apply(log10(sample_param_case[glistk,,1]), 1, median),
++        cex = .2, xlab = "control cells", ylab = "case cells",
++        main = sprintf("median of log10 mean, %s genes", nmk))
++   abline(0, 1, col = "red")
++ }
+> 
+> for(k in 1:length(gene.list)){
++   glistk = gene.list[[k]]
++   nmk    = gsub("_", "-", names(gene.list)[k])
++   plot(apply(log10(sample_param_ctrl[glistk,,2]), 1, median),
++        apply(log10(sample_param_case[glistk,,2]), 1, median),
++        cex = .2, xlab = "control cells", ylab = "case cells",
++        main = sprintf("median of log10 dispersion, %s genes", nmk))
++   abline(0, 1, col = "red")
++ }
+> 
+> dev.off()
+null device 
+          1 
+> 
+> # check the distribution of log_mean across genes, and sample_mean_sd_i
+> 
+> summary(log(sample_param_case[, 1, 1]))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+-2.5453 -0.2020  0.2036  0.3721  0.7922  4.9965 
+> summary(sample_param_case[, 1, 4])
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+0.02811 0.08900 0.12705 0.15800 0.19518 0.76815 
+> 
+> summary(c(log(sample_param_case[, , 1])))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+-3.2225 -0.2133  0.1893  0.3549  0.7615  7.5792 
+> summary(c(sample_param_case[, , 4]))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0155  0.0885  0.1262  0.1574  0.1970  0.9351 
+> 
+> # ------------------------------------------------------------------------
+> # simulate scRNAseq based on zinb parameters of cases and controls
+> # ------------------------------------------------------------------------
+> 
+> # Assume first ncase*ncell cells are from cases, the remaining are 
+> # from controls 
+> sim_matrix = matrix(0, nrow = nGeneTotal, ncol = nall * ncell)
+> 
+> set.seed(2018)
+> date()
+[1] "Wed Aug 19 21:46:05 2020"
+> for(i in 1:nall){
++   if(i %% 5 ==0){
++     cat(i, date(), "\n")
++   }
++   
++   idx_i = ((i-1)*ncell+1):(i*ncell)
++   
++   if (i > ncase) {
++     mean_i = sample_param_ctrl[, (i - ncase), 1]
++     disp_i = sample_param_ctrl[, (i - ncase), 2]
++     drop_i = sample_param_ctrl[, (i - ncase), 3]
++     sample_mean_sd_i = sample_param_ctrl[, (i - ncase), 4]
++   } else{
++     mean_i = sample_param_case[, i, 1]
++     disp_i = sample_param_case[, i, 2]
++     drop_i = sample_param_case[, i, 3]
++     sample_mean_sd_i = sample_param_case[, i, 4]
++   }
++   
++   sim_matrix[,idx_i] = 
++   foreach(k = 1:ncell, .combine=cbind) %dorng% {
++     sample_mean_k = exp(rnorm(nGeneTotal, log(mean_i), sample_mean_sd_i))
++     sim_vector_cell_k = rep(NA, nGeneTotal)
++     for (ig in 1:nGeneTotal) {
++       sim_vector_cell_k[ig] = emdbook::rzinbinom(1, sample_mean_k[ig], 
++                                                  disp_i[ig], drop_i[ig])
++     }
++     sim_vector_cell_k
++   }
++ }
+5 Wed Aug 19 21:46:09 2020 
+10 Wed Aug 19 21:46:14 2020 
+15 Wed Aug 19 21:46:19 2020 
+20 Wed Aug 19 21:46:24 2020 
+> date()
+[1] "Wed Aug 19 21:46:28 2020"
+> 
+> dim(sim_matrix)
+[1] 4000 2070
+> sim_matrix[1:8,1:6]
+     [,1] [,2] [,3] [,4] [,5] [,6]
+[1,]    2    3    0    4    7    1
+[2,]    0    2    2    1    0    1
+[3,]    1    0    0    0    0    1
+[4,]    0    1    1    2    3    2
+[5,]    1    0    0    0    0    1
+[6,]    0    1    2    0    2    2
+[7,]    2    5    1    5    1    3
+[8,]    2   10    5    2    7    1
+> 
+> table(c(sim_matrix) == 0, useNA="ifany")
+
+  FALSE    TRUE 
+5477170 2802830 
+> table(c(sim_matrix) == 0)/(nrow(sim_matrix)*ncol(sim_matrix))
+
+   FALSE     TRUE 
+0.661494 0.338506 
+> 
+> ####################### Meta information collection #################
+> 
+> # the phenotype and individual information of simulated samples.
+> phenotype  = c(rep(1, ncase * ncell), rep(0, nctrl * ncell))
+> individual = paste0("ind", c(rep(1:nall, each = ncell)))
+> 
+> # Count info for matrix
+> cell_id = paste0("cell", 1:ncol(sim_matrix))
+> gene_id = paste0("gene", 1:nrow(sim_matrix))
+> 
+> rownames(sim_matrix) = gene_id
+> colnames(sim_matrix) = cell_id
+> 
+> # Cell info for meta
+> cell_rd = colSums(sim_matrix)
+> CDR     = colSums(sim_matrix > 0) / nrow(sim_matrix)
+> meta    = data.frame(cell_id, individual, phenotype, cell_rd, CDR, 
++                      stringsAsFactors=FALSE)
+> dim(meta)
+[1] 2070    5
+> meta[1:2,]
+      cell_id individual phenotype cell_rd    CDR
+cell1   cell1       ind1         1    9649 0.6655
+cell2   cell2       ind1         1   10311 0.6645
+> 
+> meta_ind = meta[, c("individual", "phenotype")]
+> meta_ind = unique(meta_ind)
+> rownames(meta_ind) = meta_ind$individual
+> 
+> dim(meta_ind)
+[1] 23  2
+> meta_ind[1:2,]
+     individual phenotype
+ind1       ind1         1
+ind2       ind2         1
+> 
+> meta_ind$RIN = RIN.simu
+> 
+> pdf(sprintf("figures/check_covariates_%s.pdf", config), 
++     width=6, height=3)
+> par(mfrow=c(1,2), mar=c(5,4,1,1), bty="n")
+> boxplot(log10(meta$cell_rd) ~ meta$phenotype, xlab="group", 
++         ylab="log10(read-depth)")
+> boxplot(meta$CDR ~ meta$phenotype, xlab="group", ylab="CDR")
+> dev.off()
+null device 
+          1 
+> 
+> # ------------------------------------------------------------------------
+> # save the simulated data
+> # ------------------------------------------------------------------------
+> 
+> saveRDS(sim_matrix, file=sprintf("data/sim_matrix_%s.rds", config))
+> saveRDS(meta,       file=sprintf("data/meta_%s.rds", config))
+> saveRDS(meta_ind,   file=sprintf("data/meta_ind_%s.rds", config))
+> saveRDS(geneIndex,  file=sprintf("data/gene_index_%s.rds", config))
+> 
+> write.csv(sim_matrix, sprintf("data/sim_matrix_%s.csv", config))
+> 
+> sessionInfo()
+R version 3.6.2 (2019-12-12)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS Catalina 10.15.6
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] pscl_1.5.5        doRNG_1.8.2       rngtools_1.5      ggpubr_0.2.5     
+ [5] magrittr_1.5      ggplot2_3.3.1     pryr_0.1.4        data.table_1.12.8
+ [9] doParallel_1.0.15 iterators_1.0.12  foreach_1.4.7     moments_0.14     
+[13] emdbook_1.3.11    Matrix_1.2-18     MASS_7.3-51.5    
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.3          compiler_3.6.2      pillar_1.4.3       
+ [4] plyr_1.8.5          R.methodsS3_1.8.0   R.utils_2.9.2      
+ [7] tools_3.6.2         digest_0.6.23       lifecycle_0.2.0    
+[10] tibble_3.0.1        gtable_0.3.0        lattice_0.20-38    
+[13] pkgconfig_2.0.3     rlang_0.4.6         mvtnorm_1.0-12     
+[16] coda_0.19-3         withr_2.1.2         dplyr_0.8.4        
+[19] stringr_1.4.0       vctrs_0.3.0         tidyselect_1.0.0   
+[22] stats4_3.6.2        grid_3.6.2          glue_1.3.1         
+[25] R6_2.4.1            bdsmatrix_1.3-4     purrr_0.3.3        
+[28] scales_1.1.0        codetools_0.2-16    ellipsis_0.3.0     
+[31] assertthat_0.2.1    bbmle_1.0.23.1      colorspace_1.4-1   
+[34] ggsignif_0.6.0      numDeriv_2016.8-1.1 stringi_1.4.5      
+[37] munsell_0.5.0       crayon_1.3.4        R.oo_1.23.0        
+> 
+> mem_used()
+2.76 GB
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used    (Mb)
+Ncells   2222781  118.8    3754562  200.6         NA    3754562   200.6
+Vcells 329783153 2516.1  985336504 7517.6      32768 1539584855 11746.2
+> 
+> q(save = "no")
+> proc.time()
+   user  system elapsed 
+285.237  54.638 127.146 

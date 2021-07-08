@@ -1,0 +1,221 @@
+
+R version 4.0.2 (2020-06-22) -- "Taking Off Again"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # convert pvals to qvals
+> # count # of significant genes from qvalue based on thresholds
+> # threshold = c(0.1, 0.2, 0.3, 0.4)
+> 
+> # should be right after step1g
+> 
+> 
+> # ========================================================================
+> # libraries and path
+> # ========================================================================
+> 
+> library(MASS)
+> library(data.table)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+> library(doRNG)
+Loading required package: rngtools
+> library(qvalue)
+> library(ggplot2)
+> library(ggpubr)
+> library(ggpointdensity)
+> library(fgsea)
+> library(stringr)
+> 
+> 
+> 
+> ctypes = c("L2_3", "L4", "Microglia", "Endothelial", "IN-SV2C", "AST-PP", 
++           "IN-VIP", "IN-SST", "IN-PV", "AST-FB", "Oligodendrocytes", 
++           "L5_6", "L5_6-CC", "OPC", "Neu-NRGN-II", "Neu-NRGN-I", "Neu-mat")
+> 
+> length(ctypes)
+[1] 17
+> 
+> for (threshold in c(0.1, 0.2, 0.3, 0.4)){
++   # the following line contains a hard coded ncol = 10
++   # may change to make it more flexible
++   sig_count_mat = matrix(ncol = 10, nrow = length(ctypes))
++   check_length <- function(v){
++     length(which(v < threshold))
++   }
++   for (type_ind in 1:length(ctypes)){
++     
++     grp = paste("PFC_", ctypes[type_ind], sep = "")
++     print(sprintf("grp = %s", grp))
++     pvals = fread(sprintf("res/step1e_pvals_%s.tsv", grp))
++ 
++     methods = names(pvals)[2:10]
++     dim(pvals)
++     head(pvals)
++ 
++     qvals = matrix(ncol = ncol(pvals), nrow = nrow(pvals))
++     qvals = as.data.frame(qvals)
++     names(qvals) = names(pvals)
++     qvals$gene = pvals$gene
++ 
++     pi_list = list()
++ 
++     for(method in methods){
++       pval_v = pvals[[method]]
++       pi_list[[method]] = min(1, 2*sum(pval_v > 0.5, na.rm = TRUE)/sum(!is.na(pval_v)))
++       if(pi_list[[method]] < 0.5){
++         pi_list[method] = 0.5
++         }
++       qval   = qvalue(pval_v, pi0=pi_list[[method]])
++       qvals[[method]] = qval$qvalues
++     }
++ 
++   sig_count_mat[type_ind, 2:ncol(sig_count_mat)] = apply(qvals[, 2:10], 2, check_length)
++   if (threshold == 0.4){
++     file.name.q = sprintf("res/step1l_qvals_%s.tsv", grp)
++     fwrite(qvals, file = file.name.q, sep = "\t")
++     }  
++   }
++   
++   sig_count_df = as.data.frame(sig_count_mat)
++   names(sig_count_df) = c("cell_type", methods)
++   sig_count_df$cell_type = ctypes
++   file.name = sprintf("res/step1l_counts_sig_qval_original_ctypes_threshold_%s.tsv",
++                       as.character(threshold))
++   fwrite(sig_count_df, file = file.name, sep = "\t")
++   
++ }
+[1] "grp = PFC_L2_3"
+[1] "grp = PFC_L4"
+[1] "grp = PFC_Microglia"
+[1] "grp = PFC_Endothelial"
+[1] "grp = PFC_IN-SV2C"
+[1] "grp = PFC_AST-PP"
+[1] "grp = PFC_IN-VIP"
+[1] "grp = PFC_IN-SST"
+[1] "grp = PFC_IN-PV"
+[1] "grp = PFC_AST-FB"
+[1] "grp = PFC_Oligodendrocytes"
+[1] "grp = PFC_L5_6"
+[1] "grp = PFC_L5_6-CC"
+[1] "grp = PFC_OPC"
+[1] "grp = PFC_Neu-NRGN-II"
+[1] "grp = PFC_Neu-NRGN-I"
+[1] "grp = PFC_Neu-mat"
+[1] "grp = PFC_L2_3"
+[1] "grp = PFC_L4"
+[1] "grp = PFC_Microglia"
+[1] "grp = PFC_Endothelial"
+[1] "grp = PFC_IN-SV2C"
+[1] "grp = PFC_AST-PP"
+[1] "grp = PFC_IN-VIP"
+[1] "grp = PFC_IN-SST"
+[1] "grp = PFC_IN-PV"
+[1] "grp = PFC_AST-FB"
+[1] "grp = PFC_Oligodendrocytes"
+[1] "grp = PFC_L5_6"
+[1] "grp = PFC_L5_6-CC"
+[1] "grp = PFC_OPC"
+[1] "grp = PFC_Neu-NRGN-II"
+[1] "grp = PFC_Neu-NRGN-I"
+[1] "grp = PFC_Neu-mat"
+[1] "grp = PFC_L2_3"
+[1] "grp = PFC_L4"
+[1] "grp = PFC_Microglia"
+[1] "grp = PFC_Endothelial"
+[1] "grp = PFC_IN-SV2C"
+[1] "grp = PFC_AST-PP"
+[1] "grp = PFC_IN-VIP"
+[1] "grp = PFC_IN-SST"
+[1] "grp = PFC_IN-PV"
+[1] "grp = PFC_AST-FB"
+[1] "grp = PFC_Oligodendrocytes"
+[1] "grp = PFC_L5_6"
+[1] "grp = PFC_L5_6-CC"
+[1] "grp = PFC_OPC"
+[1] "grp = PFC_Neu-NRGN-II"
+[1] "grp = PFC_Neu-NRGN-I"
+[1] "grp = PFC_Neu-mat"
+[1] "grp = PFC_L2_3"
+[1] "grp = PFC_L4"
+[1] "grp = PFC_Microglia"
+[1] "grp = PFC_Endothelial"
+[1] "grp = PFC_IN-SV2C"
+[1] "grp = PFC_AST-PP"
+[1] "grp = PFC_IN-VIP"
+[1] "grp = PFC_IN-SST"
+[1] "grp = PFC_IN-PV"
+[1] "grp = PFC_AST-FB"
+[1] "grp = PFC_Oligodendrocytes"
+[1] "grp = PFC_L5_6"
+[1] "grp = PFC_L5_6-CC"
+[1] "grp = PFC_OPC"
+[1] "grp = PFC_Neu-NRGN-II"
+[1] "grp = PFC_Neu-NRGN-I"
+[1] "grp = PFC_Neu-mat"
+> 
+> 
+> 
+> 
+> sessionInfo()
+R version 4.0.2 (2020-06-22)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS High Sierra 10.13.6
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] stringr_1.4.0        fgsea_1.14.0         ggpointdensity_0.1.0
+ [4] ggpubr_0.4.0         ggplot2_3.3.2        qvalue_2.20.0       
+ [7] doRNG_1.8.2          rngtools_1.5         doParallel_1.0.15   
+[10] iterators_1.0.12     foreach_1.5.0        data.table_1.13.0   
+[13] MASS_7.3-53         
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.1.0    reshape2_1.4.4      purrr_0.3.4        
+ [4] lattice_0.20-41     splines_4.0.2       haven_2.3.1        
+ [7] carData_3.0-4       colorspace_1.4-1    vctrs_0.3.4        
+[10] generics_0.0.2      rlang_0.4.8         pillar_1.4.6       
+[13] foreign_0.8-80      glue_1.4.2          withr_2.3.0        
+[16] BiocParallel_1.22.0 readxl_1.3.1        lifecycle_0.2.0    
+[19] plyr_1.8.6          munsell_0.5.0       ggsignif_0.6.0     
+[22] gtable_0.3.0        cellranger_1.1.0    zip_2.1.1          
+[25] codetools_0.2-16    rio_0.5.16          forcats_0.5.0      
+[28] curl_4.3            broom_0.7.0         Rcpp_1.0.5         
+[31] scales_1.1.1        backports_1.1.10    abind_1.4-5        
+[34] gridExtra_2.3       fastmatch_1.1-0     hms_0.5.3          
+[37] digest_0.6.27       stringi_1.5.3       openxlsx_4.2.2     
+[40] rstatix_0.6.0       dplyr_1.0.2         grid_4.0.2         
+[43] tools_4.0.2         magrittr_1.5        tibble_3.0.3       
+[46] crayon_1.3.4        tidyr_1.1.2         car_3.0-9          
+[49] pkgconfig_2.0.3     Matrix_1.2-18       ellipsis_0.3.1     
+[52] R6_2.4.1            compiler_4.0.2     
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+  4.397   0.340   5.070 

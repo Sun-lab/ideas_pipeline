@@ -1,0 +1,110 @@
+
+R version 4.0.2 (2020-06-22) -- "Taking Off Again"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # this file combines the pvalue results from step1b, step1c, 
+> # and step1d together to a dataframe
+> 
+> # files to load:
+> #   -- the 3 pvalue files
+> #   -- the orignal full count matrix to filter out genes with 
+> #      too many zeros
+> 
+> # ========================================================================
+> # take arguments
+> # ========================================================================
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "grp='PFC_AST-FB'"
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'PFC_L2_3' as default.\n")
++   grp = "PFC_L2_3"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+> 
+> grp
+[1] "PFC_AST-FB"
+> 
+> # ========================================================================
+> # libraries and path
+> # ========================================================================
+> 
+> library(MASS)
+> library(Matrix)
+> library(data.table)
+> 
+> 
+> data.dir  = "./data"
+> 
+> full_dat1 = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+> full_genes = rownames(full_dat1)  
+> 
+> n.zeros = rowSums(full_dat1 == 0)
+> summary(n.zeros)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+      0    2224    2290    2235    2319    2332 
+> w2kp = which(n.zeros < 0.8*ncol(full_dat1))
+> length(w2kp)
+[1] 584
+> 
+> # DESeq2 pvalues did not filter out genes with large proportion of zeros
+> # need to repeat the filtering out genes step to get the genes we want
+> pvals_deseq2     = fread(sprintf("res/step1b_DESeq2_%s_adj_covariates.tsv", grp))
+> pvals_nb_rd      = fread(sprintf("res/step1c_nb_pvals_%s.tsv", grp))
+> pvals_dca_direct = fread(sprintf("res/step1d_dca_direct_pvals_%s.tsv", grp))
+> 
+> 
+> # add row name and gene column to help verify results after filtering
+> row.names(pvals_deseq2) = full_genes 
+> pvals_deseq2$gene = full_genes
+> pvals_deseq2 = pvals_deseq2[w2kp]
+> 
+> 
+> pvals = cbind(pvals_nb_rd$gene, pvals_deseq2$pvalue, pvals_nb_rd[, 2:5], 
++               pvals_dca_direct[, 2:5])
+> names(pvals)[1] = "gene"
+> names(pvals)[2] = "DESeq2"
+> 
+> dim(pvals)
+[1] 584  10
+> head(pvals)
+     gene     DESeq2 KR_nb_Was KR_nb_JSD PS_nb_Was PS_nb_JSD KR_dca_direct_Was
+1:  KIF1B 0.87364453    0.9138    0.7736    0.9244    0.7554            0.4438
+2:   ENO1 0.12295934    0.1176    0.2016    0.1738    0.2458            0.0960
+3:   RERE 0.01710863    0.5216    0.6526    0.3896    0.5246            0.1220
+4: PRDM16 0.44294539    0.5960    0.5076    0.5952    0.4884            0.1668
+5: CLSTN1 0.35228492    0.3300    0.2900    0.2874    0.2182            0.1370
+6: CAMTA1 0.43867541    0.7500    0.8794    0.7400    0.8610            0.4922
+   KR_dca_direct_JSD PS_dca_direct_Was PS_dca_direct_JSD
+1:            0.4478            0.3296            0.3100
+2:            0.0650            0.0937            0.0596
+3:            0.1390            0.1124            0.1232
+4:            0.1000            0.1672            0.1236
+5:            0.0760            0.0611            0.0343
+6:            0.5102            0.5010            0.4944
+> 
+> file.name = sprintf("res/step1e_pvals_%s.tsv", 
++                     grp)
+> fwrite(pvals, file = file.name, sep = "\t")
+> 
+> proc.time()
+   user  system elapsed 
+  1.547   0.233   1.802 

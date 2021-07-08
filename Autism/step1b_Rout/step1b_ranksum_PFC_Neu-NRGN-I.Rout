@@ -1,0 +1,311 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(Matrix)
+> library(data.table)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> 
+> data.dir = "data"
+> 
+> args=(commandArgs(TRUE))
+> args
+[1] "grp='PFC_Neu-NRGN-I'"
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'PFC_L2_3' as default.\n")
++   grp = "PFC_L2_3"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+> 
+> grp
+[1] "PFC_Neu-NRGN-I"
+> 
+> # ------------------------------------------------------------------------
+> # read in cell information
+> # ------------------------------------------------------------------------
+> 
+> cell_info = fread(file.path(data.dir, "meta.tsv"))
+> dim(cell_info)
+[1] 104559     16
+> cell_info[1:2,]
+                           cell     cluster    sample individual region age sex
+1: AAACCTGGTACGCACC-1_1823_BA24 Neu-NRGN-II 1823_BA24       1823    ACC  15   M
+2: AAACGGGCACCAGATT-1_1823_BA24        L5/6 1823_BA24       1823    ACC  15   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB8      SB3                           18
+2:   Control      CB8      SB3                           18
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                    7   622   774               2.4547804
+2:                    7  6926 24042               0.4450545
+   RNA ribosomal percent
+1:             1.4211886
+2:             0.4284169
+> 
+> table(cell_info$region)
+
+  ACC   PFC 
+42393 62166 
+> 
+> cell_info = cell_info[which(cell_info$region=="PFC"),]
+> 
+> sort(table(paste(cell_info$diagnosis, cell_info$sample, sep=":")))
+
+         ASD:5978_BA9      Control:5976_BA9          ASD:5403_PFC 
+                  926                  1054                  1112 
+Control:5879_PFC_Nova          ASD:6033_BA9          ASD:5419_PFC 
+                 1850                  1970                  1972 
+Control:5936_PFC_Nova          ASD:5144_PFC      Control:5958_BA9 
+                 2033                  2047                  2083 
+         ASD:5864_BA9 Control:5408_PFC_Nova          ASD:5565_BA9 
+                 2148                  2255                  2319 
+         ASD:5945_PFC          ASD:5294_BA9          ASD:5278_PFC 
+                 2522                  2568                  2819 
+Control:5538_PFC_Nova          ASD:5531_BA9          ASD:5939_BA9 
+                 3034                  3054                  3085 
+     Control:5893_PFC     Control:4341_BA46      Control:5577_BA9 
+                 3317                  3849                  4131 
+         ASD:5841_BA9      Control:5387_BA9 
+                 5477                  6541 
+> 
+> # ------------------------------------------------------------------------
+> # read in count data of one region and one cluster
+> # ------------------------------------------------------------------------
+> 
+> dat1 = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+> dim(dat1)
+[1] 18041  1451
+> class(dat1)
+[1] "dgCMatrix"
+attr(,"package")
+[1] "Matrix"
+> 
+> # ------------------------------------------------------------------------
+> # subset cell information
+> # ------------------------------------------------------------------------
+> 
+> table(colnames(dat1) %in% cell_info$cell)
+
+TRUE 
+1451 
+> meta = cell_info[match(colnames(dat1), cell_info$cell),]
+> dim(meta)
+[1] 1451   16
+> meta[1:2,]
+                           cell    cluster    sample individual region age sex
+1: AAACGGGAGAACAATC-1_4341_BA46 Neu-NRGN-I 4341_BA46       4341    PFC  13   M
+2: AAGACCTGTTTGACTG-1_4341_BA46 Neu-NRGN-I 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB6      SB2                           16
+2:   Control      CB6      SB2                           16
+   RNA Integrity Number genes UMIs RNA mitochondr. percent
+1:                  7.2  1949 3082                2.563271
+2:                  7.2  1123 1587                3.213611
+   RNA ribosomal percent
+1:              2.206360
+2:              1.323251
+> 
+> summary(meta$UMIs/meta$genes)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.222   1.350   1.423   1.480   1.533   3.294 
+> 
+> # check each individual has a unique sample
+> table(tapply(meta$sample, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> # check each individual has a unique Capbatch
+> table(tapply(meta$Capbatch, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> table(meta$cluster)
+
+Neu-NRGN-I 
+      1451 
+> table(meta$region)
+
+ PFC 
+1451 
+> 
+> sort(table(paste(meta$diagnosis, meta$sample, sep=":")))
+
+         ASD:5978_BA9      Control:5976_BA9          ASD:5144_PFC 
+                    3                     3                     6 
+         ASD:5403_PFC Control:5879_PFC_Nova          ASD:5945_PFC 
+                    6                     6                     7 
+         ASD:5278_PFC          ASD:6033_BA9          ASD:5419_PFC 
+                    8                     8                     9 
+         ASD:5939_BA9 Control:5538_PFC_Nova Control:5936_PFC_Nova 
+                   10                    15                    17 
+     Control:5893_PFC          ASD:5565_BA9      Control:5958_BA9 
+                   33                    72                    77 
+    Control:4341_BA46          ASD:5294_BA9          ASD:5864_BA9 
+                   85                    89                    95 
+Control:5408_PFC_Nova          ASD:5531_BA9      Control:5387_BA9 
+                   95                   119                   187 
+         ASD:5841_BA9      Control:5577_BA9 
+                  220                   281 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # run ranksum
+> # ------------------------------------------------------------------------
+> 
+> rds = colSums(dat1)
+> med_rds = median(rds)
+> summary(rds)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    980    1374    1715    2204    2332   21774 
+> med_rds
+[1] 1715
+> 
+> dim(dat1)
+[1] 18041  1451
+> dat1[1:3,1:6]
+3 x 6 sparse Matrix of class "dgCMatrix"
+        AAACGGGAGAACAATC-1_4341_BA46 AAGACCTGTTTGACTG-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAGGAGCGTAAGCACG-1_4341_BA46 AAGGTTCAGTAGGTGC-1_4341_BA46
+DNAJC11                            1                            .
+NADK                               .                            .
+MASP2                              .                            .
+        ACATACGGTCGAGATG-1_4341_BA46 ACATACGTCCGTAGTA-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+> dat1 = t(t(dat1)/rds)*med_rds
+> dim(dat1)
+[1] 18041  1451
+> dat1[1:3,1:6]
+3 x 6 sparse Matrix of class "dgCMatrix"
+        AAACGGGAGAACAATC-1_4341_BA46 AAGACCTGTTTGACTG-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+        AAGGAGCGTAAGCACG-1_4341_BA46 AAGGTTCAGTAGGTGC-1_4341_BA46
+DNAJC11                    0.9007353                            .
+NADK                       .                                    .
+MASP2                      .                                    .
+        ACATACGGTCGAGATG-1_4341_BA46 ACATACGTCCGTAGTA-1_4341_BA46
+DNAJC11                            .                            .
+NADK                               .                            .
+MASP2                              .                            .
+> summary(colSums(dat1))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   1715    1715    1715    1715    1715    1715 
+> 
+> diagnosis=meta$diagnosis
+> 
+> date()
+[1] "Tue Jun  8 08:52:22 2021"
+> ranksum_pval=apply(dat1,1,function(x) wilcox.test(x[diagnosis!="Control"],x[diagnosis=="Control"])$p.value)
+> date()
+[1] "Tue Jun  8 08:52:56 2021"
+> 
+> rm(dat1)
+> 
+> length(ranksum_pval)
+[1] 18041
+> ranksum_pval[1:4]
+  DNAJC11      NADK     MASP2     CLCN6 
+0.7744800 0.3464672 0.5155921 0.2839719 
+> 
+> pdf(sprintf("figures/step1b_ranksum_%s_pval_hist_final.pdf", grp), 
++     width=3, height=3)
+> par(mfrow=c(1,1), bty="n", mar=c(5,4,2,1))
+> hist(ranksum_pval, main="RankSum Test", xlab="p-value", breaks=50)
+> dev.off()
+null device 
+          1 
+> 
+> # ------------------------------------------------------------------------
+> # summarize p-value distribution
+> # ------------------------------------------------------------------------
+> 
+> pdf(sprintf("figures/step1b_ranksum_%s_compare_pval_Seq.pdf", grp), 
++     width=3, height=3)
+> par(mfrow=c(1,1), bty="n", mar=c(5,4,1,1))
+> hist(ranksum_pval, main="RankSum Test", xlab="p-value", breaks=50)
+> dev.off()
+null device 
+          1 
+> # ------------------------------------------------------------------------
+> # save the results
+> # ------------------------------------------------------------------------
+> 
+> fwrite(data.frame(ranksum_pval), file=sprintf("res/step1b_ranksum_%s.tsv", grp), 
++        sep = "\t",row.names=TRUE,col.names=FALSE)
+> 
+> gc()
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1678569 89.7    2948995 157.5  2948995 157.5
+Vcells 4192746 32.0   70688360 539.4 88360445 674.2
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.5 LTS
+
+Matrix products: default
+BLAS/LAPACK: /opt/intel/compilers_and_libraries_2018.2.199/linux/mkl/lib/intel64_lin/libmkl_rt.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] dplyr_1.0.6       data.table_1.14.0 Matrix_1.3-3     
+
+loaded via a namespace (and not attached):
+ [1] lattice_0.20-44  fansi_0.5.0      utf8_1.2.1       crayon_1.4.1    
+ [5] grid_4.1.0       R6_2.5.0         lifecycle_1.0.0  magrittr_2.0.1  
+ [9] pillar_1.6.1     rlang_0.4.11     vctrs_0.3.8      generics_0.1.0  
+[13] ellipsis_0.3.2   glue_1.4.2       purrr_0.3.4      compiler_4.1.0  
+[17] pkgconfig_2.0.3  tidyselect_1.1.1 tibble_3.1.2    
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 35.563   0.332  35.757 

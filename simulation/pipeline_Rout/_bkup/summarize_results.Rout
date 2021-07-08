@@ -1,0 +1,285 @@
+
+R version 3.6.2 (2019-12-12) -- "Dark and Stormy Night"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(ggplot2)
+> library(reshape2)
+> library(stringr)
+> library(RColorBrewer)
+> library(ggpubr)
+Loading required package: magrittr
+> 
+> theme_set(theme_bw())
+> 
+> # --------------------------------------------------------------------------
+> # check all the result files
+> # --------------------------------------------------------------------------
+> 
+> res.files = list.files(path="results", pattern="pval_ncase_\\S+.txt", 
++                        full.names=TRUE)
+> res.files
+ [1] "results/pval_ncase_13_nctrl_10_ncell_180_fold_mean_1.2_var_1.5.txt"     
+ [2] "results/pval_ncase_13_nctrl_10_ncell_30_fold_mean_1.2_var_1.5.txt"      
+ [3] "results/pval_ncase_13_nctrl_10_ncell_360_fold_mean_1.2_var_1.5.txt"     
+ [4] "results/pval_ncase_13_nctrl_10_ncell_720_fold_mean_1.2_var_1.5.txt"     
+ [5] "results/pval_ncase_13_nctrl_10_ncell_90_fold_mean_1.2_var_1.5.txt"      
+ [6] "results/pval_ncase_13_nctrl_10_unequal_n_cell_fold_mean_1.2_var_1.5.txt"
+ [7] "results/pval_ncase_20_nctrl_20_ncell_180_fold_mean_1.2_var_1.5.txt"     
+ [8] "results/pval_ncase_20_nctrl_20_ncell_30_fold_mean_1.2_var_1.5.txt"      
+ [9] "results/pval_ncase_20_nctrl_20_ncell_360_fold_mean_1.2_var_1.5.txt"     
+[10] "results/pval_ncase_20_nctrl_20_ncell_720_fold_mean_1.2_var_1.5.txt"     
+[11] "results/pval_ncase_20_nctrl_20_ncell_90_fold_mean_1.2_var_1.5.txt"      
+[12] "results/pval_ncase_5_nctrl_5_ncell_180_fold_mean_1.2_var_1.5.txt"       
+[13] "results/pval_ncase_5_nctrl_5_ncell_30_fold_mean_1.2_var_1.5.txt"        
+[14] "results/pval_ncase_5_nctrl_5_ncell_360_fold_mean_1.2_var_1.5.txt"       
+[15] "results/pval_ncase_5_nctrl_5_ncell_720_fold_mean_1.2_var_1.5.txt"       
+[16] "results/pval_ncase_5_nctrl_5_ncell_90_fold_mean_1.2_var_1.5.txt"        
+> 
+> for(i in 1:length(res.files)){
++   file.i = basename(res.files[i])
++   ncase  = str_extract(file.i, '(?<=ncase_)\\d+')
++   nctrl  = str_extract(file.i, '(?<=nctrl_)\\d+')
++   r_mean = str_extract(file.i, '(?<=mean_)(\\d|\\.)+(?=(_|\\.txt))')
++   r_var  = str_extract(file.i, '(?<=var_)(\\d|\\.)+(?=(_|\\.txt))')
++ 
++   config = gsub("pval_", "", file.i)
++   config = gsub(".txt", "", config)
++   
++   pval2 = read.table(res.files[i], header=TRUE, as.is=TRUE)
++   dim(pval2)
++   pval2[1:2,]
++ 
++   cal.power <- function(x, geneType){
++     tapply(x, geneType, function(x){sum(x < 0.05, na.rm=TRUE)/sum(!is.na(x))})
++   }
++   
++   powers = apply(pval2[,-1], 2, cal.power, geneType=pval2$geneType)
++   
++   print(config)
++   print(powers)
++   
++   cols2rm = c("pval_S0_zinb", "pval_S0_kde", "mast_pval_glm")
++   powers  = powers[,which(!colnames(powers) %in% cols2rm)]
++   gg = melt(powers)
++   
++   names(gg) = c("geneType", "method", "power")
++   gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
++   gg$method = gsub("mast_pval_glmer", "MAST mixed model", gg$method)
++   
++   gg$method = gsub("pval_M_zinb",  "IDEAS (KR) zinb", gg$method)
++   gg$method = gsub("pval_M_kde",   "IDEAS (KR) kde",  gg$method)
++   gg$method = gsub("pval_S1_zinb", "IDEAS (PS) zinb", gg$method)
++   gg$method = gsub("pval_S1_kde",  "IDEAS (PS) kde",  gg$method)
++   
++   gg$method = factor(gg$method, levels = c("DEseq2", "MAST mixed model", 
++     "IDEAS (KR) zinb", "IDEAS (PS) zinb", "IDEAS (KR) kde", "IDEAS (PS) kde"))
++   
++   g1 = ggplot(subset(gg, geneType %in% c("EE")), 
++               aes(x=geneType, y=power, fill=method)) +
++     geom_bar(stat="identity", position=position_dodge()) + 
++     scale_fill_brewer(palette="Set2") + 
++     geom_hline(yintercept=0.05, col="red") + 
++     theme(legend.position = "none") + ylab("Type I error")
++   
++   g2 = ggplot(subset(gg, geneType %in% c("meanDE", "varDE")), 
++               aes(x=geneType, y=power, fill=method)) +
++     geom_bar(stat="identity", position=position_dodge()) + 
++     scale_fill_brewer(palette="Set2") + 
++     geom_hline(yintercept=0.05, col="red")
++   
++   gg1 = ggarrange(g1, g2, ncol = 2, nrow = 1, widths=c(1,2.6))
++   ggsave(sprintf("figures/power_%s.pdf", config), gg1, width=5, height=2)
++ }
+[1] "ncase_13_nctrl_10_ncell_180_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.03838451      0.038   0.04773031       0.044   0.04339119       0.038
+meanDE  0.27400000      0.216   0.28600000       0.224   0.28600000       0.202
+varDE   0.30260521      0.288   0.33066132       0.300   0.32665331       0.302
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE           0.065     0.5336667      0.08013356
+meanDE       0.464     0.8680000      0.43800000
+varDE        0.064     0.9840000      0.59000000
+[1] "ncase_13_nctrl_10_ncell_30_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.03857766 0.04733333   0.04025495       0.052   0.03388125       0.042
+meanDE  0.10865191 0.10200000   0.11468813       0.112   0.10865191       0.098
+varDE   0.08450704 0.09800000   0.09054326       0.098   0.08048290       0.086
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.05533333     0.2276667      0.07428571
+meanDE  0.27600000     0.5180000      0.29674797
+varDE   0.04600000     0.6220000      0.35010060
+[1] "ncase_13_nctrl_10_ncell_360_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.05335112 0.05866667   0.05735245  0.06033333   0.05701901  0.05666667
+meanDE  0.35671343 0.29800000   0.35270541  0.29600000   0.34669339  0.29400000
+varDE   0.41000000 0.36000000   0.41600000  0.37400000   0.40400000  0.36600000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.05966667     0.6323333      0.07469156
+meanDE  0.52400000     0.9400000      0.50600000
+varDE   0.08800000     0.9860000      0.62600000
+[1] "ncase_13_nctrl_10_ncell_720_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.04368123 0.03733333   0.04734912       0.041   0.04668223       0.037
+meanDE  0.39000000 0.30600000   0.39800000       0.312   0.37600000       0.294
+varDE   0.45000000 0.40400000   0.45800000       0.414   0.45800000       0.406
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.07233333     0.7506667      0.08633333
+meanDE  0.50800000     0.9580000      0.55000000
+varDE   0.08600000     0.9940000      0.63400000
+[1] "ncase_13_nctrl_10_ncell_90_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.06675567 0.06166667   0.07443258  0.06933333   0.07343124       0.064
+meanDE  0.23200000 0.22200000   0.23800000  0.21800000   0.24000000       0.218
+varDE   0.26200000 0.23200000   0.27800000  0.23800000   0.27200000       0.240
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.06433333         0.392      0.07813022
+meanDE  0.41600000         0.768      0.39800000
+varDE   0.06800000         0.944      0.55000000
+[1] "ncase_13_nctrl_10_unequal_n_cell_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.04267782 0.03283333   0.04368201  0.03533333   0.04217573       0.034
+meanDE  0.24674022 0.16000000   0.24473420  0.16600000   0.23570712       0.159
+varDE   0.38353414 0.18400000   0.38755020  0.20200000   0.38654618       0.197
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE           0.063     0.6078333      0.08533333
+meanDE       0.408     0.8620000      0.40000000
+varDE        0.050     0.9970000      0.82100000
+[1] "ncase_20_nctrl_20_ncell_180_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.04334778 0.05433333   0.04601534  0.05533333   0.04534845  0.05233333
+meanDE  0.46200000 0.41200000   0.47600000  0.42400000   0.46400000  0.43200000
+varDE   0.53200000 0.48800000   0.53400000  0.49400000   0.52800000  0.48200000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.06166667     0.5053333      0.06706707
+meanDE  0.64000000     0.9280000      0.60200000
+varDE   0.06600000     0.9900000      0.63000000
+[1] "ncase_20_nctrl_20_ncell_30_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.05031869      0.046   0.05031869       0.047    0.0486414  0.04566667
+meanDE  0.22312373      0.218   0.21703854       0.220    0.2129817  0.21400000
+varDE   0.18329939      0.186   0.17311609       0.194    0.1832994  0.19000000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.06033333         0.225      0.06528289
+meanDE  0.50000000         0.700      0.41616162
+varDE   0.05600000         0.816      0.50300601
+[1] "ncase_20_nctrl_20_ncell_360_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.04340568 0.04266667   0.04808013  0.04533333   0.04707846  0.04466667
+meanDE  0.52000000 0.40400000   0.54600000  0.41800000   0.54400000  0.41200000
+varDE   0.56600000 0.54000000   0.58600000  0.55600000   0.59000000  0.55000000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.06366667     0.6346667      0.07166667
+meanDE  0.65800000     0.9620000      0.65600000
+varDE   0.07800000     0.9860000      0.68200000
+[1] "ncase_20_nctrl_20_ncell_720_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE       0.0450000 0.04233333    0.0530000  0.04766667    0.0510000  0.04666667
+meanDE   0.5951904 0.53200000    0.6152305  0.54800000    0.6152305  0.54600000
+varDE    0.6180000 0.62200000    0.6220000  0.63000000    0.6300000  0.62600000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.06433333         0.732      0.07133333
+meanDE  0.69400000         0.988      0.71400000
+varDE   0.06600000         0.998      0.72400000
+[1] "ncase_20_nctrl_20_ncell_90_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.05235078 0.04433333   0.06035345       0.050   0.06035345  0.05066667
+meanDE  0.35000000 0.33000000   0.35600000       0.340   0.35400000  0.32800000
+varDE   0.38800000 0.39800000   0.40800000       0.412   0.39000000  0.40400000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE           0.064     0.3973333      0.06639973
+meanDE       0.620     0.8840000      0.55110220
+varDE        0.060     0.9800000      0.66200000
+[1] "ncase_5_nctrl_5_ncell_180_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.05603736      0.052   0.06004003  0.05366667   0.04536358       0.039
+meanDE  0.16000000      0.148   0.17000000  0.16400000   0.13000000       0.118
+varDE   0.19600000      0.200   0.21400000  0.22600000   0.17200000       0.178
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.08266667     0.5193333       0.1199465
+meanDE  0.28400000     0.7220000       0.3313253
+varDE   0.11200000     0.9000000       0.4437751
+[1] "ncase_5_nctrl_5_ncell_30_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.02974599 0.03533333   0.03576203  0.04033333   0.03308824  0.03466667
+meanDE  0.07243461 0.07800000   0.08853119  0.06400000   0.07645875  0.05600000
+varDE   0.03629032 0.05400000   0.05443548  0.07000000   0.04637097  0.06600000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE           0.053         0.228      0.09996611
+meanDE       0.134         0.372      0.21267894
+varDE        0.046         0.400      0.23577236
+[1] "ncase_5_nctrl_5_ncell_360_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.04002668 0.03633333   0.04169446  0.03533333   0.03569046  0.03033333
+meanDE  0.18200000 0.15800000   0.17400000  0.14800000   0.15000000  0.11600000
+varDE   0.25200000 0.19600000   0.26200000  0.21200000   0.24000000  0.19400000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.08766667         0.629       0.1393333
+meanDE  0.34200000         0.858       0.3860000
+varDE   0.09000000         0.986       0.4889780
+[1] "ncase_5_nctrl_5_ncell_720_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE       0.0480000 0.05433333   0.05266667  0.05266667   0.04366667  0.04233333
+meanDE   0.1620000 0.14800000   0.17000000  0.15400000   0.15600000  0.13200000
+varDE    0.2805611 0.31200000   0.29659319  0.33800000   0.29659319  0.31200000
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE           0.089     0.7306667       0.1363333
+meanDE       0.310     0.8780000       0.3560000
+varDE        0.096     0.9960000       0.5200000
+[1] "ncase_5_nctrl_5_ncell_90_fold_mean_1.2_var_1.5"
+       pval_M_zinb pval_M_kde pval_S0_zinb pval_S0_kde pval_S1_zinb pval_S1_kde
+EE      0.04801601 0.04933333   0.06335445  0.07266667   0.04968323       0.054
+meanDE  0.10600000 0.09400000   0.12000000  0.12800000   0.10200000       0.090
+varDE   0.11623246 0.10000000   0.16032064  0.15400000   0.11422846       0.116
+       deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.08366667     0.3896667       0.1312248
+meanDE  0.18800000     0.5700000       0.2720000
+varDE   0.06400000     0.7080000       0.3266533
+> 
+> sessionInfo()
+R version 3.6.2 (2019-12-12)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS Catalina 10.15.6
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRblas.0.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ggpubr_0.2.5       magrittr_1.5       RColorBrewer_1.1-2 stringr_1.4.0     
+[5] reshape2_1.4.3     ggplot2_3.3.1     
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.3       cowplot_1.0.0    tidyselect_1.0.0 munsell_0.5.0   
+ [5] colorspace_1.4-1 R6_2.4.1         rlang_0.4.6      plyr_1.8.5      
+ [9] dplyr_0.8.4      tools_3.6.2      grid_3.6.2       gtable_0.3.0    
+[13] withr_2.1.2      ellipsis_0.3.0   digest_0.6.23    assertthat_0.2.1
+[17] tibble_3.0.1     lifecycle_0.2.0  ggsignif_0.6.0   crayon_1.3.4    
+[21] farver_2.0.3     purrr_0.3.3      vctrs_0.3.0      glue_1.3.1      
+[25] labeling_0.3     stringi_1.4.5    compiler_3.6.2   pillar_1.4.3    
+[29] scales_1.1.0     pkgconfig_2.0.3 
+> q(save = "no")
+> proc.time()
+   user  system elapsed 
+  5.859   0.146   6.012 
