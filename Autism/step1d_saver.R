@@ -302,6 +302,7 @@ date()
 dim(pval_KR)
 pval_KR[1:2,]
 
+summary(pval_KR)
 
 # ---------------------------------------------------------------
 # pval calculation by permanova
@@ -362,9 +363,9 @@ for(k in 2:ncol(df)){
                    breaks = seq(0,1,by = 0.02))
 }
 
-fig.name  = sprintf("figures/step1d_dca_direct_pval_hist_%s.pdf", 
+fig.name  = sprintf("figures/step1d_saver_direct_pval_hist_%s.pdf", 
                     grp)
-file.name = sprintf("res/step1d_dca_direct_pvals_%s.tsv", 
+file.name = sprintf("res/step1d_saver_direct_pvals_%s.tsv", 
                     grp)
 
 
