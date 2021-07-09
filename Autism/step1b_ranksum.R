@@ -95,15 +95,6 @@ hist(ranksum_pval, main="RankSum Test", xlab="p-value", breaks=50)
 dev.off()
 
 # ------------------------------------------------------------------------
-# summarize p-value distribution
-# ------------------------------------------------------------------------
-
-pdf(sprintf("figures/step1b_ranksum_%s_compare_pval_Seq.pdf", grp), 
-    width=3, height=3)
-par(mfrow=c(1,1), bty="n", mar=c(5,4,1,1))
-hist(ranksum_pval, main="RankSum Test", xlab="p-value", breaks=50)
-dev.off()
-# ------------------------------------------------------------------------
 # save the results
 # ------------------------------------------------------------------------
 

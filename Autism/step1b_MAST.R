@@ -154,13 +154,6 @@ mast_pval_glmer = apply(lrt1, 1, function(x){x[3,3]})
 length(mast_pval_glmer)
 mast_pval_glmer[1:4]
 
-pdf(sprintf("figures/step1b_MAST_glmer_%s_pval_hist_final.pdf", grp), 
-    width=6, height=3)
-par(mfrow=c(1,2), bty="n", mar=c(5,4,2,1))
-  hist(mast_pval_glm, main="MAST_glm", xlab="p-value", breaks=50)
-  hist(mast_pval_glmer, main="MAST_glmer", xlab="p-value", breaks=50)
-dev.off()
-
 # ------------------------------------------------------------------------
 # summarize p-value distribution
 # ------------------------------------------------------------------------
