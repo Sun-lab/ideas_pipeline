@@ -1,5 +1,5 @@
 
-R version 4.0.2 (2020-06-22) -- "Taking Off Again"
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
 Copyright (C) 2020 The R Foundation for Statistical Computing
 Platform: x86_64-apple-darwin17.0 (64-bit)
 
@@ -21,7 +21,7 @@ Type 'q()' to quit R.
 > # and step1d together to a dataframe
 > 
 > # files to load:
-> #   -- the 3 pvalue files
+> #   -- the 7 pvalue files
 > #   -- the orignal full count matrix to filter out genes with 
 > #      too many zeros
 > 
@@ -65,26 +65,104 @@ Type 'q()' to quit R.
 > length(w2kp)
 [1] 9291
 > 
-> # DESeq2 pvalues did not filter out genes with large proportion of zeros
+> # DESeq2, MAST and ranksum pvalues did not filter out genes with 
+> # large proportion of zeros
 > # need to repeat the filtering out genes step to get the genes we want
 > pvals_deseq2     = fread(sprintf("res/step1b_DESeq2_%s_adj_covariates.tsv", grp))
 > pvals_nb_rd      = fread(sprintf("res/step1c_nb_pvals_%s.tsv", grp))
 > pvals_dca_direct = fread(sprintf("res/step1d_dca_direct_pvals_%s.tsv", grp))
 > 
+> pvals_mast_glm   = fread(sprintf("res/step1b_MAST_%s_glm.tsv", grp))
+> pvals_mast_glmer = fread(sprintf("res/step1b_MAST_%s_glmer.tsv", grp))
+> 
+> pvals_rank_sum   = fread(sprintf("res/step1b_ranksum_%s.tsv", grp))
+> pvals_saver      = fread(sprintf("res/step1d_saver_direct_pvals_%s.tsv", grp))
+> 
+> dim(pvals_deseq2)
+[1] 18041     6
+> dim(pvals_nb_rd)
+[1] 9291    5
+> dim(pvals_dca_direct)
+[1] 9291    5
+> dim(pvals_mast_glm)
+[1] 18041     2
+> dim(pvals_mast_glmer)
+[1] 18041     2
+> dim(pvals_rank_sum)
+[1] 18041     2
+> dim(pvals_saver)
+[1] 9291    5
+> 
+> pvals_deseq2[1:2,]
+   baseMean log2FoldChange     lfcSE      stat    pvalue padj
+1: 41.07586     -0.1221188 0.1308925 -0.932970 0.3508355   NA
+2:  6.26655     -0.5117348 0.3598945 -1.421902 0.1550547   NA
+> pvals_nb_rd[1:2,]
+      gene KR_nb_Was KR_nb_JSD PS_nb_Was PS_nb_JSD
+1: DNAJC11    0.4194    0.3872    0.3904    0.3560
+2:  VPS13D    0.9192    0.9630    0.8570    0.9364
+> pvals_dca_direct[1:2,]
+      gene KR_dca_direct_Was KR_dca_direct_JSD PS_dca_direct_Was
+1: DNAJC11            0.3598            0.4578            0.2506
+2:  VPS13D            0.2772            0.1826            0.2494
+   PS_dca_direct_JSD
+1:            0.3664
+2:            0.1918
+> pvals_mast_glm[1:2,]
+        V1          V2
+1: DNAJC11 0.220417896
+2:    NADK 0.007454667
+> pvals_mast_glmer[1:2,]
+        V1         V2
+1: DNAJC11 0.10135421
+2:    NADK 0.01822745
+> pvals_rank_sum[1:2,]
+        V1           V2
+1: DNAJC11 3.945683e-03
+2:    NADK 2.178209e-05
+> pvals_saver[1:2,]
+      gene KR_saver_direct_Was KR_saver_direct_JSD PS_saver_direct_Was
+1: DNAJC11              0.1924              0.1758              0.0636
+2:  VPS13D              0.5420              0.4558              0.4026
+   PS_saver_direct_JSD
+1:              0.0885
+2:              0.3260
 > 
 > # add row name and gene column to help verify results after filtering
 > row.names(pvals_deseq2) = full_genes 
 > pvals_deseq2$gene = full_genes
-> pvals_deseq2 = pvals_deseq2[w2kp]
+> pvals_deseq2 = pvals_deseq2[w2kp,]
 > 
+> pvals_mast_glm   = pvals_mast_glm[w2kp]
+> pvals_mast_glmer = pvals_mast_glmer[w2kp,]
+> pvals_rank_sum   = pvals_rank_sum[w2kp,]
+> 
+> stopifnot(all(pvals_deseq2$gene == pvals_nb_rd$gene))
+> stopifnot(all(pvals_deseq2$gene == pvals_dca_direct$gene))
+> stopifnot(all(pvals_deseq2$gene == pvals_mast_glm$V1))
+> stopifnot(all(pvals_deseq2$gene == pvals_mast_glmer$V1))
+> stopifnot(all(pvals_deseq2$gene == pvals_rank_sum$V1))
+> stopifnot(all(pvals_deseq2$gene == pvals_saver$gene))
 > 
 > pvals = cbind(pvals_nb_rd$gene, pvals_deseq2$pvalue, pvals_nb_rd[, 2:5], 
-+               pvals_dca_direct[, 2:5])
++               pvals_dca_direct[, 2:5], pvals_mast_glm$V2, pvals_mast_glmer$V2,
++               pvals_rank_sum$V2, pvals_saver[, 2:5])
 > names(pvals)[1] = "gene"
 > names(pvals)[2] = "DESeq2"
+> names(pvals)
+ [1] "gene"                "DESeq2"              "KR_nb_Was"          
+ [4] "KR_nb_JSD"           "PS_nb_Was"           "PS_nb_JSD"          
+ [7] "KR_dca_direct_Was"   "KR_dca_direct_JSD"   "PS_dca_direct_Was"  
+[10] "PS_dca_direct_JSD"   "V5"                  "V6"                 
+[13] "V7"                  "KR_saver_direct_Was" "KR_saver_direct_JSD"
+[16] "PS_saver_direct_Was" "PS_saver_direct_JSD"
+> 
+> names(pvals)[11] = "MAST_glm"
+> names(pvals)[12] = "MAST_glmer"
+> names(pvals)[13] = "rank_sum"
 > 
 > dim(pvals)
-[1] 9291   10
+[1] 9291   17
 > head(pvals)
       gene    DESeq2 KR_nb_Was KR_nb_JSD PS_nb_Was PS_nb_JSD KR_dca_direct_Was
 1: DNAJC11 0.3508355    0.4194    0.3872    0.3904    0.3560            0.3598
@@ -93,18 +171,59 @@ Type 'q()' to quit R.
 4:   KIF1B 0.4465205    0.4632    0.4112    0.4950    0.4316            0.4004
 5:   PRKCZ 0.2180340    0.7112    0.5772    0.6358    0.5104            0.2284
 6:  KCNAB2 0.2758051    0.3214    0.2846    0.2226    0.1670            0.0833
-   KR_dca_direct_JSD PS_dca_direct_Was PS_dca_direct_JSD
-1:            0.4578            0.2506            0.3664
-2:            0.1826            0.2494            0.1918
-3:            0.3614            0.4876            0.3000
-4:            0.2976            0.2168            0.1046
-5:            0.2038            0.0345            0.0521
-6:            0.0581            0.0163            0.0182
+   KR_dca_direct_JSD PS_dca_direct_Was PS_dca_direct_JSD    MAST_glm MAST_glmer
+1:            0.4578            0.2506            0.3664 0.220417896  0.1013542
+2:            0.1826            0.2494            0.1918 0.441466010  0.6174001
+3:            0.3614            0.4876            0.3000 0.260253555  0.4832388
+4:            0.2976            0.2168            0.1046 0.171315267  0.4477423
+5:            0.2038            0.0345            0.0521 0.008240614  0.2938964
+6:            0.0581            0.0163            0.0182 0.875292165  0.7180763
+       rank_sum KR_saver_direct_Was KR_saver_direct_JSD PS_saver_direct_Was
+1: 0.0039456831              0.1924              0.1758              0.0636
+2: 0.3662032065              0.5420              0.4558              0.4026
+3: 0.1246576801              0.2256              0.2024              0.1838
+4: 0.4615849438              0.8614              0.8390              0.7902
+5: 0.0057346642              0.5108              0.4654              0.2188
+6: 0.0003409788              0.1680              0.1234              0.0836
+   PS_saver_direct_JSD
+1:              0.0885
+2:              0.3260
+3:              0.1582
+4:              0.7520
+5:              0.2598
+6:              0.0571
+> # plot(-log10(pvals$PS_dca_direct_Was), -log10(pvals$PS_saver_direct_Was))
 > 
-> file.name = sprintf("res/step1e_pvals_%s.tsv", 
-+                     grp)
+> file.name = sprintf("res/step1e_pvals_%s.tsv", grp)
 > fwrite(pvals, file = file.name, sep = "\t")
 > 
+> 
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  1531007  81.8    2524115 134.9         NA  2524115 134.9
+Vcells 22287407 170.1   83304936 635.6      32768 86920643 663.2
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] data.table_1.13.6 Matrix_1.3-0      MASS_7.3-53      
+
+loaded via a namespace (and not attached):
+[1] compiler_4.0.3  grid_4.0.3      lattice_0.20-41
+> q(save="no")
 > proc.time()
    user  system elapsed 
-  2.600   0.362   3.063 
+  2.191   0.332   2.549 
