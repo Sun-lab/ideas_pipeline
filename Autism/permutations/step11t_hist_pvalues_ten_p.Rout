@@ -1,0 +1,137 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # this file plots the histograms of pvalues from original run 
+> # and those from the ten permutations
+> 
+> # main part of the code is carried over from
+> # step11m_hist_pvalues_p.R
+> 
+> # this file plots the histograms of pvalues from original run 
+> # and those from the permutated run
+> 
+> library(MASS)
+> library(data.table)
+> library(ggplot2)
+> library(ggpubr)
+> library(ggpointdensity)
+> 
+> 
+> 
+> ctypes = c("L2_3", "L4", "Microglia", "Endothelial", "IN-SV2C", "AST-PP", 
++            "IN-VIP", "IN-SST", "IN-PV", "AST-FB", "Oligodendrocytes", 
++            "L5_6", "L5_6-CC", "OPC", "Neu-NRGN-II", "Neu-NRGN-I", "Neu-mat")
+> 
+> for (i in 1:length(ctypes)){
++   grp = paste("PFC_", ctypes[i], sep = "")
++ 
++   pvals   = fread(sprintf("res/step11e_pvals_%s.tsv", grp))
++   pvals_p = fread(sprintf("res/step11r_pvals_%s_ten_p.tsv", grp))
++ 
++   dim(pvals)
++   dim(pvals_p)
++   
++   cat(ctypes[i], nrow(pvals), nrow(pvals_p), "\n")
++   
++   gh = list()
++   
++   methods = names(pvals)[2:10]
++ 
++   for(nm in methods){
++     nm_left = paste(nm, ", original", sep = "")
++     gh[[nm_left]] = ggplot(pvals, aes_string(x = nm)) + 
++       labs(title = nm_left) + 
++       geom_histogram(color = "darkblue", fill = "lightblue", 
++                      breaks = seq(0,1,by = 0.02))
++     
++     nm_right = paste(nm, ", ten permutations", sep = "")
++     gh[[nm_right]] = ggplot(pvals_p, aes_string(x = nm)) + 
++       labs(title = nm_right) + 
++       geom_histogram(color = "darkblue", fill = "lightblue", 
++                      breaks = seq(0,1,by = 0.02))
++   }
++ 
++    pdf(sprintf("figures/step11t_ori_pval_vs_ten_permutated_hist_ori_ctypes_%s.pdf", grp), 
++     width=12, height=10)
++    gg1 = ggarrange(plotlist=gh, ncol = 4, nrow = 5)
++    print(gg1)
++    dev.off()
++ 
++ }
+L2_3 8260 82600 
+L4 6332 63320 
+Microglia 578 5780 
+Endothelial 1665 16650 
+IN-SV2C 5555 55550 
+AST-PP 1579 15790 
+IN-VIP 4470 44700 
+IN-SST 4049 40490 
+IN-PV 6010 60100 
+AST-FB 584 5840 
+Oligodendrocytes 939 9390 
+L5_6 7313 73130 
+L5_6-CC 9291 92910 
+OPC 1490 14900 
+Neu-NRGN-II 593 5930 
+Neu-NRGN-I 1930 19300 
+Neu-mat 1154 11540 
+There were 50 or more warnings (use warnings() to see the first 50)
+> 
+> 
+> gc()
+          used (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  962428 51.4    2049124 109.5         NA  2049124 109.5
+Vcells 2485425 19.0    8481014  64.8      32768  8481014  64.8
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ggpointdensity_0.1.0 ggpubr_0.4.0         ggplot2_3.3.3       
+[4] data.table_1.13.6    MASS_7.3-53         
+
+loaded via a namespace (and not attached):
+ [1] zip_2.1.1        Rcpp_1.0.5       cellranger_1.1.0 pillar_1.4.7    
+ [5] compiler_4.0.3   forcats_0.5.0    tools_4.0.3      digest_0.6.27   
+ [9] lifecycle_0.2.0  tibble_3.0.4     gtable_0.3.0     pkgconfig_2.0.3 
+[13] rlang_0.4.10     openxlsx_4.2.3   curl_4.3         haven_2.3.1     
+[17] rio_0.5.16       withr_2.3.0      dplyr_1.0.2      generics_0.1.0  
+[21] vctrs_0.3.6      hms_0.5.3        cowplot_1.1.1    grid_4.0.3      
+[25] tidyselect_1.1.0 glue_1.4.2       R6_2.5.0         rstatix_0.6.0   
+[29] readxl_1.3.1     foreign_0.8-81   carData_3.0-4    farver_2.0.3    
+[33] tidyr_1.1.2      purrr_0.3.4      car_3.0-10       magrittr_2.0.1  
+[37] scales_1.1.1     backports_1.2.1  ellipsis_0.3.1   abind_1.4-5     
+[41] colorspace_2.0-0 ggsignif_0.6.0   labeling_0.4.2   stringi_1.5.3   
+[45] munsell_0.5.0    broom_0.7.3      crayon_1.3.4    
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 29.793   0.708  31.088 
