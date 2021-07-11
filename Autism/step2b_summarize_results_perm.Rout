@@ -1,0 +1,414 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(ggcorrplot)
+Loading required package: ggplot2
+> library(data.table)
+> library(ggpubr)
+> library(ggrepel)
+> library(reshape2)
+
+Attaching package: ‘reshape2’
+
+The following objects are masked from ‘package:data.table’:
+
+    dcast, melt
+
+> library(stringr)
+> 
+> theme_set(theme_classic())
+> data.dir  = "./data"
+> 
+> # -------------------------------------------------------------------
+> # read in cell type information
+> # -------------------------------------------------------------------
+> 
+> cell_types = scan("cell_types.txt", what=character())
+Read 17 items
+> cell_types = sort(cell_types)
+> cell_types
+ [1] "PFC_AST-FB"           "PFC_AST-PP"           "PFC_Endothelial"     
+ [4] "PFC_IN-PV"            "PFC_IN-SST"           "PFC_IN-SV2C"         
+ [7] "PFC_IN-VIP"           "PFC_L2_3"             "PFC_L4"              
+[10] "PFC_L5_6"             "PFC_L5_6-CC"          "PFC_Microglia"       
+[13] "PFC_Neu-mat"          "PFC_Neu-NRGN-I"       "PFC_Neu-NRGN-II"     
+[16] "PFC_Oligodendrocytes" "PFC_OPC"             
+> 
+> # -------------------------------------------------------------------
+> # load MAST, rank-sum, and ideas results after permutations
+> # -------------------------------------------------------------------
+> 
+> pcuts = c(1e-5, 1e-4, 0.001, 0.01, 0.05)
+> 
+> type_i_mast_glm = matrix(NA, nrow=length(cell_types), ncol=length(pcuts))
+> rownames(type_i_mast_glm) = cell_types
+> colnames(type_i_mast_glm) = pcuts
+> type_i_mast_glm[1:2,]
+           1e-05 1e-04 0.001 0.01 0.05
+PFC_AST-FB    NA    NA    NA   NA   NA
+PFC_AST-PP    NA    NA    NA   NA   NA
+> 
+> type_i = list()
+> 
+> methods = c("rank-sum", "MAST", "MAST-glmer", "DESeq2", "IDEAS", "DCA", "SAVER")
+> for(m1 in methods){
++   type_i[[m1]] = type_i_mast_glm
++ }
+> 
+> for(k in 1:length(cell_types)){
++   grp = cell_types[k]
++   mast_glm   = fread(sprintf("res/step1b_MAST_perm_%s_glm.tsv", grp))
++   mast_glmer = fread(sprintf("res/step1b_MAST_perm_%s_glmer.tsv", grp))
++   rank_sum   = fread(sprintf("res/step1b_ranksum_perm_%s.tsv", grp))
++   saver      = fread(sprintf("res/step1d_saver_direct_perm_pvals_%s.tsv", grp))
++   ideas      = fread(sprintf("permutations/res/step11r_pvals_%s_ten_p.tsv", grp))
++   
++   dim(ideas)
++   ideas[1:2,]
++   
++   full_dat1  = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
++   dn         = dimnames(full_dat1)
++   full_genes = dn[[1]]
++   
++   n.zeros = rowSums(full_dat1 == 0)
++   summary(n.zeros)
++   w2kp = which(n.zeros < 0.8*ncol(full_dat1))
++   length(w2kp)
++   
++   stopifnot(all(full_genes == mast_glm$V1))
++   stopifnot(all(full_genes == mast_glmer$V1))
++   stopifnot(all(full_genes[w2kp] == saver$gene))
++   # somewhat the dimnames or rownames does not work within a loop
++   # stopifnot(setequal(full_genes[w2kp], ideas$gene))
++   
++   mast_glm   = mast_glm[w2kp,]
++   mast_glmer = mast_glmer[w2kp,]
++   rank_sum   = rank_sum[w2kp,]
++   rank_sum_v = unlist(rank_sum[,-1])
++   
++   for(j in 1:length(pcuts)){
++     pj = pcuts[j]
++     type_i$`rank-sum`[k,j]   = mean(rank_sum_v < pcuts[j], na.rm = TRUE)
++     type_i$MAST[k,j]         = mean(mast_glm$V2 < pcuts[j], na.rm = TRUE)
++     type_i$`MAST-glmer`[k,j] = mean(mast_glmer$V2 < pcuts[j], na.rm = TRUE)
++     type_i$DESeq2[k,j]       = mean(ideas$DESeq2 < pcuts[j], na.rm = TRUE)
++     type_i$IDEAS[k,j]        = mean(ideas$PS_nb_Was < pcuts[j], na.rm = TRUE)
++     type_i$DCA[k,j]          = mean(ideas$PS_dca_direct_Was < pcuts[j], na.rm = TRUE)
++     type_i$SAVER[k,j]        = mean(saver$PS_saver_direct_Was < pcuts[j], na.rm = TRUE)
++   }
++ }
+Loading required package: Matrix
+> 
+> lapply(type_i, dim)
+$`rank-sum`
+[1] 17  5
+
+$MAST
+[1] 17  5
+
+$`MAST-glmer`
+[1] 17  5
+
+$DESeq2
+[1] 17  5
+
+$IDEAS
+[1] 17  5
+
+$DCA
+[1] 17  5
+
+$SAVER
+[1] 17  5
+
+> type_i
+$`rank-sum`
+                           1e-05      1e-04      0.001       0.01      0.05
+PFC_AST-FB           0.063698630 0.08801370 0.12876712 0.19931507 0.3198630
+PFC_AST-PP           0.202153262 0.25085497 0.31564281 0.42102597 0.5298923
+PFC_Endothelial      0.038138138 0.05699700 0.09237237 0.16540541 0.2722523
+PFC_IN-PV            0.035574043 0.05376040 0.09146423 0.17386023 0.2940433
+PFC_IN-SST           0.035638429 0.05794023 0.10303779 0.19760435 0.3260805
+PFC_IN-SV2C          0.009450945 0.01724572 0.03490549 0.08253825 0.1762916
+PFC_IN-VIP           0.048702461 0.07223714 0.11838926 0.20827740 0.3324385
+PFC_L2_3             0.346791768 0.40407990 0.47651332 0.57319613 0.6641768
+PFC_L4               0.171699305 0.22575805 0.30292167 0.41843020 0.5386450
+PFC_L5_6             0.061014631 0.09252017 0.14974703 0.25575003 0.3890879
+PFC_L5_6-CC          0.110149607 0.15098482 0.21461630 0.32275320 0.4456356
+PFC_Microglia        0.084083045 0.11332180 0.15951557 0.25051903 0.3621107
+PFC_Neu-mat          0.075129983 0.10831889 0.16403813 0.26308492 0.3870884
+PFC_Neu-NRGN-I       0.032694301 0.05072539 0.08393782 0.16196891 0.2768912
+PFC_Neu-NRGN-II      0.125463744 0.16846543 0.22462057 0.31939292 0.4394604
+PFC_Oligodendrocytes 0.236954207 0.28413206 0.35505857 0.45452609 0.5624068
+PFC_OPC              0.099463087 0.13510067 0.19449664 0.29744966 0.4245638
+
+$MAST
+                           1e-05      1e-04      0.001       0.01      0.05
+PFC_AST-FB           0.113013699 0.14554795 0.19691781 0.27910959 0.3869863
+PFC_AST-PP           0.245091830 0.28879037 0.34008866 0.43381887 0.5478151
+PFC_Endothelial      0.021021021 0.03483483 0.06066066 0.11231231 0.1951952
+PFC_IN-PV            0.023627288 0.03494176 0.06356073 0.14226290 0.2613977
+PFC_IN-SST           0.015559397 0.02321561 0.04371450 0.09755495 0.1872067
+PFC_IN-SV2C          0.007920792 0.01404140 0.02502250 0.06552655 0.1420342
+PFC_IN-VIP           0.023713647 0.03668904 0.06196868 0.13288591 0.2592841
+PFC_L2_3             0.448547215 0.51731235 0.61113801 0.73171913 0.8307506
+PFC_L4               0.158243841 0.19598863 0.25489577 0.35138977 0.4600442
+PFC_L5_6             0.063448653 0.08532750 0.12635034 0.20196910 0.3083550
+PFC_L5_6-CC          0.124421483 0.16585943 0.22882359 0.34151329 0.4697019
+PFC_Microglia        0.067474048 0.09861592 0.13494810 0.20934256 0.3252595
+PFC_Neu-mat          0.051126516 0.08492201 0.12998267 0.22270364 0.3613518
+PFC_Neu-NRGN-I       0.023316062 0.03626943 0.05803109 0.11658031 0.2098446
+PFC_Neu-NRGN-II      0.112984823 0.13659359 0.18381113 0.29679595 0.4114671
+PFC_Oligodendrocytes 0.254526092 0.32374867 0.42811502 0.56869010 0.7241747
+PFC_OPC              0.102684564 0.12885906 0.17718121 0.26308725 0.3919463
+
+$`MAST-glmer`
+                            1e-05        1e-04        0.001        0.01
+PFC_AST-FB           0.0000000000 0.0017152659 0.0102915952 0.027444254
+PFC_AST-PP           0.0000000000 0.0012674271 0.0038022814 0.017110266
+PFC_Endothelial      0.0000000000 0.0000000000 0.0012019231 0.012019231
+PFC_IN-PV            0.0000000000 0.0000000000 0.0008320852 0.017973040
+PFC_IN-SST           0.0000000000 0.0000000000 0.0012351779 0.006175889
+PFC_IN-SV2C          0.0000000000 0.0000000000 0.0007204611 0.011887608
+PFC_IN-VIP           0.0000000000 0.0000000000 0.0008950548 0.008279257
+PFC_L2_3             0.0006060606 0.0023030303 0.0099393939 0.040848485
+PFC_L4               0.0001579779 0.0009478673 0.0055292259 0.023854660
+PFC_L5_6             0.0000000000 0.0009577234 0.0030099877 0.019291285
+PFC_L5_6-CC          0.0000000000 0.0006471794 0.0050695718 0.030309567
+PFC_Microglia        0.0000000000 0.0000000000 0.0017331023 0.013864818
+PFC_Neu-mat          0.0000000000 0.0008673027 0.0026019081 0.013876843
+PFC_Neu-NRGN-I       0.0000000000 0.0005181347 0.0025906736 0.012435233
+PFC_Neu-NRGN-II      0.0000000000 0.0000000000 0.0033726813 0.013490725
+PFC_Oligodendrocytes 0.0000000000 0.0000000000 0.0021321962 0.009594883
+PFC_OPC              0.0000000000 0.0006715917 0.0026863667 0.006044325
+                           0.05
+PFC_AST-FB           0.10977702
+PFC_AST-PP           0.04942966
+PFC_Endothelial      0.05468750
+PFC_IN-PV            0.07455483
+PFC_IN-SST           0.02964427
+PFC_IN-SV2C          0.05745677
+PFC_IN-VIP           0.04676661
+PFC_L2_3             0.11915152
+PFC_L4               0.06682464
+PFC_L5_6             0.08304830
+PFC_L5_6-CC          0.10764750
+PFC_Microglia        0.07798960
+PFC_Neu-mat          0.07111882
+PFC_Neu-NRGN-I       0.04663212
+PFC_Neu-NRGN-II      0.05227656
+PFC_Oligodendrocytes 0.03837953
+PFC_OPC              0.04096709
+
+$DESeq2
+                            1e-05        1e-04        0.001        0.01
+PFC_AST-FB           1.712329e-04 3.424658e-04 0.0020547945 0.013527397
+PFC_AST-PP           6.333122e-05 3.799873e-04 0.0019632679 0.010829639
+PFC_Endothelial      0.000000e+00 6.006006e-05 0.0008408408 0.007027027
+PFC_IN-PV            6.655574e-05 1.996672e-04 0.0008319468 0.006638935
+PFC_IN-SST           2.469746e-05 1.728822e-04 0.0009632008 0.007063472
+PFC_IN-SV2C          0.000000e+00 3.600360e-05 0.0003600360 0.005076508
+PFC_IN-VIP           0.000000e+00 8.948546e-05 0.0004697987 0.006286353
+PFC_L2_3             3.631961e-05 1.210654e-04 0.0010653753 0.009987893
+PFC_L4               0.000000e+00 1.263424e-04 0.0008686039 0.008338598
+PFC_L5_6             2.734856e-05 1.640913e-04 0.0012580336 0.007862710
+PFC_L5_6-CC          7.534173e-05 1.722097e-04 0.0010224949 0.008567431
+PFC_Microglia        0.000000e+00 1.730104e-04 0.0003460208 0.005882353
+PFC_Neu-mat          0.000000e+00 1.733102e-04 0.0008665511 0.009705373
+PFC_Neu-NRGN-I       0.000000e+00 5.181347e-05 0.0003108808 0.004766839
+PFC_Neu-NRGN-II      0.000000e+00 0.000000e+00 0.0005059022 0.007251265
+PFC_Oligodendrocytes 2.129925e-04 3.194888e-04 0.0013844515 0.011821086
+PFC_OPC              6.711409e-05 2.013423e-04 0.0008724832 0.008120805
+                           0.05
+PFC_AST-FB           0.04897260
+PFC_AST-PP           0.04768841
+PFC_Endothelial      0.03921922
+PFC_IN-PV            0.03507488
+PFC_IN-SST           0.03516918
+PFC_IN-SV2C          0.03168317
+PFC_IN-VIP           0.03666667
+PFC_L2_3             0.04185230
+PFC_L4               0.04065066
+PFC_L5_6             0.03726241
+PFC_L5_6-CC          0.04147024
+PFC_Microglia        0.04065744
+PFC_Neu-mat          0.04506066
+PFC_Neu-NRGN-I       0.03119171
+PFC_Neu-NRGN-II      0.04215852
+PFC_Oligodendrocytes 0.05218317
+PFC_OPC              0.04087248
+
+$IDEAS
+                     1e-05 1e-04        0.001        0.01       0.05
+PFC_AST-FB               0     0 0.0005244755 0.006468531 0.02744755
+PFC_AST-PP               0     0 0.0006966434 0.006269791 0.03578214
+PFC_Endothelial          0     0 0.0006825939 0.007713311 0.04498294
+PFC_IN-PV                0     0 0.0005659121 0.007240346 0.04064581
+PFC_IN-SST               0     0 0.0004454343 0.006458797 0.03860431
+PFC_IN-SV2C              0     0 0.0006122816 0.007257338 0.04341797
+PFC_IN-VIP               0     0 0.0004480287 0.007482079 0.04251792
+PFC_L2_3                 0     0 0.0003632401 0.006393026 0.03805545
+PFC_L4                   0     0 0.0003948200 0.005701200 0.03747631
+PFC_L5_6                 0     0 0.0006569043 0.006514301 0.03916792
+PFC_L5_6-CC              0     0 0.0006354335 0.007506731 0.04386645
+PFC_Microglia            0     0 0.0001949318 0.002144250 0.01929825
+PFC_Neu-mat              0     0 0.0001739130 0.004347826 0.03052174
+PFC_Neu-NRGN-I           0     0 0.0005184033 0.007724209 0.04167963
+PFC_Neu-NRGN-II          0     0 0.0006768190 0.005583756 0.03231810
+PFC_Oligodendrocytes     0     0 0.0007526882 0.006129032 0.03258065
+PFC_OPC                  0     0 0.0003355705 0.006442953 0.04154362
+
+$DCA
+                     1e-05 1e-04        0.001         0.01       0.05
+PFC_AST-FB               0     0 1.712329e-03 0.0099315068 0.04126712
+PFC_AST-PP               0     0 6.333122e-05 0.0008233059 0.01412286
+PFC_Endothelial          0     0 3.003003e-04 0.0074474474 0.04810811
+PFC_IN-PV                0     0 1.830283e-04 0.0033777038 0.02993344
+PFC_IN-SST               0     0 4.939491e-05 0.0013830575 0.02025191
+PFC_IN-SV2C              0     0 1.440144e-04 0.0028442844 0.03263726
+PFC_IN-VIP               0     0 6.711409e-05 0.0025503356 0.03494407
+PFC_L2_3                 0     0 1.210654e-05 0.0038256659 0.03250605
+PFC_L4                   0     0 7.896399e-05 0.0025110550 0.02795325
+PFC_L5_6                 0     0 2.187885e-04 0.0083413100 0.04214413
+PFC_L5_6-CC              0     0 5.381552e-05 0.0024432246 0.03052416
+PFC_Microglia            0     0 0.000000e+00 0.0010380623 0.01401384
+PFC_Neu-mat              0     0 8.665511e-05 0.0032062392 0.02651646
+PFC_Neu-NRGN-I           0     0 3.626943e-04 0.0043005181 0.03891192
+PFC_Neu-NRGN-II          0     0 1.686341e-04 0.0023608769 0.01922428
+PFC_Oligodendrocytes     0     0 0.000000e+00 0.0007454739 0.01821086
+PFC_OPC                  0     0 6.711409e-05 0.0028187919 0.02778523
+
+$SAVER
+                     1e-05 1e-04        0.001         0.01        0.05
+PFC_AST-FB               0     0 0.0000000000 0.0000000000 0.003424658
+PFC_AST-PP               0     0 0.0012666244 0.0037998733 0.029765674
+PFC_Endothelial          0     0 0.0000000000 0.0042042042 0.027627628
+PFC_IN-PV                0     0 0.0000000000 0.0008319468 0.008319468
+PFC_IN-SST               0     0 0.0000000000 0.0002469746 0.005186466
+PFC_IN-SV2C              0     0 0.0001800180 0.0027002700 0.027902790
+PFC_IN-VIP               0     0 0.0002237136 0.0058165548 0.038702461
+PFC_L2_3                 0     0 0.0000000000 0.0002421308 0.009685230
+PFC_L4                   0     0 0.0000000000 0.0004737840 0.008212255
+PFC_L5_6                 0     0 0.0000000000 0.0020511418 0.016956106
+PFC_L5_6-CC              0     0 0.0000000000 0.0005381552 0.009471532
+PFC_Microglia            0     0 0.0000000000 0.0103806228 0.086505190
+PFC_Neu-mat              0     0 0.0000000000 0.0017331023 0.009532062
+PFC_Neu-NRGN-I           0     0 0.0000000000 0.0005181347 0.006735751
+PFC_Neu-NRGN-II          0     0 0.0000000000 0.0033726813 0.016863406
+PFC_Oligodendrocytes     0     0 0.0010649627 0.0330138445 0.130990415
+PFC_OPC                  0     0 0.0026845638 0.0342281879 0.102684564
+
+> 
+> # -------------------------------------------------------------------
+> # plot type I error across cell types
+> # -------------------------------------------------------------------
+> 
+> idx = 5
+> df1 = lapply(type_i, function(x){x[,idx]})
+> df1 = unlist(df1)
+> df2 = data.frame(method = str_extract(names(df1), "\\S+(?=.PFC_)"),
++                  cell_type = str_extract(names(df1), "(?<=.PFC_)\\S+"),
++                  type_I_error = as.numeric(df1))
+> 
+> df2$method = factor(df2$method, levels=methods)
+> 
+> p5 = ggplot(df2, aes(x=method, y=type_I_error, fill=method)) +
++   geom_boxplot() + geom_hline(yintercept=0.05) + 
++   geom_hline(yintercept=0.01, linetype="dashed") + 
++   geom_hline(yintercept=0.10, linetype="dashed") + 
++   scale_y_continuous(trans='log10') + ylab("Type-I error") + 
++   theme(axis.text.x = element_blank())
+> 
+> idx = 4
+> df1 = lapply(type_i, function(x){x[,idx]})
+> df1 = unlist(df1)
+> df2 = data.frame(method = str_extract(names(df1), "\\S+(?=.PFC_)"),
++                  cell_type = str_extract(names(df1), "(?<=.PFC_)\\S+"),
++                  type_I_error = as.numeric(df1))
+> 
+> df2$method = factor(df2$method, levels=methods)
+> summary(df2$type_I_error)
+    Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+0.000000 0.004922 0.008339 0.084261 0.114446 0.731719 
+> min(df2$type_I_error[df2$type_I_error > 0])
+[1] 0.0002421308
+> df2$type_I_error[which(df2$type_I_error == 0)] = 0.0002
+> 
+> p1 = ggplot(df2, aes(x=method, y=type_I_error, fill=method)) +
++   geom_boxplot() + geom_hline(yintercept=0.01) + 
++   geom_hline(yintercept=0.001, linetype="dashed") + 
++   geom_hline(yintercept=0.05, linetype="dashed") + 
++   scale_y_continuous(trans='log10') + ylab("Type-I error") + 
++   theme(axis.text.x  = element_blank())
+> 
+> pdf("figures/step2b_type_i_error_05.pdf", width=4, height=3)
+> p5
+> dev.off()
+null device 
+          1 
+> 
+> pdf("figures/step2b_type_i_error_01.pdf", width=4, height=3)
+> p1
+> dev.off()
+null device 
+          1 
+> 
+> 
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  2053951 109.7    3607705  192.7         NA   3607705  192.7
+Vcells 17491952 133.5  213987890 1632.6      32768 344347616 2627.2
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] Matrix_1.3-0      stringr_1.4.0     reshape2_1.4.4    ggrepel_0.9.0    
+[5] ggpubr_0.4.0      data.table_1.13.6 ggcorrplot_0.1.3  ggplot2_3.3.3    
+
+loaded via a namespace (and not attached):
+ [1] zip_2.1.1        Rcpp_1.0.5       plyr_1.8.6       pillar_1.4.7    
+ [5] compiler_4.0.3   cellranger_1.1.0 forcats_0.5.0    tools_4.0.3     
+ [9] digest_0.6.27    lattice_0.20-41  lifecycle_0.2.0  tibble_3.0.4    
+[13] gtable_0.3.0     pkgconfig_2.0.3  rlang_0.4.10     openxlsx_4.2.3  
+[17] curl_4.3         haven_2.3.1      rio_0.5.16       withr_2.3.0     
+[21] dplyr_1.0.2      generics_0.1.0   vctrs_0.3.6      hms_0.5.3       
+[25] grid_4.0.3       tidyselect_1.1.0 glue_1.4.2       R6_2.5.0        
+[29] rstatix_0.6.0    readxl_1.3.1     foreign_0.8-81   carData_3.0-4   
+[33] farver_2.0.3     tidyr_1.1.2      purrr_0.3.4      car_3.0-10      
+[37] magrittr_2.0.1   backports_1.2.1  scales_1.1.1     ellipsis_0.3.1  
+[41] abind_1.4-5      colorspace_2.0-0 ggsignif_0.6.0   stringi_1.5.3   
+[45] munsell_0.5.0    broom_0.7.3      crayon_1.3.4    
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 17.143   4.165  24.487 
