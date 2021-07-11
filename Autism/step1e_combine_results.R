@@ -2,7 +2,7 @@
 # and step1d together to a dataframe
 
 # files to load:
-#   -- the 3 pvalue files
+#   -- the 7 pvalue files
 #   -- the orignal full count matrix to filter out genes with 
 #      too many zeros
 
@@ -101,6 +101,11 @@ dim(pvals)
 head(pvals)
 # plot(-log10(pvals$PS_dca_direct_Was), -log10(pvals$PS_saver_direct_Was))
 
-file.name = sprintf("res/step1e_pvals_%s.tsv", 
-                    grp)
+file.name = sprintf("res/step1e_pvals_%s.tsv", grp)
 fwrite(pvals, file = file.name, sep = "\t")
+
+
+gc()
+
+sessionInfo()
+q(save="no")

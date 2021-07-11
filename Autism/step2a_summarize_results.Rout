@@ -1,0 +1,1223 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(ggcorrplot)
+Loading required package: ggplot2
+> library(data.table)
+> library(ggpubr)
+> library(ggrepel)
+> library(reshape2)
+
+Attaching package: ‘reshape2’
+
+The following objects are masked from ‘package:data.table’:
+
+    dcast, melt
+
+> 
+> theme_set(theme_classic())
+> 
+> # -------------------------------------------------------------------
+> # read in cell type information
+> # -------------------------------------------------------------------
+> 
+> cell_types = scan("cell_types.txt", what=character())
+Read 17 items
+> cell_types = sort(cell_types)
+> cell_types
+ [1] "PFC_AST-FB"           "PFC_AST-PP"           "PFC_Endothelial"     
+ [4] "PFC_IN-PV"            "PFC_IN-SST"           "PFC_IN-SV2C"         
+ [7] "PFC_IN-VIP"           "PFC_L2_3"             "PFC_L4"              
+[10] "PFC_L5_6"             "PFC_L5_6-CC"          "PFC_Microglia"       
+[13] "PFC_Neu-mat"          "PFC_Neu-NRGN-I"       "PFC_Neu-NRGN-II"     
+[16] "PFC_Oligodendrocytes" "PFC_OPC"             
+> 
+> # -------------------------------------------------------------------
+> # read p-values, draw histogram of p-values, and record 
+> # fisher exact test to compare each pair of method
+> # -------------------------------------------------------------------
+> 
+> methods = c("DESeq2", "rank_sum", "MAST_glm", "MAST_glmer", 
++             "PS_nb_Was", "PS_dca_direct_Was", "PS_saver_direct_Was")
+> 
+> pi0     = matrix(NA, nrow=length(cell_types), ncol=length(methods))
+> ngenes  = rep(NA, length(cell_types))
+> or_list = fp_list = pv_list = list()
+> 
+> pdf("figures/step2_pval_hist.pdf", width=12, height=6)
+> par(mfrow=c(2,4), bty="n", mar=c(5,4,3,1))
+> 
+> for(i in 1:length(cell_types)){
++   ct1 = cell_types[i]
++   p1  = fread(sprintf("res/step1e_pvals_%s.tsv", ct1))
++   pv_list[[ct1]]= p1
++   ngenes[i] = nrow(p1)
++   
++   odds_ratio = fisher_pvl = matrix(NA, nrow=length(methods), 
++                                    ncol=length(methods))
++   
++   colnames(odds_ratio) = rownames(odds_ratio) = methods
++   colnames(fisher_pvl) = rownames(fisher_pvl) = methods
++   
++   j = 0
++   for(m1 in methods){
++     j = j + 1
++     hist(p1[[m1]], main=paste0(m1, "\n", ct1), xlab="p-value", breaks = 20)
++     pi0[i,j] = min(1, 2*mean(p1[[m1]] > 0.5, na.rm=TRUE))
++     
++     pj = p1[[m1]] < 0.05
++     if(sum(pj, na.rm=TRUE) == 0){ next }
++     
++     for(k1 in methods){
++       pk = p1[[k1]] < 0.05
++       if(sum(pk, na.rm=TRUE) == 0){ next }
++       
++       fjk = fisher.test(pj, pk)
++       odds_ratio[m1, k1] = fjk$estimate
++       fisher_pvl[m1, k1] = fjk$p.value
++     }
++   }
++   plot(0:1,0:1, type="n", xaxt="n", yaxt="n", bty="n", xlab="", ylab="")
++   or_list[[ct1]] = odds_ratio
++   fp_list[[ct1]] = fisher_pvl
++   
++ }
+> 
+> dev.off()
+null device 
+          1 
+> 
+> 
+> df1 = data.frame(cell_type = gsub("PFC_", "", cell_types), n_genes = ngenes)
+> df1$cell_type = factor(df1$cell_type, levels = df1$cell_type)
+> 
+> g2  = ggplot(data=df1, aes(x=cell_type, y=n_genes)) +
++   geom_bar(stat="identity", fill="gray") + 
++   ylab("number of genes") + xlab("") + 
++   coord_flip() + theme_classic() 
+> 
+> ggsave("figures/step2_barplot_n_genes.pdf", g2, width=3, height=3.5)
+> 
+> pdf("figures/step2_odds_ratio.pdf", width=6, height=6)
+> par(mfrow=c(1,1), bty="n", mar=c(5,4,3,1))
+> 
+> for(ct1 in cell_types){
++   or1 = or_list[[ct1]]
++   or1[which(or1 > 10)] = 10
++   g1 = ggcorrplot(or1, tl.srt=90) + ggtitle(gsub("PFC_", "", ct1)) +
++     scale_fill_gradient2(limit = c(0,10), low = "blue", 
++                          high =  "red", mid = "white", 
++                          midpoint = 5)
++   print(g1)
++ }
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+> dev.off()
+null device 
+          1 
+> 
+> # -------------------------------------------------------------------
+> # summarize the proportion of non-nulls
+> # -------------------------------------------------------------------
+> 
+> colnames(pi0) = methods
+> rownames(pi0) = cell_types
+> 
+> pi1 = t(1 - pi0)
+> 
+> pi1
+                    PFC_AST-FB  PFC_AST-PP PFC_Endothelial PFC_IN-PV PFC_IN-SST
+DESeq2              0.00000000 0.004433186     0.000000000 0.1773710  0.1696715
+rank_sum            0.46232877 0.712476251     0.363363363 0.5121464  0.7520375
+MAST_glm            0.45205479 0.920202660     0.358558559 0.5983361  0.4364041
+MAST_glmer          0.04974271 0.577946768     0.123798077 0.3919121  0.1729249
+PS_nb_Was           0.27972028 0.029765674     0.000000000 0.1724368  0.1799060
+PS_dca_direct_Was   0.23972603 0.082963901     0.004204204 0.4878536  0.5638429
+PS_saver_direct_Was 0.21575342 0.117162761     0.227627628 0.4542429  0.4788837
+                    PFC_IN-SV2C PFC_IN-VIP  PFC_L2_3    PFC_L4   PFC_L5_6
+DESeq2                0.1409541  0.1991051 0.2033898 0.1955148 0.06604677
+rank_sum              0.4919892  0.7060403 0.8472155 0.8291219 0.74811979
+MAST_glm              0.4509451  0.5485459 0.9704600 0.6544536 0.42021058
+MAST_glmer            0.2818296  0.1993735 0.5888983 0.2734165 0.12530780
+PS_nb_Was             0.1889069  0.1886201 0.2427655 0.1797220 0.11701109
+PS_dca_direct_Was     0.4923492  0.4827740 0.3845036 0.3480733 0.37563244
+PS_saver_direct_Was   0.4189019  0.4442953 0.3469734 0.3575490 0.34089977
+                    PFC_L5_6-CC PFC_Microglia PFC_Neu-mat PFC_Neu-NRGN-I
+DESeq2                0.0752341    0.05536332  0.13171577     0.15233161
+rank_sum              0.7490044    0.47058824  0.68457539     0.42487047
+MAST_glm              0.5096330    0.66435986  0.52512998     0.40621762
+MAST_glmer            0.1348787    0.30329289  0.20555074     0.25803109
+PS_nb_Was             0.1657512    0.00000000  0.07826087     0.06998445
+PS_dca_direct_Was     0.2381875    0.00000000  0.45580589     0.30569948
+PS_saver_direct_Was   0.2614358    0.00000000  0.44020797     0.17409326
+                    PFC_Neu-NRGN-II PFC_Oligodendrocytes    PFC_OPC
+DESeq2                    0.3726813            0.1544196 0.16644295
+rank_sum                  0.6728499            0.7784878 0.68590604
+MAST_glm                  0.6964587            0.9637913 0.53825503
+MAST_glmer                0.3086003            0.5863539 0.13364674
+PS_nb_Was                 0.3231810            0.2989247 0.07114094
+PS_dca_direct_Was         0.6053963            0.6059638 0.52214765
+PS_saver_direct_Was       0.5244519            0.1096912 0.24161074
+> 
+> rownames(pi1) = gsub("PS_nb_Was", "IDEAS_NB", rownames(pi1))
+> rownames(pi1) = gsub("PS_dca_direct_Was", "IDEAS_DCA", rownames(pi1))
+> rownames(pi1) = gsub("PS_saver_direct_Was", "IDEAS_SAVER", rownames(pi1))
+> 
+> summary(c(pi1))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.1681  0.3232  0.3523  0.5109  0.9705 
+> 
+> g1 = ggcorrplot(pi1, tl.srt=90)
+> g1 = g1 + scale_fill_gradient2(limit = c(0,1), low = "blue", 
++                                high =  "red", mid = "white", 
++                                midpoint = 0.2)
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+> 
+> ggsave("figures/step2_pi1_complete.pdf", g1, width=5, height=5)
+> 
+> pi1_sub = pi1[-(2:3),]
+> summary(c(pi1_sub))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.1253  0.2034  0.2461  0.3575  0.6060 
+> rownames(pi1_sub) = gsub("PFC_", "", rownames(pi1_sub))
+> 
+> g1 = ggcorrplot(pi1_sub, tl.srt=90)
+> g1 = g1 + scale_fill_gradient2(limit = c(0,0.61), low = "blue", 
++                                high =  "red", mid = "white", 
++                                midpoint = 0.2)
+Scale for 'fill' is already present. Adding another scale for 'fill', which
+will replace the existing scale.
+> 
+> ggsave("figures/step2_pi1_PS_Was.pdf", g1, width=4, height=5)
+> 
+> pi1_sub = as.data.frame(round(t(pi1_sub),3))
+> table(df1$cell_type == rownames(pi1_sub))
+
+FALSE 
+   17 
+> pi1_sub
+                     DESeq2 MAST_glmer IDEAS_NB IDEAS_DCA IDEAS_SAVER
+PFC_AST-FB            0.000      0.050    0.280     0.240       0.216
+PFC_AST-PP            0.004      0.578    0.030     0.083       0.117
+PFC_Endothelial       0.000      0.124    0.000     0.004       0.228
+PFC_IN-PV             0.177      0.392    0.172     0.488       0.454
+PFC_IN-SST            0.170      0.173    0.180     0.564       0.479
+PFC_IN-SV2C           0.141      0.282    0.189     0.492       0.419
+PFC_IN-VIP            0.199      0.199    0.189     0.483       0.444
+PFC_L2_3              0.203      0.589    0.243     0.385       0.347
+PFC_L4                0.196      0.273    0.180     0.348       0.358
+PFC_L5_6              0.066      0.125    0.117     0.376       0.341
+PFC_L5_6-CC           0.075      0.135    0.166     0.238       0.261
+PFC_Microglia         0.055      0.303    0.000     0.000       0.000
+PFC_Neu-mat           0.132      0.206    0.078     0.456       0.440
+PFC_Neu-NRGN-I        0.152      0.258    0.070     0.306       0.174
+PFC_Neu-NRGN-II       0.373      0.309    0.323     0.605       0.524
+PFC_Oligodendrocytes  0.154      0.586    0.299     0.606       0.110
+PFC_OPC               0.166      0.134    0.071     0.522       0.242
+> df1 = cbind(df1, pi1_sub)
+> df1
+                            cell_type n_genes DESeq2 MAST_glmer IDEAS_NB
+PFC_AST-FB                     AST-FB     584  0.000      0.050    0.280
+PFC_AST-PP                     AST-PP    1579  0.004      0.578    0.030
+PFC_Endothelial           Endothelial    1665  0.000      0.124    0.000
+PFC_IN-PV                       IN-PV    6010  0.177      0.392    0.172
+PFC_IN-SST                     IN-SST    4049  0.170      0.173    0.180
+PFC_IN-SV2C                   IN-SV2C    5555  0.141      0.282    0.189
+PFC_IN-VIP                     IN-VIP    4470  0.199      0.199    0.189
+PFC_L2_3                         L2_3    8260  0.203      0.589    0.243
+PFC_L4                             L4    6332  0.196      0.273    0.180
+PFC_L5_6                         L5_6    7313  0.066      0.125    0.117
+PFC_L5_6-CC                   L5_6-CC    9291  0.075      0.135    0.166
+PFC_Microglia               Microglia     578  0.055      0.303    0.000
+PFC_Neu-mat                   Neu-mat    1154  0.132      0.206    0.078
+PFC_Neu-NRGN-I             Neu-NRGN-I    1930  0.152      0.258    0.070
+PFC_Neu-NRGN-II           Neu-NRGN-II     593  0.373      0.309    0.323
+PFC_Oligodendrocytes Oligodendrocytes     939  0.154      0.586    0.299
+PFC_OPC                           OPC    1490  0.166      0.134    0.071
+                     IDEAS_DCA IDEAS_SAVER
+PFC_AST-FB               0.240       0.216
+PFC_AST-PP               0.083       0.117
+PFC_Endothelial          0.004       0.228
+PFC_IN-PV                0.488       0.454
+PFC_IN-SST               0.564       0.479
+PFC_IN-SV2C              0.492       0.419
+PFC_IN-VIP               0.483       0.444
+PFC_L2_3                 0.385       0.347
+PFC_L4                   0.348       0.358
+PFC_L5_6                 0.376       0.341
+PFC_L5_6-CC              0.238       0.261
+PFC_Microglia            0.000       0.000
+PFC_Neu-mat              0.456       0.440
+PFC_Neu-NRGN-I           0.306       0.174
+PFC_Neu-NRGN-II          0.605       0.524
+PFC_Oligodendrocytes     0.606       0.110
+PFC_OPC                  0.522       0.242
+> 
+> write.table(df1, file="res/Fig4A_n_genes.txt", sep="\t", quote=FALSE, 
++             row.names = FALSE)
+> 
+> # -------------------------------------------------------------------
+> # read GSEA results
+> # -------------------------------------------------------------------
+> 
+> f1 <- function(x){
++   ww1 = which(x$padj < 0.05)
++   if(length(ww1) > 0){
++     x1 = x[ww1, c("pathway", "pval", "padj", "NES")]
++   }else{
++     x1 = NULL
++   }
++   x1
++ }
+> 
+> f2 <- function(x){
++   x[which(x$pathway=="SFARI"), c("pval")]
++ }
+> 
+> f3 <- function(x){
++   x[which(x$pathway=="SFARI"), c("NES")]
++ }
+> 
+> sfari_pval = sfari_NES = NULL
+> 
+> gesaL = list()
+> 
+> sink("res/step2_GSEA.txt")
+> 
+> for(ct1 in cell_types){
++   
++   cat("\n---------------------------------------------------\n")
++   cat(ct1)
++   cat("\n---------------------------------------------------\n")
++   
++   gsea = readRDS(sprintf("res/step1f_gsea_%s.rds", ct1))
++   gsea = gsea[methods]
++   
++   x1   = lapply(gsea, f1)
++   x1[sapply(x1, is.null)] = NULL
++   
++   if(length(x1) > 0){ print(x1) }
++   
++   x2  = unlist(sapply(gsea, f2))
++   sfari_pval = rbind(sfari_pval, x2)
++ 
++   x3   = unlist(sapply(gsea, f3))
++   sfari_NES = rbind(sfari_NES, x3)
++   
++   gesaL[[ct1]] = gsea
++ }
+> sink()
+> 
+> rownames(sfari_pval) = rownames(sfari_NES) = cell_types
+> 
+> signif(sfari_pval,2)
+                     DESeq2.pval rank_sum.pval MAST_glm.pval MAST_glmer.pval
+PFC_AST-FB                 0.300         0.530        0.6600          0.4900
+PFC_AST-PP                 0.840         0.510        0.9800          0.7800
+PFC_Endothelial            0.830         0.880        0.9600          0.4100
+PFC_IN-PV                  0.080         0.300        0.7200          0.1400
+PFC_IN-SST                 0.120         0.990        0.2100          0.3300
+PFC_IN-SV2C                0.150         0.420        0.1700          0.3400
+PFC_IN-VIP                 0.210         0.880        0.4800          0.0770
+PFC_L2_3                   0.220         0.023        0.0019          0.5700
+PFC_L4                     0.063         0.500        0.1200          0.0033
+PFC_L5_6                   0.045         0.970        0.0140          0.0081
+PFC_L5_6-CC                0.220         0.480        0.0260          0.0960
+PFC_Microglia              0.900         0.930        0.6400          0.4000
+PFC_Neu-mat                0.540         0.960        0.8700          0.2400
+PFC_Neu-NRGN-I             1.000         1.000        1.0000          1.0000
+PFC_Neu-NRGN-II            1.000         0.910        0.9400          1.0000
+PFC_Oligodendrocytes       0.750         1.000        0.8900          0.5100
+PFC_OPC                    0.880         0.980        0.9100          0.4800
+                     PS_nb_Was.pval PS_dca_direct_Was.pval
+PFC_AST-FB                    0.440                  0.140
+PFC_AST-PP                    0.690                  0.340
+PFC_Endothelial               0.220                  0.270
+PFC_IN-PV                     0.250                  0.180
+PFC_IN-SST                    0.540                  0.032
+PFC_IN-SV2C                   0.220                  0.320
+PFC_IN-VIP                    0.100                  0.053
+PFC_L2_3                      0.190                  0.003
+PFC_L4                        0.078                  0.036
+PFC_L5_6                      0.047                  0.990
+PFC_L5_6-CC                   0.320                  0.089
+PFC_Microglia                 0.690                  0.350
+PFC_Neu-mat                   0.820                  0.220
+PFC_Neu-NRGN-I                0.850                  0.940
+PFC_Neu-NRGN-II               0.990                     NA
+PFC_Oligodendrocytes          0.900                  0.410
+PFC_OPC                       0.880                  0.200
+                     PS_saver_direct_Was.pval
+PFC_AST-FB                              0.036
+PFC_AST-PP                              0.610
+PFC_Endothelial                         0.130
+PFC_IN-PV                               0.880
+PFC_IN-SST                              0.230
+PFC_IN-SV2C                             0.740
+PFC_IN-VIP                              0.230
+PFC_L2_3                                0.330
+PFC_L4                                  0.370
+PFC_L5_6                                0.120
+PFC_L5_6-CC                             0.410
+PFC_Microglia                           0.820
+PFC_Neu-mat                             0.830
+PFC_Neu-NRGN-I                          1.000
+PFC_Neu-NRGN-II                         0.960
+PFC_Oligodendrocytes                    0.240
+PFC_OPC                                 0.710
+> signif(sfari_NES,2)
+                     DESeq2.NES rank_sum.NES MAST_glm.NES MAST_glmer.NES
+PFC_AST-FB                 1.10         0.98         0.93           1.00
+PFC_AST-PP                 0.89         1.00         0.73           0.90
+PFC_Endothelial            0.90         0.87         0.80           1.00
+PFC_IN-PV                  1.10         1.00         0.95           1.10
+PFC_IN-SST                 1.10         0.79         1.10           1.00
+PFC_IN-SV2C                1.10         1.00         1.10           1.00
+PFC_IN-VIP                 1.10         0.91         1.00           1.10
+PFC_L2_3                   1.10         1.10         1.30           0.99
+PFC_L4                     1.10         1.00         1.10           1.20
+PFC_L5_6                   1.10         0.86         1.20           1.20
+PFC_L5_6-CC                1.10         1.00         1.10           1.10
+PFC_Microglia              0.81         0.79         0.95           1.00
+PFC_Neu-mat                1.00         0.83         0.88           1.10
+PFC_Neu-NRGN-I             0.66         0.72         0.74           0.66
+PFC_Neu-NRGN-II            0.54         0.82         0.79           0.47
+PFC_Oligodendrocytes       0.91         0.60         0.74           1.00
+PFC_OPC                    0.88         0.79         0.86           1.00
+                     PS_nb_Was.NES PS_dca_direct_Was.NES
+PFC_AST-FB                    1.00                  1.20
+PFC_AST-PP                    0.94                  1.00
+PFC_Endothelial               1.10                  1.10
+PFC_IN-PV                     1.10                  1.10
+PFC_IN-SST                    0.99                  1.20
+PFC_IN-SV2C                   1.10                  1.00
+PFC_IN-VIP                    1.10                  1.10
+PFC_L2_3                      1.10                  1.20
+PFC_L4                        1.10                  1.20
+PFC_L5_6                      1.10                  0.84
+PFC_L5_6-CC                   1.00                  1.10
+PFC_Microglia                 0.89                  1.10
+PFC_Neu-mat                   0.90                  1.10
+PFC_Neu-NRGN-I                0.88                  0.83
+PFC_Neu-NRGN-II               0.63                    NA
+PFC_Oligodendrocytes          0.80                  1.00
+PFC_OPC                       0.87                  1.10
+                     PS_saver_direct_Was.NES
+PFC_AST-FB                              1.30
+PFC_AST-PP                              0.96
+PFC_Endothelial                         1.10
+PFC_IN-PV                               0.90
+PFC_IN-SST                              1.10
+PFC_IN-SV2C                             0.95
+PFC_IN-VIP                              1.10
+PFC_L2_3                                1.00
+PFC_L4                                  1.00
+PFC_L5_6                                1.10
+PFC_L5_6-CC                             1.00
+PFC_Microglia                           0.86
+PFC_Neu-mat                             0.90
+PFC_Neu-NRGN-I                          0.68
+PFC_Neu-NRGN-II                         0.73
+PFC_Oligodendrocytes                    1.10
+PFC_OPC                                 0.94
+> 
+> cols = c("DESeq2.pval", "PS_nb_Was.pval", "PS_dca_direct_Was.pval", 
++          "PS_saver_direct_Was.pval")
+> w_ct = which(rowSums(sfari_pval[,cols] < 0.1) > 0)
+> signif(sfari_pval[w_ct, cols],2)
+            DESeq2.pval PS_nb_Was.pval PS_dca_direct_Was.pval
+PFC_AST-FB        0.300          0.440                  0.140
+PFC_IN-PV         0.080          0.250                  0.180
+PFC_IN-SST        0.120          0.540                  0.032
+PFC_IN-VIP        0.210          0.100                  0.053
+PFC_L2_3          0.220          0.190                  0.003
+PFC_L4            0.063          0.078                  0.036
+PFC_L5_6          0.045          0.047                  0.990
+PFC_L5_6-CC       0.220          0.320                  0.089
+            PS_saver_direct_Was.pval
+PFC_AST-FB                     0.036
+PFC_IN-PV                      0.880
+PFC_IN-SST                     0.230
+PFC_IN-VIP                     0.230
+PFC_L2_3                       0.330
+PFC_L4                         0.370
+PFC_L5_6                       0.120
+PFC_L5_6-CC                    0.410
+> signif(sfari_NES[w_ct, match(cols, colnames(sfari_pval))],2)
+            DESeq2.NES PS_nb_Was.NES PS_dca_direct_Was.NES
+PFC_AST-FB         1.1          1.00                  1.20
+PFC_IN-PV          1.1          1.10                  1.10
+PFC_IN-SST         1.1          0.99                  1.20
+PFC_IN-VIP         1.1          1.10                  1.10
+PFC_L2_3           1.1          1.10                  1.20
+PFC_L4             1.1          1.10                  1.20
+PFC_L5_6           1.1          1.10                  0.84
+PFC_L5_6-CC        1.1          1.00                  1.10
+            PS_saver_direct_Was.NES
+PFC_AST-FB                      1.3
+PFC_IN-PV                       0.9
+PFC_IN-SST                      1.1
+PFC_IN-VIP                      1.1
+PFC_L2_3                        1.0
+PFC_L4                          1.0
+PFC_L5_6                        1.1
+PFC_L5_6-CC                     1.0
+> 
+> # ------------------------------------------------------------------------
+> # compare p-values of SFARI genes
+> # ------------------------------------------------------------------------
+> 
+> fnm = "data/SFARI-Gene_genes_10-31-2019release_04-08-2020export.csv"
+> SFARI_table0 = read.csv(fnm, as.is=TRUE)
+> dim(SFARI_table0)
+[1] 980   8
+> SFARI_table0[1:2,]
+  status gene.symbol                                            gene.name
+1      9      ABCA10 ATP-binding cassette, sub-family A (ABC1), member 10
+2      9      ABCA13           ATP binding cassette subfamily A member 13
+  chromosome                      genetic.category gene.score syndromic
+1         17             Rare Single Gene Mutation          4         0
+2          7 Rare Single Gene Mutation, Functional          4         0
+  number.of.reports
+1                 1
+2                 5
+> 
+> table(SFARI_table0$gene.score, useNA="ifany")
+
+   1    2    3    4    5    6 <NA> 
+  25   66  202  463  177   25   22 
+> table(SFARI_table0$syndromic, useNA="ifany")
+
+  0   1 
+872 108 
+> table(SFARI_table0$gene.score <= 3, SFARI_table0$syndromic, useNA="ifany")
+       
+          0   1
+  FALSE 627  38
+  TRUE  242  51
+  <NA>    3  19
+> 
+> sum(SFARI_table0$gene.score <= 3 | SFARI_table0$syndromic==1, na.rm = TRUE)
+[1] 350
+> 
+> # the cell types that are associated with SFARI among at least 
+> # of the the three methods at p-value 0.1
+> cts_SFARI = rownames(sfari_pval)[w_ct]
+> 
+> df_all  = NULL
+> pi1_all = NULL
+> fun.pi0 = function(v){ min(1, 2 * length(which(v>0.5)) / length(v)) }
+> 
+> for(ct1 in cts_SFARI){
++   # ct1 = "PFC_L2_3"
++   cat("\n-----------------------------------------------------\n")
++   cat(ct1)
++   cat("\n-----------------------------------------------------\n")
++   
++   pvals = pv_list[[ct1]]
++   dim(pvals)
++   pvals[1:2,]
++   
++   SFARI_table = SFARI_table0[SFARI_table0$gene.symbol %in% pvals$gene, ]
++   dim(SFARI_table)
++   
++   table(SFARI_table$syndromic, SFARI_table$gene.score)
++   w2kp = SFARI_table$syndromic == 1 | SFARI_table$gene.score %in% 1:3
++   genes_in_SFARI = SFARI_table$gene.symbol[w2kp]
++   length(genes_in_SFARI)
++   genes_in_SFARI[1:5]
++   
++   wSFARI = which(pvals$gene %in% genes_in_SFARI)
++   length(wSFARI)
++   pvals$SFARI = rep("No", nrow(pvals))
++   pvals$SFARI[wSFARI] = "Yes"
++   
++   pcut = 0.05
++   f1 = fisher.test(pvals$SFARI, pvals$DESeq2 < pcut)
++   f2 = fisher.test(pvals$SFARI, pvals$PS_nb_Was < pcut)
++   f3 = fisher.test(pvals$SFARI, pvals$PS_dca_direct_Was  < pcut)
++   
++   print(f1)
++   print(f2)
++   print(f3)
++   
++   methods_nms = c("DESeq2", "IDEAS_NB", "IDEAS_DCA")
++   methods_idx = 3:1
++   
++   df = data.frame(cell_type=rep(ct1,3), methods_idx = methods_idx, 
++                   methods=methods_nms,
++                   odds   = c(f1$estimate, f2$estimate, f3$estimate),
++                   CILow  = c(f1$conf.int[1], f2$conf.int[1], f3$conf.int[1]), 
++                   CIHigh = c(f1$conf.int[2], f2$conf.int[2], f3$conf.int[2]),
++                   pval   = c(f1$p.value, f2$p.value, f3$p.value))
++ 
++   p = ggplot(df, aes(x = odds, y = methods_idx)) + 
++     geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") +
++     geom_errorbarh(aes(xmax = CIHigh, xmin = CILow), size = .5, 
++                    height = .2, color = "gray50") +
++     geom_point(size = 3.5, color = "orange") +
++     theme(panel.grid.minor = element_blank()) +
++     scale_y_continuous(breaks = methods_idx, labels = methods_nms) +
++     scale_x_continuous(breaks = seq(0,2,0.5) ) +
++     coord_trans(x = "log10") + ylab("") + 
++     xlab("Odds ratio for SFARI genes") + ggtitle(gsub("PFC_", "", ct1))
++   
++   ggsave(sprintf("figures/step2_SFARI_%s_odds_ratio.pdf", ct1), p, 
++          width=3, height=1.3)
++   
++   df_all = rbind(df_all, df)
++   
++   k = 0
++   methods_label = c("DESeq2", "PS_nb_Was", "PS_dca_direct_Was")
++   pi0 = matrix(NA, nrow=length(methods_label), ncol=2)
++   
++   for(m1 in methods_label){
++     k = k + 1
++     pi0[k,] = tapply(pvals[[m1]], pvals$SFARI, fun.pi0)
++   }
++   
++   colnames(pi0) = c("not_SFARI", "SFARI")
++   pi1_df = data.frame(cell_type=rep(ct1,3), methods=methods_nms, 1-pi0)
++   pi1_all = rbind(pi1_all, pi1_df)
++   pi1 = melt(pi1_df, id=c("cell_type","methods"), variable.name="group", 
++              value.name="non_null_prop")
++   
++   pi1$methods = factor(pi1$methods, 
++                        levels=c("DESeq2", "IDEAS_NB", "IDEAS_DCA"))
++   p2 = ggplot(pi1, aes(x = methods, y = non_null_prop, fill=group)) + 
++     geom_bar(stat="identity", position=position_dodge()) + 
++     scale_fill_brewer(palette="Dark2") + ggtitle(gsub("PFC_", "", ct1)) + 
++     theme(axis.title.x = element_blank()) + ylab("non-null proportion") + 
++     theme(legend.position = "topleft")
++     
++   ggsave(sprintf("figures/step2_SFARI_%s_non_null.pdf", ct1), p2, 
++          width=3, height=2.5)
++   
++ }
+
+-----------------------------------------------------
+PFC_AST-FB
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.773
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.2830396 3.4048914
+sample estimates:
+odds ratio 
+  1.143219 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 0.7589
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.06734679 2.47272713
+sample estimates:
+odds ratio 
+ 0.5977391 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.2354
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.6291291 3.7430444
+sample estimates:
+odds ratio 
+  1.629041 
+
+
+-----------------------------------------------------
+PFC_IN-PV
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.2808
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8062767 1.8412881
+sample estimates:
+odds ratio 
+  1.237413 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 0.1528
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8543617 2.0658919
+sample estimates:
+odds ratio 
+  1.353277 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.2647
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8624116 1.6104754
+sample estimates:
+odds ratio 
+  1.185275 
+
+
+-----------------------------------------------------
+PFC_IN-SST
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.3231
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.7824061 1.8339868
+sample estimates:
+odds ratio 
+  1.216689 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 0.4361
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.7075364 1.9437389
+sample estimates:
+odds ratio 
+  1.202193 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.02708
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 1.035433 1.929788
+sample estimates:
+odds ratio 
+  1.419301 
+
+
+-----------------------------------------------------
+PFC_IN-VIP
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.2453
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8203588 1.8475547
+sample estimates:
+odds ratio 
+   1.24833 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 0.1257
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8926175 2.1178954
+sample estimates:
+odds ratio 
+  1.397639 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.02174
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 1.046900 1.942775
+sample estimates:
+odds ratio 
+  1.432462 
+
+
+-----------------------------------------------------
+PFC_L2_3
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.4855
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.7639157 1.6667067
+sample estimates:
+odds ratio 
+   1.14441 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 0.5983
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.7114653 1.6484381
+sample estimates:
+odds ratio 
+  1.101875 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.02393
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 1.040082 1.924944
+sample estimates:
+odds ratio 
+  1.423863 
+
+
+-----------------------------------------------------
+PFC_L4
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.1702
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8677147 1.9141392
+sample estimates:
+odds ratio 
+  1.306536 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 0.2612
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8017882 2.0380104
+sample estimates:
+odds ratio 
+  1.306115 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.01328
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 1.076912 2.135421
+sample estimates:
+odds ratio 
+  1.529173 
+
+
+-----------------------------------------------------
+PFC_L5_6
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.1437
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8402058 2.2179966
+sample estimates:
+odds ratio 
+  1.398566 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 1
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.5747351 1.6259321
+sample estimates:
+odds ratio 
+ 0.9955277 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.5799
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.5853045 1.2929077
+sample estimates:
+odds ratio 
+ 0.8827273 
+
+
+-----------------------------------------------------
+PFC_L5_6-CC
+-----------------------------------------------------
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$DESeq2 < pcut
+p-value = 0.354
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.771013 1.865734
+sample estimates:
+odds ratio 
+  1.223653 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_nb_Was < pcut
+p-value = 0.9114
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.6273431 1.5697608
+sample estimates:
+odds ratio 
+  1.014713 
+
+
+	Fisher's Exact Test for Count Data
+
+data:  pvals$SFARI and pvals$PS_dca_direct_Was < pcut
+p-value = 0.1901
+alternative hypothesis: true odds ratio is not equal to 1
+95 percent confidence interval:
+ 0.8788854 1.7808863
+sample estimates:
+odds ratio 
+  1.264615 
+
+> 
+> df_all
+     cell_type methods_idx   methods      odds      CILow   CIHigh       pval
+1   PFC_AST-FB           3    DESeq2 1.1432192 0.28303960 3.404891 0.77304549
+2   PFC_AST-FB           2  IDEAS_NB 0.5977391 0.06734679 2.472727 0.75891184
+3   PFC_AST-FB           1 IDEAS_DCA 1.6290407 0.62912913 3.743044 0.23542876
+4    PFC_IN-PV           3    DESeq2 1.2374134 0.80627674 1.841288 0.28077116
+5    PFC_IN-PV           2  IDEAS_NB 1.3532770 0.85436172 2.065892 0.15279896
+6    PFC_IN-PV           1 IDEAS_DCA 1.1852755 0.86241157 1.610475 0.26471276
+7   PFC_IN-SST           3    DESeq2 1.2166890 0.78240605 1.833987 0.32311565
+8   PFC_IN-SST           2  IDEAS_NB 1.2021935 0.70753637 1.943739 0.43606918
+9   PFC_IN-SST           1 IDEAS_DCA 1.4193007 1.03543253 1.929788 0.02708385
+10  PFC_IN-VIP           3    DESeq2 1.2483300 0.82035877 1.847555 0.24528960
+11  PFC_IN-VIP           2  IDEAS_NB 1.3976385 0.89261745 2.117895 0.12565313
+12  PFC_IN-VIP           1 IDEAS_DCA 1.4324620 1.04690024 1.942775 0.02174051
+13    PFC_L2_3           3    DESeq2 1.1444100 0.76391573 1.666707 0.48551670
+14    PFC_L2_3           2  IDEAS_NB 1.1018754 0.71146528 1.648438 0.59833750
+15    PFC_L2_3           1 IDEAS_DCA 1.4238632 1.04008158 1.924944 0.02393369
+16      PFC_L4           3    DESeq2 1.3065358 0.86771469 1.914139 0.17015828
+17      PFC_L4           2  IDEAS_NB 1.3061150 0.80178816 2.038010 0.26116119
+18      PFC_L4           1 IDEAS_DCA 1.5291730 1.07691200 2.135421 0.01328080
+19    PFC_L5_6           3    DESeq2 1.3985661 0.84020582 2.217997 0.14366542
+20    PFC_L5_6           2  IDEAS_NB 0.9955277 0.57473511 1.625932 1.00000000
+21    PFC_L5_6           1 IDEAS_DCA 0.8827273 0.58530454 1.292908 0.57986205
+22 PFC_L5_6-CC           3    DESeq2 1.2236529 0.77101296 1.865734 0.35401121
+23 PFC_L5_6-CC           2  IDEAS_NB 1.0147130 0.62734308 1.569761 0.91143533
+24 PFC_L5_6-CC           1 IDEAS_DCA 1.2646145 0.87888541 1.780886 0.19007615
+> pi1_all
+     cell_type   methods  not_SFARI      SFARI
+1   PFC_AST-FB    DESeq2 0.00000000 0.20689655
+2   PFC_AST-FB  IDEAS_NB 0.28517110 0.37931034
+3   PFC_AST-FB IDEAS_DCA 0.23193916 0.31034483
+4    PFC_IN-PV    DESeq2 0.17390552 0.26406926
+5    PFC_IN-PV  IDEAS_NB 0.17667417 0.07359307
+6    PFC_IN-PV IDEAS_DCA 0.48641634 0.52380952
+7   PFC_IN-SST    DESeq2 0.16927083 0.17703349
+8   PFC_IN-SST  IDEAS_NB 0.17968750 0.21531100
+9   PFC_IN-SST IDEAS_DCA 0.56145833 0.60765550
+10  PFC_IN-VIP    DESeq2 0.19285042 0.32110092
+11  PFC_IN-VIP  IDEAS_NB 0.18297272 0.32110092
+12  PFC_IN-VIP IDEAS_DCA 0.47977422 0.54128440
+13    PFC_L2_3    DESeq2 0.20244939 0.23255814
+14    PFC_L2_3  IDEAS_NB 0.24168958 0.27906977
+15    PFC_L2_3 IDEAS_DCA 0.38315421 0.42635659
+16      PFC_L4    DESeq2 0.19475410 0.21551724
+17      PFC_L4  IDEAS_NB 0.17737705 0.24137931
+18      PFC_L4 IDEAS_DCA 0.34557377 0.41379310
+19    PFC_L5_6    DESeq2 0.06366723 0.13469388
+20    PFC_L5_6  IDEAS_NB 0.11658178 0.15102041
+21    PFC_L5_6 IDEAS_DCA 0.37521222 0.38775510
+22 PFC_L5_6-CC    DESeq2 0.07151569 0.19852941
+23 PFC_L5_6-CC  IDEAS_NB 0.16398714 0.24264706
+24 PFC_L5_6-CC IDEAS_DCA 0.23605721 0.30882353
+> 
+> df_all$cell_type  = gsub("PFC_", "", df_all$cell_type)
+> pi1_all$cell_type = gsub("PFC_", "", pi1_all$cell_type)
+> 
+> df_all$methods = factor(df_all$methods, 
++                         levels=c("DESeq2", "IDEAS_NB", "IDEAS_DCA"))
+> 
+> pi1_all$methods = factor(pi1_all$methods, 
++                         levels=c("DESeq2", "IDEAS_NB", "IDEAS_DCA"))
+> 
+> gb1 = ggplot(data=df_all, aes(x=cell_type, y=-log10(pval), fill=methods)) +
++   geom_bar(stat="identity", position=position_dodge()) + 
++   geom_hline(yintercept=-log10(0.05), linetype="dashed", size=0.25) + 
++   annotate(geom = "text", y =1.4, x = 0.5, label ="pval=0.05", size = 4, hjust=0)
+> 
+> ggsave("figures/step2_SFARI_fisher_test.pdf", gb1, width=5, height=2)
+> 
+> gb2 = ggplot(data=pi1_all, aes(x=not_SFARI, y=SFARI, 
++                                color=methods, shape=cell_type)) +
++   geom_point() + geom_abline(intercept = 0, slope=1, linetype="dashed", size=0.25)
+> 
+> ggsave("figures/step2_SFARI_non_null_prop.pdf", gb2, width=6.5, height=4.5)
+Warning messages:
+1: The shape palette can deal with a maximum of 6 discrete values because
+more than 6 becomes difficult to discriminate; you have 8. Consider
+specifying shapes manually if you must have them. 
+2: Removed 6 rows containing missing values (geom_point). 
+> 
+> # -------------------------------------------------------------------
+> # check GSEA results for one cell type
+> # -------------------------------------------------------------------
+> 
+> plot_gsea <- function(gseaL, ct1){
++   # ct1 = "PFC_Microglia"
++   DESeq2    = gesaL[[ct1]]$DESeq2
++   IDEAS_NB  = gesaL[[ct1]]$PS_nb_Was
++   IDEAS_DCA = gesaL[[ct1]]$PS_dca_direct_Was
++   
++   dim(DESeq2)
++   dim(IDEAS_NB)
++   dim(IDEAS_DCA)
++   
++   pathways1 = intersect(DESeq2$pathway, IDEAS_NB$pathway)
++   pathways2 = intersect(DESeq2$pathway, IDEAS_DCA$pathway)
++   pathways = sort(union(pathways1, pathways2))
++   length(pathways)
++   
++   mat1 = match(pathways, DESeq2$pathway)
++   mat2 = match(pathways, IDEAS_NB$pathway)
++   mat3 = match(pathways, IDEAS_DCA$pathway)
++   
++   gd = data.frame(pathway = pathways, 
++                   DESeq2 = -log10(DESeq2$pval[mat1]),
++                   IDEAS_NB = -log10(IDEAS_NB$pval[mat2]),
++                   IDEAS_DCA = -log10(IDEAS_DCA$pval[mat3]))
++   
++   g1 = ggplot(gd, aes(x=DESeq2, y=IDEAS_NB)) + geom_point(alpha = 0.5)
++   g2 = ggplot(gd, aes(x=DESeq2, y=IDEAS_DCA)) + geom_point(alpha = 0.5)
++   
++   pdf(sprintf("figures/step2_GSEA_p_val_compare_%s.pdf", ct1), 
++       width=6, height=3)
++   print(ggarrange(g1, g2, ncol = 2, nrow = 1))
++   dev.off()
++ }
+> 
+> plot_gsea(gseaL, "PFC_IN-SST")
+null device 
+          1 
+Warning messages:
+1: Removed 2 rows containing missing values (geom_point). 
+2: Removed 2 rows containing missing values (geom_point). 
+> plot_gsea(gseaL, "PFC_Microglia")
+null device 
+          1 
+Warning message:
+Removed 22 rows containing missing values (geom_point). 
+> 
+> # -------------------------------------------------------------------
+> # plot GSEA results for PFC_Microglia
+> # -------------------------------------------------------------------
+> 
+> ct1 = "PFC_Microglia"
+> IDEAS_DCA = gesaL[[ct1]]$PS_dca_direct_Was
+> IDEAS_DCA = IDEAS_DCA[which(IDEAS_DCA$padj < 0.05),]
+> IDEAS_DCA$pathway = gsub("REACTOME_", "", IDEAS_DCA$pathway)
+> 
+> df_gsea = as.data.frame(IDEAS_DCA)
+> df_gsea = df_gsea[order(df_gsea$pval),]
+> df_gsea$pathway = factor(df_gsea$pathway, levels=rev(df_gsea$pathway))
+> p1 = ggplot(data=df_gsea, aes(x=pathway, y=-log10(pval))) +
++   geom_bar(stat="identity", fill="#56B4E9") + coord_flip() +
++   theme(legend.position = "none") + xlab("")
+> 
+> ggsave("figures/step2_GSEA_microglia_IDEAS_DCA.pdf", p1, width=6, height=3)
+> 
+> # -------------------------------------------------------------------
+> # scatter plot
+> # -------------------------------------------------------------------
+> 
+> pdf("figures/step2_compare_pval_DESeq2_vs_IDEAS.pdf", width=4.5, height=4.5)
+> 
+> for(ct1 in cell_types){
++   df1 = pv_list[[ct1]][,c("gene", "DESeq2", "PS_nb_Was", "PS_dca_direct_Was")]
++   
++   nms = c("DESeq2", "PS_nb_Was", "PS_dca_direct_Was")
++   fun1 = function(x){-log10(x)}
++   df2  = df1[, lapply(.SD, fun1), .SDcols = nms]
++   df2[,gene:=df1$gene]
++   setnames(df2, c("PS_nb_Was", "PS_dca_direct_Was"), 
++            c("IDEAS_NB", "IDEAS_DCA"))
++   
++   df2[,label_NB:=""]
++   df2[DESeq2 > 3 & IDEAS_NB < 1, label_NB:=gene]
++   df2[DESeq2 < 1 & IDEAS_NB > 3, label_NB:=gene]
++   
++   df2[,color_NB:="g11"]
++   df2[DESeq2 <= 2 & IDEAS_NB <= 2,  color_NB:="g00"]
++   df2[DESeq2 > 3 & IDEAS_NB < 1, color_NB:="g01"]
++   df2[DESeq2 < 1 & IDEAS_NB > 3, color_NB:="g01"]
++   
++   df2[,label_DCA:=""]
++   df2[DESeq2 > 3 & IDEAS_DCA < 1, label_DCA:=gene]
++   df2[DESeq2 < 1 & IDEAS_DCA > 3, label_DCA:=gene]
++   
++   df2[,color_DCA:="g11"]
++   df2[DESeq2 <= 2 & IDEAS_DCA <= 2,  color_DCA:="g00"]
++   df2[DESeq2 > 3 & IDEAS_DCA < 1, color_DCA:="g01"]
++   df2[DESeq2 < 1 & IDEAS_DCA > 3, color_DCA:="g01"]
++   
++   df2$color_NB = factor(df2$color_NB, levels = c("g00", "g11", "g01", "g10"))
++   df2$color_DCA = factor(df2$color_DCA, levels = c("g00", "g11", "g01", "g10"))
++   
++   g_NB = ggplot(df2, aes(x=DESeq2, y=IDEAS_NB, col=color_NB)) + 
++     geom_point(size = 0.4) +
++     scale_color_manual(values=c("#CCCCCC", "black", "#FC4E07", "#FC4E07")) +
++     theme(legend.position = "none") + ggtitle(gsub("PFC_", "", ct1))
++   
++   g_NB = g_NB + geom_text_repel(aes(label = df2$label_NB), size = 3.5, 
++                                 min.segment.length = 0, 
++                                 box.padding = unit(0.25, "lines"),
++                                 point.padding = unit(0.25, "lines")) 
++   
++   g_DCA = ggplot(df2, aes(x=DESeq2, y=IDEAS_DCA, col=color_DCA)) + 
++     geom_point(size = 0.4) +  
++     scale_color_manual(values=c("#CCCCCC", "black", "#FC4E07", "#FC4E07")) +
++     theme(legend.position = "none") + ggtitle(gsub("PFC_", "", ct1))
++   
++   g_DCA = g_DCA + geom_text_repel(aes(label = df2$label_DCA), size = 3.5, 
++                                   min.segment.length = 0, 
++                                   box.padding = unit(0.25, "lines"),
++                                   point.padding = unit(0.25, "lines"))
++   
++   print(g_NB)
++   print(g_DCA)
++   
++ }
+There were 34 warnings (use warnings() to see them)
+> 
+> dev.off()
+null device 
+          1 
+> 
+> gc()
+          used (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells 1129929 60.4    1904160 101.7         NA  1904160 101.7
+Vcells 4600539 35.1   10146736  77.5      32768 10146736  77.5
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] reshape2_1.4.4    ggrepel_0.9.0     ggpubr_0.4.0      data.table_1.13.6
+[5] ggcorrplot_0.1.3  ggplot2_3.3.3    
+
+loaded via a namespace (and not attached):
+ [1] zip_2.1.1          Rcpp_1.0.5         RColorBrewer_1.1-2 plyr_1.8.6        
+ [5] pillar_1.4.7       compiler_4.0.3     cellranger_1.1.0   forcats_0.5.0     
+ [9] tools_4.0.3        digest_0.6.27      lifecycle_0.2.0    tibble_3.0.4      
+[13] gtable_0.3.0       pkgconfig_2.0.3    rlang_0.4.10       openxlsx_4.2.3    
+[17] curl_4.3           haven_2.3.1        rio_0.5.16         stringr_1.4.0     
+[21] withr_2.3.0        dplyr_1.0.2        generics_0.1.0     vctrs_0.3.6       
+[25] hms_0.5.3          cowplot_1.1.1      grid_4.0.3         tidyselect_1.1.0  
+[29] glue_1.4.2         R6_2.5.0           rstatix_0.6.0      readxl_1.3.1      
+[33] foreign_0.8-81     carData_3.0-4      farver_2.0.3       tidyr_1.1.2       
+[37] purrr_0.3.4        car_3.0-10         magrittr_2.0.1     backports_1.2.1   
+[41] scales_1.1.1       ellipsis_0.3.1     abind_1.4-5        colorspace_2.0-0  
+[45] ggsignif_0.6.0     labeling_0.4.2     stringi_1.5.3      munsell_0.5.0     
+[49] broom_0.7.3        crayon_1.3.4      
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 19.600   0.612  20.567 

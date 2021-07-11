@@ -31,8 +31,8 @@ library(fgsea)
 library(stringr)
 
 # number of cores for multi-core computation
-# nCore = 3
-nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
+nCore = 12
+# nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
 registerDoParallel(cores=nCore)
 options(mc.cores=nCore)
 
@@ -106,7 +106,7 @@ pathways_reactome[["SFARI"]] = genes_in_SFARI
 # ------------------------------------------------------------------------
 
 
-methods = names(pvals)[2:10]
+methods = names(pvals)[2:17]
 
 gsea = list()
 
@@ -121,8 +121,8 @@ for(m1 in methods){
   length(stats)
   
   set.seed(918)
-  fgseaRes = fgseaMultilevel(pathways_reactome, stats, minSize=10, 
-                             maxSize=1000)
+  fgseaRes = fgseaMultilevel(pathways_reactome, stats, 
+                             minSize=10, maxSize=1000)
   od1 = order(fgseaRes[,"padj"], -fgseaRes[,"NES"])
   fgseaRes   = fgseaRes[od1,]
   gsea[[m1]] = fgseaRes
@@ -134,7 +134,6 @@ lapply(gsea, dim)
 lapply(gsea, function(x){x[which(x$pathway=="SFARI"),]})
 
 saveRDS(gsea, file = sprintf("res/step1f_gsea_%s.rds",grp))
-
 
 
 # ------------------------------------------------------------------------
@@ -154,6 +153,8 @@ ps2[1:2,]
 pvals.df = ps2[,.(pval_DESeq2, pval_PS_nb_Was, pval_PS_dca_direct_Was)]
 dim(pvals.df)
 pvals.df[1:2,]
+
+colSums(is.na(pvals.df))
 
 cor(-log10(pvals.df))
 cor(-log10(pvals.df), method="spearman")
@@ -197,11 +198,11 @@ pdf(sprintf("figures/step1f_pval_hist_SFARI_non_%s.pdf", grp),
 ggarrange(plotlist=gh, ncol = 2, nrow = 4)
 dev.off()
 
+rownames(pi0) = methods
+colnames(pi0) = c("non_SFARI", "SFARI")
 pi0
 
 
-
-
-
+gc()
 sessionInfo()
 q(save="no")
