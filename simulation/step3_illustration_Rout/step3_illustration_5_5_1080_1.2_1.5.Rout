@@ -394,17 +394,17 @@ varDE         0.806
 > 
 > names(gg) = c("geneType", "method", "power")
 > gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
-> gg$method = gsub("PS_zinb_Was", "IDEAS_NB",  gg$method)
+> gg$method = gsub("PS_zinb_Was", "IDEAS_ZINB",  gg$method)
 > gg$method = gsub("PS_kde_Was",  "IDEAS_KDE", gg$method)
 > gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
 > gg$method = gsub("mast_pval_glm", "MAST", gg$method)
 > gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
 > table(gg$method)
 
-    DEseq2  IDEAS_KDE   IDEAS_NB       MAST MAST_glmer   Rank-sum 
+    DEseq2  IDEAS_KDE IDEAS_ZINB       MAST MAST_glmer   Rank-sum 
          3          3          3          3          3          3 
 > gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
-+                                          "DEseq2", "IDEAS_NB", "IDEAS_KDE"))
++                                          "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
 > 
 > g1 = ggplot(subset(gg, geneType %in% c("EE")), 
 +             aes(x=geneType, y=power, fill=method)) +
@@ -508,4 +508,4 @@ Vcells 99979063 762.8  145582145 1110.8      32768 103488836 789.6
 > q(save = "no")
 > proc.time()
    user  system elapsed 
- 16.238   0.940  17.501 
+ 17.255   1.252  19.518 

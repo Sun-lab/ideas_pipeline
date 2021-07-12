@@ -42,17 +42,16 @@ for(i in 1:length(res.files)){
   print(config)
   print(powers)
   
-  cols2rm = c("mast_pval_glm")
+  cols2rm = c("deseq2_pval", "mast_pval_glm", "mast_pval_glmer")
   powers  = powers[,which(!colnames(powers) %in% cols2rm)]
   gg = melt(powers)
   
   names(gg) = c("geneType", "method", "power")
-  gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
-  gg$method = gsub("mast_pval_glmer", "MAST", gg$method)
-  
-  gg$method = factor(gg$method, levels = c("DEseq2", "MAST", 
-    "KR_kde_JSD", "PS_kde_JSD", "KR_kde_Was", "PS_kde_Was", 
-    "KR_zinb_JSD", "PS_zinb_JSD", "KR_zinb_Was", "PS_zinb_Was"))
+
+  gg$method = factor(gg$method, levels = c("KR_kde_JSD", "PS_kde_JSD", 
+                                           "KR_kde_Was", "PS_kde_Was",
+                                           "KR_zinb_JSD", "PS_zinb_JSD", 
+                                           "KR_zinb_Was", "PS_zinb_Was"))
   
   g1 = ggplot(subset(gg, geneType %in% c("EE")), 
               aes(x=geneType, y=power, fill=method)) +

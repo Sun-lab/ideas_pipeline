@@ -190,14 +190,14 @@ gg = melt(powers)
 
 names(gg) = c("geneType", "method", "power")
 gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
-gg$method = gsub("PS_zinb_Was", "IDEAS_NB",  gg$method)
+gg$method = gsub("PS_zinb_Was", "IDEAS_ZINB",  gg$method)
 gg$method = gsub("PS_kde_Was",  "IDEAS_KDE", gg$method)
 gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
 gg$method = gsub("mast_pval_glm", "MAST", gg$method)
 gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
 table(gg$method)
 gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
-                                         "DEseq2", "IDEAS_NB", "IDEAS_KDE"))
+                                         "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
 
 g1 = ggplot(subset(gg, geneType %in% c("EE")), 
             aes(x=geneType, y=power, fill=method)) +

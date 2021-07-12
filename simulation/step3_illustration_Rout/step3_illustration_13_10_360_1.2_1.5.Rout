@@ -460,17 +460,17 @@ varDE        0.8080
 > 
 > names(gg) = c("geneType", "method", "power")
 > gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
-> gg$method = gsub("PS_zinb_Was", "IDEAS_NB",  gg$method)
+> gg$method = gsub("PS_zinb_Was", "IDEAS_ZINB",  gg$method)
 > gg$method = gsub("PS_kde_Was",  "IDEAS_KDE", gg$method)
 > gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
 > gg$method = gsub("mast_pval_glm", "MAST", gg$method)
 > gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
 > table(gg$method)
 
-    DEseq2  IDEAS_KDE   IDEAS_NB       MAST MAST_glmer   Rank-sum 
+    DEseq2  IDEAS_KDE IDEAS_ZINB       MAST MAST_glmer   Rank-sum 
          3          3          3          3          3          3 
 > gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
-+                                          "DEseq2", "IDEAS_NB", "IDEAS_KDE"))
++                                          "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
 > 
 > g1 = ggplot(subset(gg, geneType %in% c("EE")), 
 +             aes(x=geneType, y=power, fill=method)) +
@@ -568,10 +568,10 @@ loaded via a namespace (and not attached):
 1.09 GB
 > gc()
            used  (Mb) gc trigger   (Mb) limit (Mb) max used  (Mb)
-Ncells  8036781 429.3   13973607  746.3         NA 13219197 706.0
-Vcells 79932063 609.9  139942097 1067.7      32768 85673774 653.7
+Ncells  8036781 429.3   13973607  746.3         NA 13219181 706.0
+Vcells 79932063 609.9  139942097 1067.7      32768 85673758 653.7
 > 
 > q(save = "no")
 > proc.time()
    user  system elapsed 
- 16.220   0.963  17.446 
+ 17.357   1.230  19.472 
