@@ -1,0 +1,646 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> # illustrate a few examples
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=13"   "nctrl=10"   "ncell=1080" "r_mean=1.2" "r_var=1.5" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 5       # case individuals
++   nctrl    = 5       # control individuals
++   ncell    = 360     # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> if(ncell == 0){
++   UNEQ_N_CELL = TRUE
++ }else{
++   UNEQ_N_CELL = FALSE
++ }
+> 
+> if(UNEQ_N_CELL){
++   config = sprintf("ncase_%d_nctrl_%d_unequal_n_cell", ncase, nctrl)
++ }else{
++   config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
++ }
+> 
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_13_nctrl_10_ncell_1080_fold_mean_1.2_var_1.5"
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(MASS)
+> library(emdbook)
+> library(moments)
+> library(MAST)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+> library(lme4)
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following object is masked from ‘package:S4Vectors’:
+
+    expand
+
+> library(DESeq2)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> library(MiRKAT)
+> library(reticulate)
+> library(transport)
+> library(stringr)
+> 
+> library(data.table)
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    shift
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    shift
+
+The following object is masked from ‘package:IRanges’:
+
+    shift
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, second
+
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+
+Attaching package: ‘pryr’
+
+The following object is masked from ‘package:data.table’:
+
+    address
+
+> library(ggplot2)
+> library(ggpubr)
+Registered S3 methods overwritten by 'car':
+  method                          from
+  influence.merMod                lme4
+  cooks.distance.influence.merMod lme4
+  dfbeta.influence.merMod         lme4
+  dfbetas.influence.merMod        lme4
+> theme_set(theme_classic())
+> 
+> library(ideas)
+> library(reshape2)
+
+Attaching package: ‘reshape2’
+
+The following objects are masked from ‘package:data.table’:
+
+    dcast, melt
+
+> 
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> sim_data     = readRDS(sprintf("data/sim_data_%s.rds", config))
+> count_matrix = sim_data$count_matrix
+> meta_cell    = sim_data$meta_cell
+> meta_ind     = sim_data$meta_ind
+> gene_index   = sim_data$gene_index
+> 
+> ls()
+ [1] "args"         "config"       "count_matrix" "gene_index"   "i"           
+ [6] "meta_cell"    "meta_ind"     "ncase"        "ncell"        "nctrl"       
+[11] "r_mean"       "r_var"        "sim_data"     "UNEQ_N_CELL" 
+> EE_index   = gene_index$EE_index
+> mean_index = gene_index$mean_index
+> var_index  = gene_index$var_index
+> 
+> dim(count_matrix)
+[1]  8000 24840
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> 
+> dim(meta_cell)
+[1] 24840     5
+> meta_cell[1:2,]
+      cell_id individual phenotype cell_rd      CDR
+cell1   cell1       ind1         1    9738 0.439125
+cell2   cell2       ind1         1    9605 0.444000
+> 
+> dim(meta_ind)
+[1] 23  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.2784552
+ind2       ind2         1 -0.7018300
+> 
+> rm(sim_data)
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   7799611  416.6   13973607  746.3         NA   9710537  518.6
+Vcells 211933246 1617.0  307322948 2344.7      32768 211995449 1617.4
+> 
+> # ---------------------------------------------------------------
+> # find a few examples to illustrate
+> # ---------------------------------------------------------------
+> 
+> pvals = fread(sprintf("results/pval_%s.txt", config))
+> dim(pvals)
+[1] 8000   12
+> pvals[1:2,]
+   geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+1:       EE       0.856       0.735      0.903      0.522       0.846
+2:       EE       0.751       0.944      0.832      0.610       0.726
+   PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+1:       0.758      0.940      0.533   0.9892898    0.92642499       0.9671662
+2:       0.930      0.794      0.551   0.8298865    0.04836601       0.9910257
+> 
+> table(pvals$geneType)
+
+    EE meanDE  varDE 
+  6000   1000   1000 
+> 
+> pvals_rank_sum = fread(sprintf("results/pval_ranksum_%s.txt", config))
+> dim(pvals_rank_sum)
+[1] 8000   13
+> pvals_rank_sum[1:2,]
+   geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+1:       EE       0.856       0.735      0.903      0.522       0.846
+2:       EE       0.751       0.944      0.832      0.610       0.726
+   PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+1:       0.758      0.940      0.533   0.9892898    0.92642499       0.9671662
+2:       0.930      0.794      0.551   0.8298865    0.04836601       0.9910257
+   ranksum_pval
+1:    0.3794759
+2:    0.4219265
+> 
+> stopifnot(max(abs(pvals$PS_zinb_Was - 
++                     pvals_rank_sum$PS_zinb_Was), na.rm=TRUE) < 1e-10)
+> pvals = pvals_rank_sum
+> 
+> w2use = which(pvals$geneType == "varDE" & pvals$deseq2_pval > 0.1 & 
++                 pvals$PS_zinb_Was <= 0.001)
+> length(w2use)
+[1] 31
+> w2use
+ [1]   41   93  248  473 1017 1223 2258 2303 2400 2696 2836 3028 3038 3512 3921
+[16] 4238 4289 5031 5299 5343 5386 5504 5584 5641 6194 6433 6731 6750 7506 7757
+[31] 7990
+> pvals[w2use,]
+    geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+ 1:    varDE       0.004       0.001      0.001      0.001       0.001
+ 2:    varDE       0.003       0.001      0.003      0.002       0.001
+ 3:    varDE       0.001       0.001      0.001      0.071       0.001
+ 4:    varDE       0.001       0.001      0.001      0.287       0.001
+ 5:    varDE       0.001       0.001      0.002      0.001       0.001
+ 6:    varDE       0.005       0.001      0.001      0.020       0.001
+ 7:    varDE       0.001       0.001      0.001      0.009       0.001
+ 8:    varDE       0.001       0.001      0.001      0.677       0.001
+ 9:    varDE       0.001       0.001      0.001      0.001       0.001
+10:    varDE       0.008       0.004      0.006      0.069       0.001
+11:    varDE       0.001       0.001      0.001      0.160       0.001
+12:    varDE       0.001       0.001      0.001      0.016       0.001
+13:    varDE       0.001       0.001      0.001      0.001       0.001
+14:    varDE       0.001       0.001      0.001      0.001       0.001
+15:    varDE       0.001       0.001      0.001      0.001       0.001
+16:    varDE       0.001       0.001      0.001      0.853       0.001
+17:    varDE       0.004       0.001      0.002      0.001       0.001
+18:    varDE       0.001       0.001      0.001      0.001       0.001
+19:    varDE       0.001       0.001      0.001      0.292       0.001
+20:    varDE       0.002       0.001      0.001      0.001       0.001
+21:    varDE       0.001       0.001      0.001      0.017       0.001
+22:    varDE       0.001       0.001      0.001      0.001       0.001
+23:    varDE       0.001       0.001      0.001      0.404       0.001
+24:    varDE       0.001       0.001      0.001      0.403       0.001
+25:    varDE       0.001       0.001      0.001      0.007       0.001
+26:    varDE       0.001       0.001      0.001      0.001       0.001
+27:    varDE       0.001       0.001      0.001      0.189       0.001
+28:    varDE       0.001       0.001      0.001      0.004       0.001
+29:    varDE       0.002       0.001      0.002      0.001       0.001
+30:    varDE       0.002       0.001      0.001      0.007       0.001
+31:    varDE       0.001       0.002      0.007      0.202       0.001
+    geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+    PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+ 1:       0.001      0.001      0.001   0.1150064  1.149288e-62    4.208246e-02
+ 2:       0.001      0.002      0.002   0.8541986  6.061795e-60    3.500246e-10
+ 3:       0.001      0.001      0.066   0.8684079  1.210278e-55    3.669135e-08
+ 4:       0.002      0.001      0.264   0.4939804  4.082838e-51    7.355945e-10
+ 5:       0.001      0.002      0.001   0.1844605  4.297969e-66    3.044617e-08
+ 6:       0.001      0.001      0.016   0.8951781  5.177696e-65    2.419961e-07
+ 7:       0.001      0.001      0.004   0.7436366  1.077643e-50    1.532633e-06
+ 8:       0.001      0.001      0.654   0.8876571  7.303952e-59    1.286905e-08
+ 9:       0.001      0.001      0.001   0.2688854  3.020304e-63    2.120766e-12
+10:       0.001      0.002      0.054   0.3837059  4.882474e-52    1.105411e-08
+11:       0.001      0.001      0.139   0.1316647  1.329535e-74    5.460657e-12
+12:       0.001      0.001      0.022   0.2745513  1.740978e-55    1.191454e-09
+13:       0.001      0.001      0.001   0.9276857  2.430785e-67    9.286222e-12
+14:       0.001      0.001      0.001   0.1312030  1.827039e-52    3.258037e-06
+15:       0.001      0.001      0.002   0.4833792  2.764544e-53    2.855761e-07
+16:       0.001      0.001      0.861   0.1892363  3.061437e-51    1.246778e-06
+17:       0.001      0.001      0.001   0.2949587  1.728615e-79    1.292535e-05
+18:       0.001      0.001      0.001   0.2512355  3.197743e-77    5.893923e-08
+19:       0.001      0.001      0.310   0.2231017  1.062580e-69    2.401067e-09
+20:       0.001      0.001      0.003   0.7396233  9.963461e-56    7.064958e-08
+21:       0.001      0.001      0.031   0.2223885  3.018688e-55    7.693583e-12
+22:       0.001      0.001      0.002   0.9057098  3.047041e-58    5.249599e-08
+23:       0.001      0.001      0.433   0.8291387  1.336444e-36    6.804198e-08
+24:       0.001      0.003      0.367   0.1081875  1.013033e-54    3.011782e-08
+25:       0.001      0.001      0.004   0.6727274  1.451033e-67    1.191139e-12
+26:       0.001      0.001      0.001   0.6662190  1.124800e-59    6.407398e-04
+27:       0.001      0.001      0.214   0.5877546  1.800915e-64    3.471372e-11
+28:       0.001      0.001      0.002   0.3275182  1.663955e-54    1.033291e-07
+29:       0.001      0.001      0.001   0.7759829  6.344680e-80    1.310101e-05
+30:       0.001      0.001      0.008   0.1983179  1.121730e-72    5.197203e-09
+31:       0.001      0.003      0.242   0.1097321  4.001927e-70    2.162419e-05
+    PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+    ranksum_pval
+ 1: 2.523316e-25
+ 2: 9.820569e-09
+ 3: 2.389320e-16
+ 4: 6.319584e-16
+ 5: 1.020947e-27
+ 6: 8.062484e-11
+ 7: 1.029615e-10
+ 8: 3.846384e-11
+ 9: 1.057982e-17
+10: 3.017653e-23
+11: 1.117566e-22
+12: 3.467742e-21
+13: 1.029322e-10
+14: 4.330804e-22
+15: 7.248338e-07
+16: 4.654748e-20
+17: 4.481471e-33
+18: 2.767517e-34
+19: 3.247704e-22
+20: 1.581645e-11
+21: 5.464432e-17
+22: 5.049150e-15
+23: 3.850758e-10
+24: 2.985766e-28
+25: 6.746476e-14
+26: 3.874859e-12
+27: 5.931099e-16
+28: 2.313082e-11
+29: 5.374032e-12
+30: 1.926195e-24
+31: 3.137829e-42
+    ranksum_pval
+> 
+> if(length(w2use) >= 2){
++   row_id = w2use[2]
++   row_id
++   
++   # ------------------------------------------------------------------------
++   # extract gene expression in cells and bulk samples
++   # ------------------------------------------------------------------------
++   
++   ct_cell = count_matrix[row_id,]
++   length(ct_cell)
++   print(table(ct_cell))
++   meta_ind$diagnosis = as.factor(meta_ind$phenotype)
++   
++   ct_ind = tapply(ct_cell, as.character(meta_cell$individual), sum)
++   mat1 = match(meta_ind$individual, names(ct_ind))
++   table(names(ct_ind)[mat1] == meta_ind$individual)
++   meta_ind[["gene1"]] = as.numeric(ct_ind)[mat1]
++   
++   nb2 = glm.nb(gene1 ~ RIN + diagnosis, data=meta_ind)
++   print(summary(nb2))
++   
++   # ------------------------------------------------------------------------
++   # boxplot of bulk gene expression vs. diagnosis
++   # ------------------------------------------------------------------------
++   
++   p1 = ggplot(meta_ind, aes(x=diagnosis, y=log10(gene1+0.5), col=diagnosis)) + 
++     geom_boxplot() + labs(y="log10(ind. level counts)")
++   p1 = p1 + geom_jitter(shape=16, position=position_jitter(0.2))
++   
++   # ------------------------------------------------------------------------
++   # density plot of cell level gene expression vs. diagnosis
++   # ------------------------------------------------------------------------
++   
++   mat2 = match(meta_cell$individual, meta_ind$individual)
++   meta_cell$diagnosis = as.factor(meta_ind$diagnosis[mat2])
++   
++   df_test = meta_cell
++   df_test$count = ct_cell
++   mat2 = match(meta_cell$individual, meta_ind$individual)
++   df_test$diagnosis = as.factor(df_test$diagnosis)
++   
++   table(df_test$count)
++   tb0 = table(df_test$count[which(df_test$phenotype==0)])
++   tb1 = table(df_test$count[which(df_test$phenotype==1)])
++   
++   tb0
++   tb1
++   
++   df_test$count[which(df_test$count >= 7)] = 7
++   
++   p3 = ggplot(df_test, aes(x=count, col=diagnosis, line_type=individual)) + 
++     geom_freqpoly(binwidth=1, closed="left") + guides(color = FALSE) + 
++     xlim(0, 7) + ylab("frequency")
++   
++   pdf(sprintf("figures/ex1_%s.pdf", config), width=6.5, height=2.5)
++   ggarrange(p1, p3, ncol=2, nrow=1, widths = c(1.5, 2))
++   dev.off()
++ }
+ct_cell
+    0     1     2     3     4     5     6     7     8     9 
+13232  7132  2879  1017   383   130    42    10    13     2 
+
+Call:
+glm.nb(formula = gene1 ~ RIN + diagnosis, data = meta_ind, init.theta = 127.554716, 
+    link = log)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-1.4537  -0.7523  -0.2087   0.5957   2.4251  
+
+Coefficients:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  6.69192    0.03015 221.938  < 2e-16 ***
+RIN          0.08647    0.02408   3.590  0.00033 ***
+diagnosis1   0.01017    0.04013   0.254  0.79984    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for Negative Binomial(127.5547) family taken to be 1)
+
+    Null deviance: 35.747  on 22  degrees of freedom
+Residual deviance: 23.072  on 20  degrees of freedom
+AIC: 272.86
+
+Number of Fisher Scoring iterations: 1
+
+
+              Theta:  127.6 
+          Std. Err.:  43.6 
+
+ 2 x log-likelihood:  -264.856 
+null device 
+          1 
+Warning message:
+Removed 46 row(s) containing missing values (geom_path). 
+> 
+> # ------------------------------------------------------------------------
+> # extract gene expression in cells and bulk samples
+> # ------------------------------------------------------------------------
+> 
+> cal.power <- function(x, geneType){
++   tapply(x, geneType, function(x){sum(x < 0.05, na.rm=TRUE)/sum(!is.na(x))})
++ }
+> 
+> ms = c("PS_zinb_Was", "PS_kde_Was", "deseq2_pval", "mast_pval_glm", 
++        "mast_pval_glmer", "ranksum_pval")
+> powers = apply(pvals[,..ms], 2, cal.power, geneType=pvals$geneType)
+> 
+> print(config)
+[1] "ncase_13_nctrl_10_ncell_1080_fold_mean_1.2_var_1.5"
+> print(powers)
+       PS_zinb_Was PS_kde_Was deseq2_pval mast_pval_glm mast_pval_glmer
+EE      0.04739575 0.04916667  0.06583333     0.7473333      0.06916667
+meanDE  0.39436620 0.39800000  0.44900000     0.9450000      0.41400000
+varDE   0.32831325 0.40500000  0.07200000     0.9990000      0.83700000
+       ranksum_pval
+EE        0.7073333
+meanDE    0.9220000
+varDE     0.8930000
+> 
+> gg = melt(powers)
+> 
+> names(gg) = c("geneType", "method", "power")
+> gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
+> gg$method = gsub("PS_zinb_Was", "IDEAS_NB",  gg$method)
+> gg$method = gsub("PS_kde_Was",  "IDEAS_KDE", gg$method)
+> gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
+> gg$method = gsub("mast_pval_glm", "MAST", gg$method)
+> gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
+> table(gg$method)
+
+    DEseq2  IDEAS_KDE   IDEAS_NB       MAST MAST_glmer   Rank-sum 
+         3          3          3          3          3          3 
+> gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
++                                          "DEseq2", "IDEAS_NB", "IDEAS_KDE"))
+> 
+> g1 = ggplot(subset(gg, geneType %in% c("EE")), 
++             aes(x=geneType, y=power, fill=method)) +
++   geom_bar(stat="identity", position=position_dodge()) + 
++   scale_fill_brewer(palette="Paired") + 
++   geom_hline(yintercept=0.05, col="red") + 
++   ylab("type I error")
+> 
+> g2 = ggplot(subset(gg, geneType %in% c("meanDE", "varDE")), 
++             aes(x=geneType, y=power, fill=method)) +
++   geom_bar(stat="identity", position=position_dodge()) + 
++   scale_fill_brewer(palette="Paired") + 
++   geom_hline(yintercept=0.05, col="red")
+> 
+> gg1 = ggarrange(g1, g2, ncol = 2, nrow = 1, widths=c(1.25,2), 
++                 common.legend = TRUE, legend = "top")
+> 
+> pdf(sprintf("figures/power_ex_%s.pdf", config), width=5.2, height=2.5)
+> print(gg1)
+> dev.off()
+pdf 
+  2 
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] reshape2_1.4.4              ideas_0.0.9000             
+ [3] ggpubr_0.4.0                ggplot2_3.3.3              
+ [5] pryr_0.1.4                  data.table_1.13.6          
+ [7] stringr_1.4.0               transport_0.12-2           
+ [9] reticulate_1.18             MiRKAT_1.1.4               
+[11] doRNG_1.8.2                 rngtools_1.5               
+[13] doParallel_1.0.16           iterators_1.0.13           
+[15] foreach_1.5.1               DESeq2_1.30.0              
+[17] lme4_1.1-26                 Matrix_1.3-0               
+[19] MAST_1.16.0                 SingleCellExperiment_1.12.0
+[21] SummarizedExperiment_1.20.0 Biobase_2.50.0             
+[23] GenomicRanges_1.42.0        GenomeInfoDb_1.26.2        
+[25] IRanges_2.24.1              S4Vectors_0.28.1           
+[27] BiocGenerics_0.36.0         MatrixGenerics_1.2.0       
+[29] matrixStats_0.57.0          moments_0.14               
+[31] emdbook_1.3.12              MASS_7.3-53                
+
+loaded via a namespace (and not attached):
+  [1] minqa_1.2.4            colorspace_2.0-0       ggsignif_0.6.0        
+  [4] rio_0.5.16             ellipsis_0.3.1         XVector_0.30.0        
+  [7] farver_2.0.3           MatrixModels_0.4-1     bit64_4.0.5           
+ [10] AnnotationDbi_1.52.0   mvtnorm_1.1-1          codetools_0.2-18      
+ [13] splines_4.0.3          pscl_1.5.5             geneplotter_1.68.0    
+ [16] jsonlite_1.7.2         nloptr_1.2.2.2         broom_0.7.3           
+ [19] annotate_1.68.0        cluster_2.1.0          kernlab_0.9-29        
+ [22] compiler_4.0.3         httr_1.4.2             backports_1.2.1       
+ [25] quantreg_5.75          tools_4.0.3            coda_0.19-4           
+ [28] gtable_0.3.0           glue_1.4.2             GenomeInfoDbData_1.2.4
+ [31] dplyr_1.0.2            Rcpp_1.0.5             carData_3.0-4         
+ [34] bbmle_1.0.23.1         cellranger_1.1.0       vctrs_0.3.6           
+ [37] ape_5.4-1              nlme_3.1-151           conquer_1.0.2         
+ [40] openxlsx_4.2.3         CompQuadForm_1.4.3     lifecycle_0.2.0       
+ [43] GUniFrac_1.1           rstatix_0.6.0          statmod_1.4.35        
+ [46] XML_3.99-0.5           PearsonDS_1.1          zlibbioc_1.36.0       
+ [49] scales_1.1.1           hms_0.5.3              SparseM_1.78          
+ [52] RColorBrewer_1.1-2     curl_4.3               gridExtra_2.3         
+ [55] memoise_1.1.0          bdsmatrix_1.3-4        segmented_1.3-3       
+ [58] stringi_1.5.3          RSQLite_2.2.1          genefilter_1.72.0     
+ [61] permute_0.9-5          zip_2.1.1              boot_1.3-25           
+ [64] BiocParallel_1.24.1    rlang_0.4.10           pkgconfig_2.0.3       
+ [67] bitops_1.0-6           lattice_0.20-41        purrr_0.3.4           
+ [70] labeling_0.4.2         cowplot_1.1.1          bit_4.0.4             
+ [73] tidyselect_1.1.0       plyr_1.8.6             magrittr_2.0.1        
+ [76] R6_2.5.0               generics_0.1.0         DelayedArray_0.16.0   
+ [79] DBI_1.1.0              haven_2.3.1            foreign_0.8-81        
+ [82] withr_2.3.0            pillar_1.4.7           mgcv_1.8-33           
+ [85] mixtools_1.2.0         survival_3.2-7         abind_1.4-5           
+ [88] RCurl_1.98-1.2         tibble_3.0.4           car_3.0-10            
+ [91] crayon_1.3.4           readxl_1.3.1           locfit_1.5-9.4        
+ [94] grid_4.0.3             blob_1.2.1             vegan_2.5-7           
+ [97] forcats_0.5.0          digest_0.6.27          xtable_1.8-4          
+[100] tidyr_1.1.2            numDeriv_2016.8-1.1    munsell_0.5.0         
+> 
+> mem_used()
+2.15 GB
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   8048159  429.9   13973607  746.3         NA  12574546  671.6
+Vcells 212648118 1622.4  307322948 2344.7      32768 220063430 1679.0
+> 
+> q(save = "no")
+> proc.time()
+   user  system elapsed 
+ 12.412   0.984  13.896 

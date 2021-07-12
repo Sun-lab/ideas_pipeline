@@ -1,0 +1,336 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> # illustrate a few examples
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=13"   "nctrl=10"   "ncell=40"   "r_mean=1.2" "r_var=1.5" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 13      # case individuals
++   nctrl    = 10      # control individuals
++   ncell    = 360    # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> if(ncell == 0){
++   UNEQ_N_CELL = TRUE
++ }else{
++   UNEQ_N_CELL = FALSE
++ }
+> 
+> if(UNEQ_N_CELL){
++   config = sprintf("ncase_%d_nctrl_%d_unequal_n_cell", ncase, nctrl)
++ }else{
++   config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
++ }
+> 
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_13_nctrl_10_ncell_40_fold_mean_1.2_var_1.5"
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(MASS)
+> library(emdbook)
+> library(moments)
+> library(MAST)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+> library(lme4)
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following object is masked from ‘package:S4Vectors’:
+
+    expand
+
+> library(DESeq2)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> library(MiRKAT)
+> library(reticulate)
+> library(transport)
+> library(stringr)
+> 
+> library(data.table)
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    shift
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    shift
+
+The following object is masked from ‘package:IRanges’:
+
+    shift
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, second
+
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+
+Attaching package: ‘pryr’
+
+The following object is masked from ‘package:data.table’:
+
+    address
+
+> library(ggplot2)
+> library(ggpubr)
+Registered S3 methods overwritten by 'car':
+  method                          from
+  influence.merMod                lme4
+  cooks.distance.influence.merMod lme4
+  dfbeta.influence.merMod         lme4
+  dfbetas.influence.merMod        lme4
+> theme_set(theme_classic())
+> 
+> library(ideas)
+> library(reshape2)
+
+Attaching package: ‘reshape2’
+
+The following objects are masked from ‘package:data.table’:
+
+    dcast, melt
+
+> 
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> sim_data     = readRDS(sprintf("data/sim_data_%s.rds", config))
+> count_matrix = sim_data$count_matrix
+> meta_cell    = sim_data$meta_cell
+> meta_ind     = sim_data$meta_ind
+> gene_index   = sim_data$gene_index
+> 
+> ls()
+ [1] "args"         "config"       "count_matrix" "gene_index"   "i"           
+ [6] "meta_cell"    "meta_ind"     "ncase"        "ncell"        "nctrl"       
+[11] "r_mean"       "r_var"        "sim_data"     "UNEQ_N_CELL" 
+> EE_index   = gene_index$EE_index
+> mean_index = gene_index$mean_index
+> var_index  = gene_index$var_index
+> 
+> dim(count_matrix)
+[1] 8000  920
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> 
+> dim(meta_cell)
+[1] 920   5
+> meta_cell[1:2,]
+      cell_id individual phenotype cell_rd      CDR
+cell1   cell1       ind1         1    9738 0.439125
+cell2   cell2       ind1         1    9605 0.444000
+> 
+> dim(meta_ind)
+[1] 23  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.2784552
+ind2       ind2         1 -0.7018300
+> 
+> rm(sim_data)
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  7775691 415.3   13973607 746.3         NA  9710537 518.6
+Vcells 20310205 155.0   31764548 242.4      32768 20372408 155.5
+> 
+> # ---------------------------------------------------------------
+> # find a few examples to illustrate
+> # ---------------------------------------------------------------
+> 
+> pvals = fread(sprintf("results/pval_%s.txt", config))
+> dim(pvals)
+[1] 8000   12
+> pvals[1:2,]
+   geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+1:       EE       0.387       0.347      0.564      0.663       0.394
+2:       EE       0.982       0.803      0.840      0.713       0.991
+   PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+1:       0.326      0.539      0.559   0.7757125     0.8351100       0.9943219
+2:       0.796      0.838      0.729   0.6929073     0.6640425       0.9111186
+> 
+> table(pvals$geneType)
+
+    EE meanDE  varDE 
+  6000   1000   1000 
+> 
+> pvals_rank_sum = fread(sprintf("results/pval_ranksum_%s.txt", config))
+> dim(pvals_rank_sum)
+[1] 8000   13
+> pvals_rank_sum[1:2,]
+   geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+1:       EE       0.387       0.347      0.564      0.663       0.394
+2:       EE       0.982       0.803      0.840      0.713       0.991
+   PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+1:       0.326      0.539      0.559   0.7757125     0.8351100       0.9943219
+2:       0.796      0.838      0.729   0.6929073     0.6640425       0.9111186
+   ranksum_pval
+1:    0.4797672
+2:    0.3823631
+> 
+> summary(pvals$PS_zinb_Was - pvals_rank_sum$PS_zinb_Was)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+      0       0       0       0       0       0      57 
+> pvals = pvals_rank_sum
+> 
+> w2use = which(pvals$geneType == "varDE" & pvals$deseq2_pval > 0.1 & 
++                 pvals$PS_zinb_Was <= 0.001)
+> length(w2use)
+[1] 0
+> w2use
+integer(0)
+> pvals[w2use,]
+Empty data.table (0 rows and 13 cols): geneType,KR_zinb_Was,KR_zinb_JSD,KR_kde_Was,KR_kde_JSD,PS_zinb_Was...
+> 
+> row_id = w2use[2]
+> row_id
+[1] NA
+> 
+> # ------------------------------------------------------------------------
+> # extract gene expression in cells and bulk samples
+> # ------------------------------------------------------------------------
+> 
+> ct_cell = count_matrix[row_id,]
+> length(ct_cell)
+[1] 920
+> print(table(ct_cell))
+< table of extent 0 >
+> meta_ind$diagnosis = as.factor(meta_ind$phenotype)
+> 
+> ct_ind = tapply(ct_cell, as.character(meta_cell$individual), sum)
+> mat1 = match(meta_ind$individual, names(ct_ind))
+> table(names(ct_ind)[mat1] == meta_ind$individual)
+
+TRUE 
+  23 
+> meta_ind[["gene1"]] = as.numeric(ct_ind)[mat1]
+> 
+> nb2 = glm.nb(gene1 ~ RIN + diagnosis, data=meta_ind)
+Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : 
+  contrasts can be applied only to factors with 2 or more levels
+Calls: glm.nb ... model.matrix -> model.matrix.default -> contrasts<-
+Execution halted

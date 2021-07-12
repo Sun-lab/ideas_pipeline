@@ -8,9 +8,9 @@ if (length(args) < 5) {
   message("no enough arguments, using default values")
   r_mean   = 1.2     # The expected fold-changes in mean
   r_var    = 1.5     # The expected fold-changes in variances
-  ncase    = 13      # case individuals
-  nctrl    = 10      # control individuals
-  ncell    = 360    # numbers of cells collected from each individuals.
+  ncase    = 5       # case individuals
+  nctrl    = 5       # control individuals
+  ncell    = 360     # numbers of cells collected from each individuals.
 } else{
   for(i in 1:length(args)){
     eval(parse(text=args[[i]]))
@@ -58,6 +58,7 @@ theme_set(theme_classic())
 
 library(ideas)
 library(reshape2)
+
 # ---------------------------------------------------------------
 # load data
 # ---------------------------------------------------------------
@@ -95,91 +96,92 @@ pvals[1:2,]
 
 table(pvals$geneType)
 
+pvals_rank_sum = fread(sprintf("results/pval_ranksum_%s.txt", config))
+dim(pvals_rank_sum)
+pvals_rank_sum[1:2,]
+
+stopifnot(max(abs(pvals$PS_zinb_Was - 
+                    pvals_rank_sum$PS_zinb_Was), na.rm=TRUE) < 1e-10)
+pvals = pvals_rank_sum
+
 w2use = which(pvals$geneType == "varDE" & pvals$deseq2_pval > 0.1 & 
                 pvals$PS_zinb_Was <= 0.001)
 length(w2use)
 w2use
 pvals[w2use,]
 
-row_id = w2use[2]
-row_id
+if(length(w2use) >= 2){
+  row_id = w2use[2]
+  row_id
+  
+  # ------------------------------------------------------------------------
+  # extract gene expression in cells and bulk samples
+  # ------------------------------------------------------------------------
+  
+  ct_cell = count_matrix[row_id,]
+  length(ct_cell)
+  print(table(ct_cell))
+  meta_ind$diagnosis = as.factor(meta_ind$phenotype)
+  
+  ct_ind = tapply(ct_cell, as.character(meta_cell$individual), sum)
+  mat1 = match(meta_ind$individual, names(ct_ind))
+  table(names(ct_ind)[mat1] == meta_ind$individual)
+  meta_ind[["gene1"]] = as.numeric(ct_ind)[mat1]
+  
+  nb2 = glm.nb(gene1 ~ RIN + diagnosis, data=meta_ind)
+  print(summary(nb2))
+  
+  # ------------------------------------------------------------------------
+  # boxplot of bulk gene expression vs. diagnosis
+  # ------------------------------------------------------------------------
+  
+  p1 = ggplot(meta_ind, aes(x=diagnosis, y=log10(gene1+0.5), col=diagnosis)) + 
+    geom_boxplot() + labs(y="log10(ind. level counts)")
+  p1 = p1 + geom_jitter(shape=16, position=position_jitter(0.2))
+  
+  # ------------------------------------------------------------------------
+  # density plot of cell level gene expression vs. diagnosis
+  # ------------------------------------------------------------------------
+  
+  mat2 = match(meta_cell$individual, meta_ind$individual)
+  meta_cell$diagnosis = as.factor(meta_ind$diagnosis[mat2])
+  
+  df_test = meta_cell
+  df_test$count = ct_cell
+  mat2 = match(meta_cell$individual, meta_ind$individual)
+  df_test$diagnosis = as.factor(df_test$diagnosis)
+  
+  table(df_test$count)
+  tb0 = table(df_test$count[which(df_test$phenotype==0)])
+  tb1 = table(df_test$count[which(df_test$phenotype==1)])
+  
+  tb0
+  tb1
+  
+  df_test$count[which(df_test$count >= 7)] = 7
+  
+  p3 = ggplot(df_test, aes(x=count, col=diagnosis, line_type=individual)) + 
+    geom_freqpoly(binwidth=1, closed="left") + guides(color = FALSE) + 
+    xlim(0, 7) + ylab("frequency")
+  
+  gg0 = ggarrange(p1, p3, ncol=2, nrow=1, widths = c(1.5, 2))
+  
+  pdf(sprintf("figures/ex1_%s.pdf", config), width=6.5, height=2.5)
+  print(gg0)
+  dev.off()
+}
 
 # ------------------------------------------------------------------------
 # extract gene expression in cells and bulk samples
 # ------------------------------------------------------------------------
-
-ct_cell = count_matrix[row_id,]
-length(ct_cell)
-print(table(ct_cell))
-meta_ind$diagnosis = as.factor(meta_ind$phenotype)
-
-ct_ind = tapply(ct_cell, as.character(meta_cell$individual), sum)
-mat1 = match(meta_ind$individual, names(ct_ind))
-table(names(ct_ind)[mat1] == meta_ind$individual)
-meta_ind[["gene1"]] = as.numeric(ct_ind)[mat1]
-
-nb2 = glm.nb(gene1 ~ RIN + diagnosis, data=meta_ind)
-print(summary(nb2))
-
-# ------------------------------------------------------------------------
-# boxplot of bulk gene expression vs. diagnosis
-# ------------------------------------------------------------------------
-
-p1 = ggplot(meta_ind, aes(x=diagnosis, y=log10(gene1+0.5), col=diagnosis)) + 
-  geom_boxplot() + labs(y="log10(ind. level counts)")
-p1 = p1 + geom_jitter(shape=16, position=position_jitter(0.2))
-
-# ------------------------------------------------------------------------
-# density plot of cell level gene expression vs. diagnosis
-# ------------------------------------------------------------------------
-
-mat2 = match(meta_cell$individual, meta_ind$individual)
-meta_cell$diagnosis = as.factor(meta_ind$diagnosis[mat2])
-
-df_test = meta_cell
-df_test$count = ct_cell
-mat2 = match(meta_cell$individual, meta_ind$individual)
-df_test$diagnosis = as.factor(df_test$diagnosis)
-
-table(df_test$count)
-tb0 = table(df_test$count[which(df_test$phenotype==0)])
-tb1 = table(df_test$count[which(df_test$phenotype==1)])
-
-tb0
-tb1
-
-df_test$count[which(df_test$count >= 7)] = 7
-
-p3 = ggplot(df_test, aes(x=count, col=diagnosis, line_type=individual)) + 
-  geom_freqpoly(binwidth=1, closed="left") + guides(color = FALSE) + 
-  xlim(0, 7) + ylab("frequency")
-
-pdf("figures/ex1.pdf", width=6.5, height=2.5)
-ggarrange(p1, p3, ncol=2, nrow=1, widths = c(1.5, 2))
-dev.off()
-
-# ------------------------------------------------------------------------
-# extract gene expression in cells and bulk samples
-# ------------------------------------------------------------------------
-
-file.i = "pval_ncase_13_nctrl_10_ncell_360_fold_mean_1.2_var_1.5.txt"
-ncase  = str_extract(file.i, '(?<=ncase_)\\d+')
-nctrl  = str_extract(file.i, '(?<=nctrl_)\\d+')
-r_mean = str_extract(file.i, '(?<=mean_)(\\d|\\.)+(?=(_|\\.txt))')
-r_var  = str_extract(file.i, '(?<=var_)(\\d|\\.)+(?=(_|\\.txt))')
-
-config = gsub("pval_", "", file.i)
-config = gsub(".txt", "", config)
-
-pval2 = read.table(file.path("results", file.i), header=TRUE, as.is=TRUE)
-dim(pval2)
-pval2[1:2,]
 
 cal.power <- function(x, geneType){
   tapply(x, geneType, function(x){sum(x < 0.05, na.rm=TRUE)/sum(!is.na(x))})
 }
 
-powers = apply(pval2[,6:10], 2, cal.power, geneType=pval2$geneType)
+ms = c("PS_zinb_Was", "PS_kde_Was", "deseq2_pval", "mast_pval_glm", 
+       "mast_pval_glmer", "ranksum_pval")
+powers = apply(pvals[,..ms], 2, cal.power, geneType=pvals$geneType)
 
 print(config)
 print(powers)
@@ -188,12 +190,14 @@ gg = melt(powers)
 
 names(gg) = c("geneType", "method", "power")
 gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
-gg$method = gsub("PS_", "", gg$method)
-gg$method = gsub("kde", "NP", gg$method)
-gg$method = gsub("zinb", "ZINB", gg$method)
-
-gg$method = factor(gg$method, levels = c("DEseq2", "NP_JSD", "NP_Was", 
-                                         "ZINB_JSD", "ZINB_Was"))
+gg$method = gsub("PS_zinb_Was", "IDEAS_NB",  gg$method)
+gg$method = gsub("PS_kde_Was",  "IDEAS_KDE", gg$method)
+gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
+gg$method = gsub("mast_pval_glm", "MAST", gg$method)
+gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
+table(gg$method)
+gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
+                                         "DEseq2", "IDEAS_NB", "IDEAS_KDE"))
 
 g1 = ggplot(subset(gg, geneType %in% c("EE")), 
             aes(x=geneType, y=power, fill=method)) +
@@ -208,9 +212,11 @@ g2 = ggplot(subset(gg, geneType %in% c("meanDE", "varDE")),
   scale_fill_brewer(palette="Paired") + 
   geom_hline(yintercept=0.05, col="red")
 
-pdf(sprintf("figures/power_ex_%s.pdf", config), width=5.2, height=2.5)
-ggarrange(g1, g2, ncol = 2, nrow = 1, widths=c(1.25,2), 
-          common.legend = TRUE, legend = "top")
+gg1 = ggarrange(g1, g2, ncol = 2, nrow = 1, widths=c(1.25,2), 
+                common.legend = TRUE, legend = "top")
+
+pdf(sprintf("figures/power_%s.pdf", config), width=5.2, height=2.5)
+print(gg1)
 dev.off()
 
 sessionInfo()
