@@ -1,4 +1,8 @@
 
+# --------------------------------------------------------------------------
+# similar to step3, but with results from all IDEAS options
+# --------------------------------------------------------------------------
+
 library(ggplot2)
 library(reshape2)
 library(stringr)
@@ -66,7 +70,8 @@ for(i in 1:length(res.files)){
   gg1 = ggarrange(g1, g2, ncol = 2, nrow = 1, widths=c(1.25,2), 
                   common.legend = TRUE, legend = "top")
   
-  ggsave(sprintf("figures/power_%s.pdf", config), gg1, width=6, height=3)
+  ggsave(sprintf("figures/power_IDEAS_all_%s.pdf", config), 
+         gg1, width=6, height=3)
 }
 
 sessionInfo()
