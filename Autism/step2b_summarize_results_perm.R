@@ -5,6 +5,7 @@ library(ggpubr)
 library(ggrepel)
 library(reshape2)
 library(stringr)
+library(tidyr)
 
 theme_set(theme_classic())
 data.dir  = "./data"
@@ -101,6 +102,17 @@ p5 = ggplot(df2, aes(x=method, y=type_I_error, fill=method)) +
   scale_y_continuous(trans='log10') + ylab("Type-I error") + 
   theme(axis.text.x = element_blank())
 
+dim(df2)
+df2[1:2,]
+df2$type_I_error = round(df2$type_I_error, 3)
+
+df2w = pivot_wider(df2, id_cols=cell_type, names_from=method, 
+                   values_from=type_I_error)
+dim(df2w)
+df2w
+
+fwrite(df2w, "res/type_i_error_05.txt", sep="\t")
+
 idx = 4
 df1 = lapply(type_i, function(x){x[,idx]})
 df1 = unlist(df1)
@@ -119,6 +131,18 @@ p1 = ggplot(df2, aes(x=method, y=type_I_error, fill=method)) +
   geom_hline(yintercept=0.05, linetype="dashed") + 
   scale_y_continuous(trans='log10') + ylab("Type-I error") + 
   theme(axis.text.x  = element_blank())
+
+
+dim(df2)
+df2[1:2,]
+df2$type_I_error = signif(df2$type_I_error, 2)
+
+df2w = pivot_wider(df2, id_cols=cell_type, names_from=method, 
+                   values_from=type_I_error)
+dim(df2w)
+df2w
+
+fwrite(df2w, "res/type_i_error_01.txt", sep="\t")
 
 pdf("figures/step2b_type_i_error_05.pdf", width=4, height=3)
 p5

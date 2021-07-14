@@ -25,7 +25,7 @@ library(stringr)
 ctypes = c("L2_3", "L4", "Microglia", "Endothelial", "IN-SV2C", "AST-PP", 
            "IN-VIP", "IN-SST", "IN-PV", "AST-FB", "Oligodendrocytes", 
            "L5_6", "L5_6-CC", "OPC", "Neu-NRGN-II", "Neu-NRGN-I", "Neu-mat")
-
+ctypes = sort(ctypes)
 length(ctypes)
 
 for (threshold in c(0.1, 0.2, 0.3, 0.4)){

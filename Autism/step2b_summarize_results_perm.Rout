@@ -32,6 +32,14 @@ The following objects are masked from ‘package:data.table’:
     dcast, melt
 
 > library(stringr)
+> library(tidyr)
+
+Attaching package: ‘tidyr’
+
+The following object is masked from ‘package:reshape2’:
+
+    smiths
+
 > 
 > theme_set(theme_classic())
 > data.dir  = "./data"
@@ -115,6 +123,13 @@ PFC_AST-PP    NA    NA    NA   NA   NA
 +   }
 + }
 Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
 > 
 > lapply(type_i, dim)
 $`rank-sum`
@@ -336,6 +351,42 @@ PFC_OPC                  0     0 0.0026845638 0.0342281879 0.102684564
 +   scale_y_continuous(trans='log10') + ylab("Type-I error") + 
 +   theme(axis.text.x = element_blank())
 > 
+> dim(df2)
+[1] 119   3
+> df2[1:2,]
+    method cell_type type_I_error
+1 rank-sum    AST-FB    0.3198630
+2 rank-sum    AST-PP    0.5298923
+> df2$type_I_error = round(df2$type_I_error, 3)
+> 
+> df2w = pivot_wider(df2, id_cols=cell_type, names_from=method, 
++                    values_from=type_I_error)
+> dim(df2w)
+[1] 17  8
+> df2w
+# A tibble: 17 x 8
+   cell_type        `rank-sum`  MAST `MAST-glmer` DESeq2 IDEAS   DCA SAVER
+   <chr>                 <dbl> <dbl>        <dbl>  <dbl> <dbl> <dbl> <dbl>
+ 1 AST-FB                0.32  0.387        0.11   0.049 0.027 0.041 0.003
+ 2 AST-PP                0.53  0.548        0.049  0.048 0.036 0.014 0.03 
+ 3 Endothelial           0.272 0.195        0.055  0.039 0.045 0.048 0.028
+ 4 IN-PV                 0.294 0.261        0.075  0.035 0.041 0.03  0.008
+ 5 IN-SST                0.326 0.187        0.03   0.035 0.039 0.02  0.005
+ 6 IN-SV2C               0.176 0.142        0.057  0.032 0.043 0.033 0.028
+ 7 IN-VIP                0.332 0.259        0.047  0.037 0.043 0.035 0.039
+ 8 L2_3                  0.664 0.831        0.119  0.042 0.038 0.033 0.01 
+ 9 L4                    0.539 0.46         0.067  0.041 0.037 0.028 0.008
+10 L5_6                  0.389 0.308        0.083  0.037 0.039 0.042 0.017
+11 L5_6-CC               0.446 0.47         0.108  0.041 0.044 0.031 0.009
+12 Microglia             0.362 0.325        0.078  0.041 0.019 0.014 0.087
+13 Neu-mat               0.387 0.361        0.071  0.045 0.031 0.027 0.01 
+14 Neu-NRGN-I            0.277 0.21         0.047  0.031 0.042 0.039 0.007
+15 Neu-NRGN-II           0.439 0.411        0.052  0.042 0.032 0.019 0.017
+16 Oligodendrocytes      0.562 0.724        0.038  0.052 0.033 0.018 0.131
+17 OPC                   0.425 0.392        0.041  0.041 0.042 0.028 0.103
+> 
+> fwrite(df2w, "res/type_i_error_05.txt", sep="\t")
+> 
 > idx = 4
 > df1 = lapply(type_i, function(x){x[,idx]})
 > df1 = unlist(df1)
@@ -358,6 +409,43 @@ PFC_OPC                  0     0 0.0026845638 0.0342281879 0.102684564
 +   scale_y_continuous(trans='log10') + ylab("Type-I error") + 
 +   theme(axis.text.x  = element_blank())
 > 
+> 
+> dim(df2)
+[1] 119   3
+> df2[1:2,]
+    method cell_type type_I_error
+1 rank-sum    AST-FB    0.1993151
+2 rank-sum    AST-PP    0.4210260
+> df2$type_I_error = signif(df2$type_I_error, 2)
+> 
+> df2w = pivot_wider(df2, id_cols=cell_type, names_from=method, 
++                    values_from=type_I_error)
+> dim(df2w)
+[1] 17  8
+> df2w
+# A tibble: 17 x 8
+   cell_type        `rank-sum`  MAST `MAST-glmer`  DESeq2  IDEAS     DCA   SAVER
+   <chr>                 <dbl> <dbl>        <dbl>   <dbl>  <dbl>   <dbl>   <dbl>
+ 1 AST-FB                0.2   0.28       0.027   0.014   0.0065 0.0099  2.00e-4
+ 2 AST-PP                0.42  0.43       0.017   0.011   0.0063 0.00082 3.80e-3
+ 3 Endothelial           0.17  0.11       0.012   0.007   0.0077 0.0074  4.20e-3
+ 4 IN-PV                 0.17  0.14       0.018   0.0066  0.0072 0.0034  8.30e-4
+ 5 IN-SST                0.2   0.098      0.0062  0.0071  0.0065 0.0014  2.50e-4
+ 6 IN-SV2C               0.083 0.066      0.012   0.0051  0.0073 0.0028  2.70e-3
+ 7 IN-VIP                0.21  0.13       0.0083  0.0063  0.0075 0.0026  5.80e-3
+ 8 L2_3                  0.570 0.73       0.041   0.01    0.0064 0.0038  2.40e-4
+ 9 L4                    0.42  0.35       0.024   0.0083  0.0057 0.0025  4.70e-4
+10 L5_6                  0.26  0.2        0.019   0.0079  0.0065 0.0083  2.10e-3
+11 L5_6-CC               0.32  0.34       0.03    0.0086  0.0075 0.00240 5.40e-4
+12 Microglia             0.25  0.21       0.014   0.0059  0.0021 0.001   1.00e-2
+13 Neu-mat               0.26  0.22       0.014   0.0097  0.0043 0.0032  1.70e-3
+14 Neu-NRGN-I            0.16  0.12       0.012   0.00480 0.0077 0.0043  5.20e-4
+15 Neu-NRGN-II           0.32  0.3        0.013   0.0073  0.0056 0.00240 3.40e-3
+16 Oligodendrocytes      0.45  0.570      0.00960 0.012   0.0061 0.00075 3.30e-2
+17 OPC                   0.3   0.26       0.006   0.0081  0.0064 0.0028  3.40e-2
+> 
+> fwrite(df2w, "res/type_i_error_01.txt", sep="\t")
+> 
 > pdf("figures/step2b_type_i_error_05.pdf", width=4, height=3)
 > p5
 > dev.off()
@@ -373,8 +461,8 @@ null device
 > 
 > gc()
            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells  2053951 109.7    3607705  192.7         NA   3607705  192.7
-Vcells 17491952 133.5  213987890 1632.6      32768 344347616 2627.2
+Ncells  2109904 112.7    3609302  192.8         NA   3609302  192.8
+Vcells 17605971 134.4  213988925 1632.7      32768 344348964 2627.2
 > 
 > sessionInfo()
 R version 4.0.3 (2020-10-10)
@@ -392,23 +480,25 @@ attached base packages:
 [1] stats     graphics  grDevices utils     datasets  methods   base     
 
 other attached packages:
-[1] Matrix_1.3-0      stringr_1.4.0     reshape2_1.4.4    ggrepel_0.9.0    
-[5] ggpubr_0.4.0      data.table_1.13.6 ggcorrplot_0.1.3  ggplot2_3.3.3    
+[1] Matrix_1.3-0      tidyr_1.1.2       stringr_1.4.0     reshape2_1.4.4   
+[5] ggrepel_0.9.0     ggpubr_0.4.0      data.table_1.13.6 ggcorrplot_0.1.3 
+[9] ggplot2_3.3.3    
 
 loaded via a namespace (and not attached):
  [1] zip_2.1.1        Rcpp_1.0.5       plyr_1.8.6       pillar_1.4.7    
  [5] compiler_4.0.3   cellranger_1.1.0 forcats_0.5.0    tools_4.0.3     
  [9] digest_0.6.27    lattice_0.20-41  lifecycle_0.2.0  tibble_3.0.4    
 [13] gtable_0.3.0     pkgconfig_2.0.3  rlang_0.4.10     openxlsx_4.2.3  
-[17] curl_4.3         haven_2.3.1      rio_0.5.16       withr_2.3.0     
-[21] dplyr_1.0.2      generics_0.1.0   vctrs_0.3.6      hms_0.5.3       
-[25] grid_4.0.3       tidyselect_1.1.0 glue_1.4.2       R6_2.5.0        
-[29] rstatix_0.6.0    readxl_1.3.1     foreign_0.8-81   carData_3.0-4   
-[33] farver_2.0.3     tidyr_1.1.2      purrr_0.3.4      car_3.0-10      
-[37] magrittr_2.0.1   backports_1.2.1  scales_1.1.1     ellipsis_0.3.1  
-[41] abind_1.4-5      colorspace_2.0-0 ggsignif_0.6.0   stringi_1.5.3   
-[45] munsell_0.5.0    broom_0.7.3      crayon_1.3.4    
+[17] cli_2.2.0        curl_4.3         haven_2.3.1      rio_0.5.16      
+[21] withr_2.3.0      dplyr_1.0.2      generics_0.1.0   vctrs_0.3.6     
+[25] hms_0.5.3        grid_4.0.3       tidyselect_1.1.0 glue_1.4.2      
+[29] R6_2.5.0         rstatix_0.6.0    fansi_0.4.1      readxl_1.3.1    
+[33] foreign_0.8-81   carData_3.0-4    farver_2.0.3     purrr_0.3.4     
+[37] car_3.0-10       magrittr_2.0.1   backports_1.2.1  scales_1.1.1    
+[41] ellipsis_0.3.1   assertthat_0.2.1 abind_1.4-5      colorspace_2.0-0
+[45] ggsignif_0.6.0   utf8_1.1.4       stringi_1.5.3    munsell_0.5.0   
+[49] broom_0.7.3      crayon_1.3.4    
 > q(save="no")
 > proc.time()
    user  system elapsed 
- 17.143   4.165  24.487 
+ 16.563   4.034  21.568 
