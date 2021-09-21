@@ -1,0 +1,46 @@
+---
+title: "Check scRNA-seq data of a COVID19 study"
+author: "Wei Sun and Si Liu"
+date: "9/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Load required library
+  
+```{r warning=FALSE, echo = TRUE, results = 'hide', warning = FALSE, message = FALSE}
+library(data.table)
+library(plyr)
+library(ggplot2)
+library(ggpubr)
+library(ggpointdensity)
+library(ggrepel)
+library(stringr)
+library(dplyr)
+library(segmented)
+library(maftools)
+theme_set(theme_bw())
+```
+
+## Read in somatic mutation data
+
+
+```{r}
+path = "~/research/data/COVID/"
+fnm  = "seurat_COVID19_Neutrophils_cohort1_10x_jonas_FG_2020-08-19.rds"
+neu  = readRDS(paste0(path, fnm))
+dim(neu)
+slotNames(neu)
+dat = neu@assays$RNA
+
+```
+
+
+
+
+```{r}
+gc()
+sessionInfo()
+```
