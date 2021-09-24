@@ -1,0 +1,1039 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(data.table)
+> library(plyr)
+> library(ggplot2)
+> library(ggpubr)
+
+Attaching package: ‘ggpubr’
+
+The following object is masked from ‘package:plyr’:
+
+    mutate
+
+> library(ggpointdensity)
+> library(ggrepel)
+> library(stringr)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:plyr’:
+
+    arrange, count, desc, failwith, id, mutate, rename, summarise,
+    summarize
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(Matrix)
+> library(segmented)
+> library(Seurat)
+Attaching SeuratObject
+> library(maftools)
+Warning message:
+package ‘maftools’ was built under R version 4.1.1 
+> theme_set(theme_bw())
+> 
+> # use the data from cohort 1 PBMC 10x 
+> 
+> path = "../../ideas_data/COVID/"
+> folder_2 = "dataset-952687f71ef34322a850553c4a24e82e/"
+> fnm_2  = "seurat_COVID19_PBMC_cohort1_10x_jonas_FG_2020-08-15.rds"
+> PBMC_cohort1_10x_jonas_FG  = readRDS(paste0(path, folder_2, fnm_2))
+> 
+> # data exploration
+> 
+> PBMC_cohort1_10x_jonas_FG 
+An object of class Seurat 
+46611 features across 99049 samples within 7 assays 
+Active assay: RNA (46584 features, 2000 variable features)
+ 6 other assays present: HTOsPool1, HTOsPool2, HTOsPool3, HTOsPool4, HTOsPool5, HTOsPool6
+ 3 dimensional reductions calculated: pca, umap, harmony
+> 
+> print(slotNames(PBMC_cohort1_10x_jonas_FG))
+ [1] "assays"       "meta.data"    "active.assay" "active.ident" "graphs"      
+ [6] "neighbors"    "reductions"   "images"       "project.name" "misc"        
+[11] "version"      "commands"     "tools"       
+> 
+> length(slotNames(PBMC_cohort1_10x_jonas_FG))
+[1] 13
+> 
+> dat_2 = PBMC_cohort1_10x_jonas_FG@assays$RNA
+> dat_2
+Assay data with 46584 features for 99049 cells
+Top 10 variable features:
+ IGHA1, IGKC, IGHG1, IGLC2, IGLC3, DEFA3, JCHAIN, IGHG3, PPBP, IGHGP 
+> 
+> print(dim(dat_2))
+[1] 46584 99049
+> dat_2[1:6, 1:2]
+6 x 2 sparse Matrix of class "dgCMatrix"
+              1_AAACCCAAGGCTTTCA-1 1_AAACCCACAACTTCTT-1
+AL627309.1                       .                    .
+AP006222.2                       .                    .
+RP11-206L10.2                    .                    .
+RP11-206L10.9                    .                    .
+LINC00115                        .                    .
+NOC2L                            .                    .
+> 
+> cell_info = PBMC_cohort1_10x_jonas_FG@meta.data
+> print(dim(cell_info))
+[1] 99049    39
+> print(names(cell_info))
+ [1] "orig.ident"                                     
+ [2] "nCount_RNA"                                     
+ [3] "nFeature_RNA"                                   
+ [4] "nReads_RNA"                                     
+ [5] "nReads_ALL"                                     
+ [6] "percent.mito"                                   
+ [7] "percent.hb"                                     
+ [8] "donor"                                          
+ [9] "onset_of_symptoms"                              
+[10] "days_after_onset"                               
+[11] "sampleID"                                       
+[12] "origID"                                         
+[13] "date_of_sampling"                               
+[14] "DaysAfterSample0"                               
+[15] "experiment"                                     
+[16] "PoolID"                                         
+[17] "sampletag"                                      
+[18] "hash.ID"                                        
+[19] "platform"                                       
+[20] "purification"                                   
+[21] "cells"                                          
+[22] "age"                                            
+[23] "sex"                                            
+[24] "group_per_sample"                               
+[25] "who_per_sample"                                 
+[26] "disease_stage"                                  
+[27] "outcome"                                        
+[28] "comorbidities"                                  
+[29] "COVID.19.related_medication_and_anti.microbials"
+[30] "RNA_snn_res.0.4"                                
+[31] "cluster_labels_res.0.4"                         
+[32] "new.order"                                      
+[33] "id.celltype"                                    
+[34] "hpca.labels"                                    
+[35] "blueprint.labels"                               
+[36] "monaco.labels"                                  
+[37] "immune.labels"                                  
+[38] "dmap.labels"                                    
+[39] "hemato.labels"                                  
+> 
+> cell_info[1:2, 1:6]
+                     orig.ident nCount_RNA nFeature_RNA nReads_RNA nReads_ALL
+1_AAACCCAAGGCTTTCA-1    Covid19       4842         1925       4842       5102
+1_AAACCCACAACTTCTT-1    Covid19       9582         3004       9582      10008
+                     percent.mito
+1_AAACCCAAGGCTTTCA-1     6.608839
+1_AAACCCACAACTTCTT-1     4.195366
+> 
+> table(cell_info$id.celltype)
+
+     0: Classical Monocytes  1: HLA-DR+ CD83+ Monocytes 
+                      16982                        3414 
+        2: CD163+ Monocytes 3: HLA-DR- S100A+ monocytes 
+                       1445                        5273 
+ 4: Non-classical Monocytes              5: Neutrophils 
+                       3399                        2878 
+    6: Immature Neutrophils                     7: mDCs 
+                       1386                         833 
+                    8: pDCs           9: CD4+ T cells_1 
+                        516                       15800 
+         10: CD4+ T cells_2          11: CD4+ T cells_3 
+                      10588                        2969 
+         12: CD8+ T cells_1          13: CD8+ T cells_2 
+                      11002                        1119 
+         14: CD8+ T cells_3                15: NK cells 
+                       2981                        8436 
+              16: B cells_1               17: B cells_2 
+                       7235                         259 
+              18: B cells_3            19: Plasmablasts 
+                        209                         839 
+          20: Megakaryocyte                   21: mixed 
+                       1161                         164 
+              22: undefined 
+                        161 
+> 
+> sort(table(cell_info$id.celltype))
+
+              22: undefined                   21: mixed 
+                        161                         164 
+              18: B cells_3               17: B cells_2 
+                        209                         259 
+                    8: pDCs                     7: mDCs 
+                        516                         833 
+           19: Plasmablasts          13: CD8+ T cells_2 
+                        839                        1119 
+          20: Megakaryocyte     6: Immature Neutrophils 
+                       1161                        1386 
+        2: CD163+ Monocytes              5: Neutrophils 
+                       1445                        2878 
+         11: CD4+ T cells_3          14: CD8+ T cells_3 
+                       2969                        2981 
+ 4: Non-classical Monocytes  1: HLA-DR+ CD83+ Monocytes 
+                       3399                        3414 
+3: HLA-DR- S100A+ monocytes               16: B cells_1 
+                       5273                        7235 
+               15: NK cells          10: CD4+ T cells_2 
+                       8436                       10588 
+         12: CD8+ T cells_1           9: CD4+ T cells_1 
+                      11002                       15800 
+     0: Classical Monocytes 
+                      16982 
+> 
+> table(cell_info$sampleID, cell_info$id.celltype)
+                 
+                  0: Classical Monocytes 1: HLA-DR+ CD83+ Monocytes
+  C19-CB-0001_d11                      7                        403
+  C19-CB-0001_d16                      2                         83
+  C19-CB-0001_d7                       8                         48
+  C19-CB-0002_d13                      2                        336
+  C19-CB-0002_d8                     120                        417
+  C19-CB-0003_d13                     44                        828
+  C19-CB-0003_d18                     15                        654
+  C19-CB-0005_d15                     72                        243
+  C19-CB-0005_d20                    232                         55
+  C19-CB-0008_d13                     14                          9
+  C19-CB-0008_d20                     33                          0
+  C19-CB-0009_d16                    237                          9
+  C19-CB-0009_d9                       1                          6
+  C19-CB-0011_d13                     16                          5
+  C19-CB-0012_d16                     14                          4
+  C19-CB-0012_d9                      24                          6
+  C19-CB-0013_d15                     35                          2
+  C19-CB-0013_d8                      33                         20
+  C19-CB-0016_d16                     30                          3
+  C19-CB-0020_d16                     15                          0
+  C19-CB-0021_d18                     40                          3
+  C19-CB-0052_d10                     34                         80
+  C19-CB-0053_d3                       5                         10
+  C19-CB-0198_d18                     21                         45
+  C19-CB-0199_d8                      38                         20
+  C19-CB-0204_d15                     16                         71
+  C19-CB-0214_d7                       0                         11
+  C2P01H_d0                          477                          1
+  C2P05F_d0                          759                          1
+  C2P07H_d0                          533                          0
+  C2P10H_d0                          601                          0
+  C2P13F_d0                         1303                          0
+  C2P15H_d0                          396                          0
+  C2P16H_d0                          431                          0
+  C2P19H_d0                          578                          0
+  Five_k_v3_d0                       755                          7
+  one_k_v3_d0                        275                          3
+  P02H_d0                            535                          0
+  P04H_d0                            386                          0
+  P06F_d0                            716                          0
+  P07H_d0                            325                          0
+  P08H_d0                            522                          0
+  P09H_d0                            345                          0
+  P13H_d0                           1211                          0
+  P15F_d0                            961                          1
+  P17H_d0                            810                          1
+  P18F_d0                            446                          3
+  P20H_d0                            693                          3
+  Ten_k_v3_d0                       2816                         23
+                 
+                  2: CD163+ Monocytes 3: HLA-DR- S100A+ monocytes
+  C19-CB-0001_d11                   0                           0
+  C19-CB-0001_d16                   7                           0
+  C19-CB-0001_d7                 1090                           0
+  C19-CB-0002_d13                   0                           0
+  C19-CB-0002_d8                    4                           3
+  C19-CB-0003_d13                   5                           1
+  C19-CB-0003_d18                   7                           0
+  C19-CB-0005_d15                  22                          11
+  C19-CB-0005_d20                   3                         409
+  C19-CB-0008_d13                   2                          39
+  C19-CB-0008_d20                   1                         522
+  C19-CB-0009_d16                   1                         852
+  C19-CB-0009_d9                   73                           3
+  C19-CB-0011_d13                   0                          68
+  C19-CB-0012_d16                   0                         528
+  C19-CB-0012_d9                    2                           9
+  C19-CB-0013_d15                   0                         419
+  C19-CB-0013_d8                    0                          82
+  C19-CB-0016_d16                   0                         773
+  C19-CB-0020_d16                   0                         379
+  C19-CB-0021_d18                   1                         832
+  C19-CB-0052_d10                  11                           2
+  C19-CB-0053_d3                    7                           0
+  C19-CB-0198_d18                   0                          24
+  C19-CB-0199_d8                    0                          32
+  C19-CB-0204_d15                   0                           0
+  C19-CB-0214_d7                   43                           0
+  C2P01H_d0                         3                           0
+  C2P05F_d0                        11                           2
+  C2P07H_d0                         0                           3
+  C2P10H_d0                         0                           0
+  C2P13F_d0                        13                           0
+  C2P15H_d0                         1                           1
+  C2P16H_d0                         2                           0
+  C2P19H_d0                        10                           0
+  Five_k_v3_d0                     27                          72
+  one_k_v3_d0                       6                          19
+  P02H_d0                          11                           0
+  P04H_d0                           0                           0
+  P06F_d0                           3                           0
+  P07H_d0                           2                           0
+  P08H_d0                           8                           0
+  P09H_d0                           2                           1
+  P13H_d0                           2                           2
+  P15F_d0                           1                           0
+  P17H_d0                           8                           0
+  P18F_d0                           2                           0
+  P20H_d0                           1                           0
+  Ten_k_v3_d0                      53                         185
+                 
+                  4: Non-classical Monocytes 5: Neutrophils
+  C19-CB-0001_d11                          5              0
+  C19-CB-0001_d16                          7              1
+  C19-CB-0001_d7                           0              5
+  C19-CB-0002_d13                         25              0
+  C19-CB-0002_d8                          23              4
+  C19-CB-0003_d13                          6              1
+  C19-CB-0003_d18                        117              5
+  C19-CB-0005_d15                         23              3
+  C19-CB-0005_d20                         71              6
+  C19-CB-0008_d13                          7            460
+  C19-CB-0008_d20                        177            156
+  C19-CB-0009_d16                         75            183
+  C19-CB-0009_d9                           0            142
+  C19-CB-0011_d13                         29            147
+  C19-CB-0012_d16                         51            112
+  C19-CB-0012_d9                           1             39
+  C19-CB-0013_d15                         17            219
+  C19-CB-0013_d8                          11            183
+  C19-CB-0016_d16                         24            387
+  C19-CB-0020_d16                         46            192
+  C19-CB-0021_d18                         15            184
+  C19-CB-0052_d10                          4              9
+  C19-CB-0053_d3                           0              3
+  C19-CB-0198_d18                         33             15
+  C19-CB-0199_d8                          14             13
+  C19-CB-0204_d15                        176             23
+  C19-CB-0214_d7                           0             14
+  C2P01H_d0                              107              1
+  C2P05F_d0                               43              2
+  C2P07H_d0                               97              3
+  C2P10H_d0                              170              2
+  C2P13F_d0                              223              8
+  C2P15H_d0                               60              1
+  C2P16H_d0                              149              1
+  C2P19H_d0                              118              2
+  Five_k_v3_d0                           105             38
+  one_k_v3_d0                             32             15
+  P02H_d0                                117              0
+  P04H_d0                                 56              3
+  P06F_d0                                120              0
+  P07H_d0                                 30              2
+  P08H_d0                                 91              3
+  P09H_d0                                116              0
+  P13H_d0                                 78              1
+  P15F_d0                                 34              8
+  P17H_d0                                102              5
+  P18F_d0                                170             20
+  P20H_d0                                 36             10
+  Ten_k_v3_d0                            388            247
+                 
+                  6: Immature Neutrophils 7: mDCs 8: pDCs 9: CD4+ T cells_1
+  C19-CB-0001_d11                       0      14       1                24
+  C19-CB-0001_d16                       0      10       1                 5
+  C19-CB-0001_d7                        0      13      20                 4
+  C19-CB-0002_d13                       0      11       3                 5
+  C19-CB-0002_d8                        0      38      26                18
+  C19-CB-0003_d13                       0      27       5                 1
+  C19-CB-0003_d18                       0      24       0                 1
+  C19-CB-0005_d15                       0       2       0                 2
+  C19-CB-0005_d20                       1       4       0                 2
+  C19-CB-0008_d13                     270       1       2               163
+  C19-CB-0008_d20                     350      16       3               583
+  C19-CB-0009_d16                     315      38       9               334
+  C19-CB-0009_d9                       41       1       4                55
+  C19-CB-0011_d13                      76       1       1               142
+  C19-CB-0012_d16                      26       5       6               435
+  C19-CB-0012_d9                       78       2       1               125
+  C19-CB-0013_d15                      13       7       2               338
+  C19-CB-0013_d8                        3       0       0                47
+  C19-CB-0016_d16                       7       1      10               203
+  C19-CB-0020_d16                      41       7       1               757
+  C19-CB-0021_d18                      99      25      18               661
+  C19-CB-0052_d10                       0       4       7                95
+  C19-CB-0053_d3                        0       1       3               120
+  C19-CB-0198_d18                       5      14       1               253
+  C19-CB-0199_d8                       24       1       0               426
+  C19-CB-0204_d15                       1      29       4              1142
+  C19-CB-0214_d7                        1       4       4                 3
+  C2P01H_d0                             0       6       8               419
+  C2P05F_d0                             0       5       4                24
+  C2P07H_d0                             0      11       9               289
+  C2P10H_d0                             0      20      46               565
+  C2P13F_d0                             1      21      14               211
+  C2P15H_d0                             0       9      15               104
+  C2P16H_d0                             0      12       7               296
+  C2P19H_d0                             0      14      30               140
+  Five_k_v3_d0                          5      77      28              1343
+  one_k_v3_d0                           0      28       8               208
+  P02H_d0                               0       3      29               800
+  P04H_d0                               0      16      20               593
+  P06F_d0                               3      25       5               585
+  P07H_d0                               2      14       2               551
+  P08H_d0                               3      11       4               352
+  P09H_d0                               0       6       6               261
+  P13H_d0                               2      20      10               186
+  P15F_d0                               0      15      12               260
+  P17H_d0                               1       8      13               146
+  P18F_d0                               0       7      16               224
+  P20H_d0                               1       4      13               388
+  Ten_k_v3_d0                          17     201      85              1911
+                 
+                  10: CD4+ T cells_2 11: CD4+ T cells_3 12: CD8+ T cells_1
+  C19-CB-0001_d11                  3                  2                 23
+  C19-CB-0001_d16                  5                  6                 14
+  C19-CB-0001_d7                   5                679                  8
+  C19-CB-0002_d13                  5                  0                 95
+  C19-CB-0002_d8                  51                 21                530
+  C19-CB-0003_d13                  2                  2                 19
+  C19-CB-0003_d18                  5                  5                 89
+  C19-CB-0005_d15                  0                  4                  2
+  C19-CB-0005_d20                  6                  9                  2
+  C19-CB-0008_d13                 55                  3                 17
+  C19-CB-0008_d20                446                  2                 53
+  C19-CB-0009_d16                538                  6                198
+  C19-CB-0009_d9                  95                199                 73
+  C19-CB-0011_d13                144                  1                105
+  C19-CB-0012_d16                655                  0                457
+  C19-CB-0012_d9                 160                  4                164
+  C19-CB-0013_d15                354                  2                203
+  C19-CB-0013_d8                  87                  1                 39
+  C19-CB-0016_d16                148                  0                612
+  C19-CB-0020_d16                533                  2                697
+  C19-CB-0021_d18                461                  6                238
+  C19-CB-0052_d10                141                375                 57
+  C19-CB-0053_d3                 317                357                 92
+  C19-CB-0198_d18                721                  5               1154
+  C19-CB-0199_d8                 427                  7                185
+  C19-CB-0204_d15                433                 18                417
+  C19-CB-0214_d7                  16               1098                 18
+  C2P01H_d0                      265                  8                 95
+  C2P05F_d0                       83                  1                317
+  C2P07H_d0                      198                  6                353
+  C2P10H_d0                      144                  2                186
+  C2P13F_d0                       91                  0                206
+  C2P15H_d0                      300                  4                538
+  C2P16H_d0                      127                  5                605
+  C2P19H_d0                       99                  6                 54
+  Five_k_v3_d0                   584                 34                508
+  one_k_v3_d0                    138                  4                131
+  P02H_d0                        249                 17                 69
+  P04H_d0                         26                  0                 75
+  P06F_d0                         73                  2                 42
+  P07H_d0                         29                  3                 36
+  P08H_d0                         31                  2                 39
+  P09H_d0                        710                  9                457
+  P13H_d0                         10                  0                 79
+  P15F_d0                         18                  3                 23
+  P17H_d0                         27                  3                 95
+  P18F_d0                         96                  2                212
+  P20H_d0                         74                  2                103
+  Ten_k_v3_d0                   1403                 42               1218
+                 
+                  13: CD8+ T cells_2 14: CD8+ T cells_3 15: NK cells
+  C19-CB-0001_d11                  7                252           24
+  C19-CB-0001_d16                  1                 53            9
+  C19-CB-0001_d7                  17                126          115
+  C19-CB-0002_d13                  8                458           24
+  C19-CB-0002_d8                  13                239          192
+  C19-CB-0003_d13                 22                241           26
+  C19-CB-0003_d18                 23                 55           84
+  C19-CB-0005_d15                  5                 22           16
+  C19-CB-0005_d20                  1                 16           20
+  C19-CB-0008_d13                 13                 37           21
+  C19-CB-0008_d20                 73                 15          155
+  C19-CB-0009_d16                 78                  8          232
+  C19-CB-0009_d9                  15                 60          133
+  C19-CB-0011_d13                 27                 57           71
+  C19-CB-0012_d16                 37                 13          413
+  C19-CB-0012_d9                   8                 35           61
+  C19-CB-0013_d15                 85                  5          301
+  C19-CB-0013_d8                   9                 29           56
+  C19-CB-0016_d16                 13                  7          130
+  C19-CB-0020_d16                143                  6          592
+  C19-CB-0021_d18                141                  7          328
+  C19-CB-0052_d10                 12                164          105
+  C19-CB-0053_d3                  37                239          477
+  C19-CB-0198_d18                 34                 18          145
+  C19-CB-0199_d8                  65                 22           56
+  C19-CB-0204_d15                 33                 39          286
+  C19-CB-0214_d7                   7                179          301
+  C2P01H_d0                        5                  3          201
+  C2P05F_d0                        9                  1          172
+  C2P07H_d0                        7                  0          184
+  C2P10H_d0                       16                  2          224
+  C2P13F_d0                        4                  2           53
+  C2P15H_d0                        4                  2           57
+  C2P16H_d0                        9                  3          256
+  C2P19H_d0                        4                  0          493
+  Five_k_v3_d0                    14                111          330
+  one_k_v3_d0                      2                  9           58
+  P02H_d0                         13                  0          324
+  P04H_d0                          3                 58           11
+  P06F_d0                          8                 40           35
+  P07H_d0                          7                 17           25
+  P08H_d0                          3                 36          132
+  P09H_d0                          6                  0          366
+  P13H_d0                          4                 32           55
+  P15F_d0                          2                 23           86
+  P17H_d0                          8                 13          112
+  P18F_d0                         12                  7          257
+  P20H_d0                          4                  9           75
+  Ten_k_v3_d0                     48                211          557
+                 
+                  16: B cells_1 17: B cells_2 18: B cells_3 19: Plasmablasts
+  C19-CB-0001_d11           201             2             1                0
+  C19-CB-0001_d16            63             2             0                2
+  C19-CB-0001_d7             13           208             1                5
+  C19-CB-0002_d13           327             1             0                0
+  C19-CB-0002_d8            121             2             2                0
+  C19-CB-0003_d13           215             2             1                0
+  C19-CB-0003_d18            35             3             0                0
+  C19-CB-0005_d15            13             3             0                0
+  C19-CB-0005_d20            30             0             0                0
+  C19-CB-0008_d13            27             0             1               35
+  C19-CB-0008_d20           140             0             3              103
+  C19-CB-0009_d16           123             0             2               85
+  C19-CB-0009_d9             14             1             0               16
+  C19-CB-0011_d13            22             0             1                5
+  C19-CB-0012_d16            99             0             3               41
+  C19-CB-0012_d9              8             0             1               13
+  C19-CB-0013_d15            42             0             2               18
+  C19-CB-0013_d8              8             0             0               13
+  C19-CB-0016_d16            41             0             1               56
+  C19-CB-0020_d16           284             0            13               14
+  C19-CB-0021_d18           100             1             7               66
+  C19-CB-0052_d10            18             3             0                2
+  C19-CB-0053_d3             96             3             2               32
+  C19-CB-0198_d18           167             1             9               64
+  C19-CB-0199_d8            156             0            10               65
+  C19-CB-0204_d15            40             0             6                2
+  C19-CB-0214_d7              1            16             0               11
+  C2P01H_d0                  99             0             1                1
+  C2P05F_d0                  57             0             2                1
+  C2P07H_d0                  59             0             0                1
+  C2P10H_d0                 213             0             2                3
+  C2P13F_d0                  78             0             1                0
+  C2P15H_d0                 323             0             0                1
+  C2P16H_d0                 241             1             5                1
+  C2P19H_d0                 323             2             1                3
+  Five_k_v3_d0              507             2            23               21
+  one_k_v3_d0               179             1             3                7
+  P02H_d0                   205             1             1                2
+  P04H_d0                   129             0             0               30
+  P06F_d0                    35             0             0               18
+  P07H_d0                   139             0             0               25
+  P08H_d0                   174             0             0               26
+  P09H_d0                   180             0             3                0
+  P13H_d0                    26             0             0                5
+  P15F_d0                    50             0             0               12
+  P17H_d0                   126             0             0                5
+  P18F_d0                    92             0             1                8
+  P20H_d0                    80             0             1                5
+  Ten_k_v3_d0              1516             4            99               16
+                 
+                  20: Megakaryocyte 21: mixed 22: undefined
+  C19-CB-0001_d11                 0         1             0
+  C19-CB-0001_d16                 1         1             0
+  C19-CB-0001_d7                  6         0             0
+  C19-CB-0002_d13                 0         2             0
+  C19-CB-0002_d8                  5         0             0
+  C19-CB-0003_d13                 0         3             0
+  C19-CB-0003_d18                10         0             0
+  C19-CB-0005_d15                 5         0             0
+  C19-CB-0005_d20                 6         2             0
+  C19-CB-0008_d13                 8         2             5
+  C19-CB-0008_d20                15        11            21
+  C19-CB-0009_d16                29        14            28
+  C19-CB-0009_d9                  2         0             4
+  C19-CB-0011_d13                13         1             0
+  C19-CB-0012_d16                24         4             9
+  C19-CB-0012_d9                  0         0             0
+  C19-CB-0013_d15                12         4             4
+  C19-CB-0013_d8                  7         0             1
+  C19-CB-0016_d16                70         2             6
+  C19-CB-0020_d16                38        21             8
+  C19-CB-0021_d18                25         3            27
+  C19-CB-0052_d10                 9         0             0
+  C19-CB-0053_d3                 10         0             1
+  C19-CB-0198_d18               254         1             8
+  C19-CB-0199_d8                191         1             2
+  C19-CB-0204_d15                87         0             0
+  C19-CB-0214_d7                 50         0             0
+  C2P01H_d0                       0         1             0
+  C2P05F_d0                       0         0             0
+  C2P07H_d0                       0         0             0
+  C2P10H_d0                       0         3             1
+  C2P13F_d0                       0         2             0
+  C2P15H_d0                       0         1             0
+  C2P16H_d0                       1         1             0
+  C2P19H_d0                       0         2             0
+  Five_k_v3_d0                   26         6             3
+  one_k_v3_d0                    14         1             1
+  P02H_d0                         0         3             0
+  P04H_d0                         2         1             1
+  P06F_d0                         3         0             2
+  P07H_d0                         1         0             1
+  P08H_d0                         2         0             1
+  P09H_d0                         1         0             0
+  P13H_d0                         1         1             0
+  P15F_d0                         1         0             1
+  P17H_d0                         1         2             0
+  P18F_d0                         0         0             1
+  P20H_d0                         1         1             0
+  Ten_k_v3_d0                   230        66            25
+> 
+> table(cell_info$disease_stage)
+
+control   early    late 
+  50783   12984   35282 
+> 
+> table(cell_info$disease_stage, cell_info$id.celltype)
+         
+          0: Classical Monocytes 1: HLA-DR+ CD83+ Monocytes 2: CD163+ Monocytes
+  control                  15874                         43                 166
+  early                      263                        618                1230
+  late                       845                       2753                  49
+         
+          3: HLA-DR- S100A+ monocytes 4: Non-classical Monocytes 5: Neutrophils
+  control                         285                       2442            372
+  early                           131                         53            412
+  late                           4857                        904           2094
+         
+          6: Immature Neutrophils 7: mDCs 8: pDCs 9: CD4+ T cells_1
+  control                      35     533     384              9856
+  early                       147      64      65               893
+  late                       1204     236      67              5051
+         
+          10: CD4+ T cells_2 11: CD4+ T cells_3 12: CD8+ T cells_1
+  control               4775                155               5441
+  early                 1299               2741               1166
+  late                  4514                 73               4395
+         
+          13: CD8+ T cells_2 14: CD8+ T cells_3 15: NK cells 16: B cells_1
+  control                192                579         4063          4831
+  early                  183               1093         1496           435
+  late                   744               1309         2877          1969
+         
+          17: B cells_2 18: B cells_3 19: Plasmablasts 20: Megakaryocyte
+  control            11           143              191               284
+  early             233            16              157               280
+  late               15            50              491               597
+         
+          21: mixed 22: undefined
+  control        91            37
+  early           1             8
+  late           72           116
+> 
+> table(cell_info$donor, cell_info$disease_stage)
+             
+              control early  late
+  C19-CB-0001       0  2371  1243
+  C19-CB-0002       0  1829  1302
+  C19-CB-0003       0     0  2583
+  C19-CB-0005       0     0  1323
+  C19-CB-0008       0     0  4069
+  C19-CB-0009       0   938  3394
+  C19-CB-0011       0     0   932
+  C19-CB-0012       0   741  2936
+  C19-CB-0013       0   629  2084
+  C19-CB-0016       0     0  2524
+  C19-CB-0020       0     0  3789
+  C19-CB-0021       0     0  3288
+  C19-CB-0052       0  1132     0
+  C19-CB-0053       0  1812     0
+  C19-CB-0198       0     0  2992
+  C19-CB-0199       0  1755     0
+  C19-CB-0204       0     0  2823
+  C19-CB-0214       0  1777     0
+  C2P01H         1701     0     0
+  C2P05F         1494     0     0
+  C2P07H         1753     0     0
+  C2P10H         2200     0     0
+  C2P13F         2231     0     0
+  C2P15H         1817     0     0
+  C2P16H         2153     0     0
+  C2P19H         1879     0     0
+  Five_k_v3      4626     0     0
+  one_k_v3       1142     0     0
+  P02H           2379     0     0
+  P04H           1410     0     0
+  P06F           1715     0     0
+  P07H           1211     0     0
+  P08H           1440     0     0
+  P09H           2469     0     0
+  P13H           1725     0     0
+  P15F           1511     0     0
+  P17H           1486     0     0
+  P18F           1576     0     0
+  P20H           1504     0     0
+  Ten_k_v3      11361     0     0
+> 
+> id = which(cell_info$id.celltype == '12: CD8+ T cells_1')
+> 
+> table(cell_info[id,]$donor, cell_info[id,]$disease_stage)
+             
+              control early late
+  C19-CB-0001       0     8   37
+  C19-CB-0002       0   530   95
+  C19-CB-0003       0     0  108
+  C19-CB-0005       0     0    4
+  C19-CB-0008       0     0   70
+  C19-CB-0009       0    73  198
+  C19-CB-0011       0     0  105
+  C19-CB-0012       0   164  457
+  C19-CB-0013       0    39  203
+  C19-CB-0016       0     0  612
+  C19-CB-0020       0     0  697
+  C19-CB-0021       0     0  238
+  C19-CB-0052       0    57    0
+  C19-CB-0053       0    92    0
+  C19-CB-0198       0     0 1154
+  C19-CB-0199       0   185    0
+  C19-CB-0204       0     0  417
+  C19-CB-0214       0    18    0
+  C2P01H           95     0    0
+  C2P05F          317     0    0
+  C2P07H          353     0    0
+  C2P10H          186     0    0
+  C2P13F          206     0    0
+  C2P15H          538     0    0
+  C2P16H          605     0    0
+  C2P19H           54     0    0
+  Five_k_v3       508     0    0
+  one_k_v3        131     0    0
+  P02H             69     0    0
+  P04H             75     0    0
+  P06F             42     0    0
+  P07H             36     0    0
+  P08H             39     0    0
+  P09H            457     0    0
+  P13H             79     0    0
+  P15F             23     0    0
+  P17H             95     0    0
+  P18F            212     0    0
+  P20H            103     0    0
+  Ten_k_v3       1218     0    0
+> 
+> cell_info[1:2, 1:10]
+                     orig.ident nCount_RNA nFeature_RNA nReads_RNA nReads_ALL
+1_AAACCCAAGGCTTTCA-1    Covid19       4842         1925       4842       5102
+1_AAACCCACAACTTCTT-1    Covid19       9582         3004       9582      10008
+                     percent.mito percent.hb       donor onset_of_symptoms
+1_AAACCCAAGGCTTTCA-1     6.608839          0 C19-CB-0001        25.02.2020
+1_AAACCCACAACTTCTT-1     4.195366          0 C19-CB-0003        29.02.2020
+                     days_after_onset
+1_AAACCCAAGGCTTTCA-1               11
+1_AAACCCACAACTTCTT-1               13
+> 
+> cell_info[1:2, 11:20]
+                            sampleID origID date_of_sampling DaysAfterSample0
+1_AAACCCAAGGCTTTCA-1 C19-CB-0001_d11   1_d4       06.03.2020                4
+1_AAACCCACAACTTCTT-1 C19-CB-0003_d13   3_d0       12.03.2020                0
+                     experiment PoolID sampletag         hash.ID
+1_AAACCCAAGGCTTTCA-1       A3_2      1  Hashtag6 Hashtag6-TotalA
+1_AAACCCACAACTTCTT-1       A3_2      1  Hashtag8 Hashtag8-TotalA
+                            platform purification
+1_AAACCCAAGGCTTTCA-1 scRNA-seq (10x)        Fresh
+1_AAACCCACAACTTCTT-1 scRNA-seq (10x)        Fresh
+> 
+> cell_info[1:2, 21:30]
+                     cells   age  sex group_per_sample who_per_sample
+1_AAACCCAAGGCTTTCA-1  PBMC 21_25 male             mild              3
+1_AAACCCACAACTTCTT-1  PBMC 41_45 male             mild              3
+                     disease_stage    outcome           comorbidities
+1_AAACCCAAGGCTTTCA-1          late discharged                    none
+1_AAACCCACAACTTCTT-1          late discharged Cardiovascular diseases
+                     COVID.19.related_medication_and_anti.microbials
+1_AAACCCAAGGCTTTCA-1                                            none
+1_AAACCCACAACTTCTT-1                                            none
+                     RNA_snn_res.0.4
+1_AAACCCAAGGCTTTCA-1               7
+1_AAACCCACAACTTCTT-1               7
+> 
+> cell_info[1:2, 31:39]
+                      cluster_labels_res.0.4 new.order
+1_AAACCCAAGGCTTTCA-1 HLA-DR+ CD83+ Monocytes         1
+1_AAACCCACAACTTCTT-1 HLA-DR+ CD83+ Monocytes         1
+                                    id.celltype hpca.labels blueprint.labels
+1_AAACCCAAGGCTTTCA-1 1: HLA-DR+ CD83+ Monocytes    Monocyte        Monocytes
+1_AAACCCACAACTTCTT-1 1: HLA-DR+ CD83+ Monocytes    Monocyte        Monocytes
+                     monaco.labels immune.labels dmap.labels hemato.labels
+1_AAACCCAAGGCTTTCA-1     Monocytes     Monocytes   Monocytes     Monocytes
+1_AAACCCACAACTTCTT-1     Monocytes     Monocytes   Monocytes     Monocytes
+> 
+> table(cell_info[id,]$donor, cell_info[id,]$group_per_sample)
+             
+              control mild severe
+  C19-CB-0001       0   45      0
+  C19-CB-0002       0  625      0
+  C19-CB-0003       0  108      0
+  C19-CB-0005       0    4      0
+  C19-CB-0008       0    0     70
+  C19-CB-0009       0    0    271
+  C19-CB-0011       0    0    105
+  C19-CB-0012       0    0    621
+  C19-CB-0013       0    0    242
+  C19-CB-0016       0    0    612
+  C19-CB-0020       0    0    697
+  C19-CB-0021       0    0    238
+  C19-CB-0052       0   57      0
+  C19-CB-0053       0   92      0
+  C19-CB-0198       0    0   1154
+  C19-CB-0199       0    0    185
+  C19-CB-0204       0  417      0
+  C19-CB-0214       0   18      0
+  C2P01H           95    0      0
+  C2P05F          317    0      0
+  C2P07H          353    0      0
+  C2P10H          186    0      0
+  C2P13F          206    0      0
+  C2P15H          538    0      0
+  C2P16H          605    0      0
+  C2P19H           54    0      0
+  Five_k_v3       508    0      0
+  one_k_v3        131    0      0
+  P02H             69    0      0
+  P04H             75    0      0
+  P06F             42    0      0
+  P07H             36    0      0
+  P08H             39    0      0
+  P09H            457    0      0
+  P13H             79    0      0
+  P15F             23    0      0
+  P17H             95    0      0
+  P18F            212    0      0
+  P20H            103    0      0
+  Ten_k_v3       1218    0      0
+> 
+> table(cell_info$group_per_sample)
+
+control    mild  severe 
+  50783   18195   30071 
+> 
+> df2_meta_ind = distinct(cell_info[, c("donor", "group_per_sample")])
+> 
+> df2_meta_ind
+                           donor group_per_sample
+1_AAACCCAAGGCTTTCA-1 C19-CB-0001             mild
+1_AAACCCACAACTTCTT-1 C19-CB-0003             mild
+1_AAACGCTCAGAAACCG-1 C19-CB-0002             mild
+2_AAACCCAAGGTCGCCT-1 C19-CB-0005             mild
+3_AAACCCAAGTTCCGGC-1 C19-CB-0009           severe
+3_AAACGAAGTAGCCCTG-1 C19-CB-0012           severe
+3_AAACGAAGTGAGCGAT-1 C19-CB-0013           severe
+3_AAACGCTCATAATCCG-1 C19-CB-0011           severe
+3_AAACGCTTCACGAACT-1 C19-CB-0008           severe
+4_AAACCCAAGAAACTGT-1 C19-CB-0020           severe
+4_AAACCCACAAGAGTAT-1 C19-CB-0021           severe
+4_AAACGAACAAATGCGG-1 C19-CB-0016           severe
+5_AAACCCACAGAGCTAG-1 C19-CB-0198           severe
+5_AAACCCAGTTAGGACG-1 C19-CB-0204             mild
+5_AAACGAAGTTTCTTAC-1 C19-CB-0199           severe
+6_AAACCCAAGGTTCATC-1 C19-CB-0214             mild
+6_AAACCCACAGGTGACA-1 C19-CB-0053             mild
+6_AAACCCACAGTAGATA-1 C19-CB-0052             mild
+AAACCTGAGACGCTTT-1          P18F          control
+AAACCTGCAAGTACCT-1          P17H          control
+AAACGGGGTCTAGAGG-1          P20H          control
+AAACCTGAGCTGTCTA-3          P15F          control
+AAACCTGAGGCTAGGT-3          P08H          control
+AAACCTGCACTGTTAG-3          P13H          control
+AAACCTGAGCTAACTC-5          P07H          control
+AAACCTGAGGGTGTTG-5          P06F          control
+AAACCTGCAATGGTCT-5          P04H          control
+AAACCTGTCTCATTCA-7        C2P01H          control
+AAACCTGAGTCGAGTG-11         P09H          control
+AAACCTGAGTGACTCT-11         P02H          control
+AAACCTGAGCGACGTA-13       C2P05F          control
+AAACCTGAGTGTCTCA-13       C2P07H          control
+AAACCTGAGACTGGGT-15       C2P13F          control
+AAACCTGAGCGTTGCC-15       C2P16H          control
+AAACCTGAGTGGGCTA-15       C2P10H          control
+AAACCTGAGGATGCGT-17       C2P19H          control
+AAACCTGGTAGCACGA-17       C2P15H          control
+AAACCCAAGGAGAGTA_1      one_k_v3          control
+AAACCCAAGCGTATGG_2     Five_k_v3          control
+AAACCCAAGCGCCCAT_3      Ten_k_v3          control
+> 
+> length(unique(df2_meta_ind$donor))
+[1] 40
+> 
+> table(df2_meta_ind$group_per_sample)
+
+control    mild  severe 
+     22       8      10 
+> 
+> # Recover the count matrix from assays RNA matrix
+> 
+> print(dim(dat_2))
+[1] 46584 99049
+> 
+> mean(colnames(dat_2) == rownames(cell_info))
+[1] 1
+> 
+> # this step is not necessary, since it has been verified that the order of col names in 
+> # assay RNA matrix is the same as that in the row names for cell info
+> meta_cell = cell_info[match(colnames(dat_2), rownames(cell_info)),]
+> meta_cell[1:6, 1:2]
+                     orig.ident nCount_RNA
+1_AAACCCAAGGCTTTCA-1    Covid19       4842
+1_AAACCCACAACTTCTT-1    Covid19       9582
+1_AAACCCACACTCCCTA-1    Covid19       4484
+1_AAACCCATCCGTGACG-1    Covid19       2971
+1_AAACGAAAGTCATAGA-1    Covid19       3244
+1_AAACGAACACTATCGA-1    Covid19       2655
+> 
+> mean(cell_info$nCount_RNA == meta_cell$nCount_RNA)
+[1] 1
+> 
+> cell_type_list =  unique(c(cell_info$id.celltype))
+> print(length(cell_type_list))
+[1] 23
+> cell_type_list
+ [1] 1: HLA-DR+ CD83+ Monocytes  14: CD8+ T cells_3         
+ [3] 16: B cells_1               7: mDCs                    
+ [5] 12: CD8+ T cells_1          0: Classical Monocytes     
+ [7] 9: CD4+ T cells_1           13: CD8+ T cells_2         
+ [9] 15: NK cells                11: CD4+ T cells_3         
+[11] 4: Non-classical Monocytes  2: CD163+ Monocytes        
+[13] 10: CD4+ T cells_2          17: B cells_2              
+[15] 8: pDCs                     21: mixed                  
+[17] 18: B cells_3               3: HLA-DR- S100A+ monocytes
+[19] 5: Neutrophils              20: Megakaryocyte          
+[21] 19: Plasmablasts            6: Immature Neutrophils    
+[23] 22: undefined              
+23 Levels: 0: Classical Monocytes ... 22: undefined
+> 
+> cell_type = as.character(cell_type_list[1])
+> 
+> length(which(cell_info$id.celltype == cell_type))
+[1] 3414
+> 
+> table(cell_info$id.celltype)
+
+     0: Classical Monocytes  1: HLA-DR+ CD83+ Monocytes 
+                      16982                        3414 
+        2: CD163+ Monocytes 3: HLA-DR- S100A+ monocytes 
+                       1445                        5273 
+ 4: Non-classical Monocytes              5: Neutrophils 
+                       3399                        2878 
+    6: Immature Neutrophils                     7: mDCs 
+                       1386                         833 
+                    8: pDCs           9: CD4+ T cells_1 
+                        516                       15800 
+         10: CD4+ T cells_2          11: CD4+ T cells_3 
+                      10588                        2969 
+         12: CD8+ T cells_1          13: CD8+ T cells_2 
+                      11002                        1119 
+         14: CD8+ T cells_3                15: NK cells 
+                       2981                        8436 
+              16: B cells_1               17: B cells_2 
+                       7235                         259 
+              18: B cells_3            19: Plasmablasts 
+                        209                         839 
+          20: Megakaryocyte                   21: mixed 
+                       1161                         164 
+              22: undefined 
+                        161 
+> 
+> # Write out the meta data file to tsv
+> 
+> write.table(PBMC_cohort1_10x_jonas_FG@meta.data, file = "../../ideas_data/COVID/PBMC_10x/meta.tsv", row.names=TRUE,  sep="\t")
+> 
+> # Write out recovered count matrix for each cell type
+> 
+> data_dir = "../../ideas_data/COVID/PBMC_10x/"
+> 
+> for (i in c(1:length(cell_type_list))){
++ 
++     cell_type = as.character(cell_type_list[i])
++     cell_ids = which(cell_info$id.celltype == cell_type)
++ 
++     cur_matrix = dat_2[, cell_ids]
++     cur_meta = cell_info[cell_ids, ]
++ 
++     cur_exp_matrix = exp(cur_matrix)
++     cur_exp_minus_1_matrix = cur_exp_matrix - 1
++     cur_exp_minus_1_div10000_matrix = cur_exp_minus_1_matrix/10000
++     
++     cur_recover = matrix(nrow = nrow(cur_matrix), ncol = ncol(cur_matrix))
++     
++     UMI = cur_meta$nCount_RNA
++     cur_recover = t(t(cur_exp_minus_1_div10000_matrix)*UMI)
++     
++     cur_recover_sparse = Matrix(cur_recover, sparse = TRUE) 
++     colnames(cur_recover_sparse) = colnames(cur_matrix)
++     rownames(cur_recover_sparse) = rownames(cur_matrix)
++     cell_type_parse = strsplit(cell_type, " ")[[1]]
++     cell_type_write = paste(cell_type_parse[-1], collapse = "")
++     saveRDS(cur_recover_sparse, file = paste(data_dir, "ct_mtx/", cell_type_write, ".rds", sep = ""))
++     
++     print(paste("Done with cell type: ", cell_type, sep = ""))
++ 
++ }
+[1] "Done with cell type: 1: HLA-DR+ CD83+ Monocytes"
+[1] "Done with cell type: 14: CD8+ T cells_3"
+[1] "Done with cell type: 16: B cells_1"
+[1] "Done with cell type: 7: mDCs"
+[1] "Done with cell type: 12: CD8+ T cells_1"
+[1] "Done with cell type: 0: Classical Monocytes"
+[1] "Done with cell type: 9: CD4+ T cells_1"
+[1] "Done with cell type: 13: CD8+ T cells_2"
+[1] "Done with cell type: 15: NK cells"
+[1] "Done with cell type: 11: CD4+ T cells_3"
+[1] "Done with cell type: 4: Non-classical Monocytes"
+[1] "Done with cell type: 2: CD163+ Monocytes"
+[1] "Done with cell type: 10: CD4+ T cells_2"
+[1] "Done with cell type: 17: B cells_2"
+[1] "Done with cell type: 8: pDCs"
+[1] "Done with cell type: 21: mixed"
+[1] "Done with cell type: 18: B cells_3"
+[1] "Done with cell type: 3: HLA-DR- S100A+ monocytes"
+[1] "Done with cell type: 5: Neutrophils"
+[1] "Done with cell type: 20: Megakaryocyte"
+[1] "Done with cell type: 19: Plasmablasts"
+[1] "Done with cell type: 6: Immature Neutrophils"
+[1] "Done with cell type: 22: undefined"
+> 
+> 
+> 
+> proc.time()
+   user  system elapsed 
+262.988 110.004 382.790 
