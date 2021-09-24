@@ -1,4 +1,4 @@
-Run analysis using COVID data from paper Schulte-Schrepping et al. 2020 [[1]](#1). Data available at [https://beta.fastgenomics.org/home]([https://beta.fastgenomics.org/home]). 
+Run analysis using COVID data from paper Schulte-Schrepping et al. 2020 [[1]](#1). Data available at [https://beta.fastgenomics.org/home](https://beta.fastgenomics.org/home). The data file used here is PBMC 10x data from cohort 1. 
 
 Recover count data and split into different cell types:
 
