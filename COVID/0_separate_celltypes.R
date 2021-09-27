@@ -99,8 +99,48 @@ length(which(cell_info$id.celltype == cell_type))
 table(cell_info$id.celltype)
 
 # Write out the meta data file to tsv
+cell = rownames(cell_info)
+cell_info = cbind(cell, cell_info)
+write.table(cell_info, file = "../../ideas_data/COVID/PBMC_10x/meta.tsv", row.names=FALSE,  sep="\t")
 
-write.table(PBMC_cohort1_10x_jonas_FG@meta.data, file = "../../ideas_data/COVID/PBMC_10x/meta.tsv", row.names=TRUE,  sep="\t")
+
+# Identify genes to keep in downstream analysis
+
+# Only keep genes with nonzero counts in at least 2000 cells 
+# in all the cell types combined
+
+# directly use the PBMC_cohort1_10x_jonas_FG@assays$RNA sparse matrix for getting
+# the number of nonzero counts cells for each gene
+# since by the transformation, only the (gene, cell) combinations with zero original count
+# will end up with 0 in the matrix PBMC_cohort1_10x_jonas_FG@assays$RNA
+
+print(max(PBMC_cohort1_10x_jonas_FG@meta.data$nCount_RNA))
+
+n_nonzero_cells <- function(v){
+  return(sum(v!= 0))
+}
+
+for (i in 1:9){
+  start_idx = (i-1)*5000 + 1
+  end_idx = i * 5000
+  cur_dat_2 = dat_2[c(start_idx:end_idx), ]
+  if (i == 1){
+    row_nonzero_cells = apply(cur_dat_2, 1, n_nonzero_cells)
+  }else{
+    row_nonzero_cells = c(row_nonzero_cells, apply(cur_dat_2, 1, n_nonzero_cells))
+  }
+}
+
+row_nonzero_cells = c(row_nonzero_cells, apply(dat_2[c((end_idx+1):nrow(dat_2)),], 1, n_nonzero_cells))
+
+print(summary(row_nonzero_cells))
+
+print(length(row_nonzero_cells))
+print(sum(row_nonzero_cells >= 200))
+print(sum(row_nonzero_cells >= 2000))
+
+genes2keep = which(row_nonzero_cells >= 2000)
+genes2keep[1:10]
 
 # Write out recovered count matrix for each cell type
 
@@ -117,21 +157,38 @@ for (i in c(1:length(cell_type_list))){
     cur_exp_matrix = exp(cur_matrix)
     cur_exp_minus_1_matrix = cur_exp_matrix - 1
     cur_exp_minus_1_div10000_matrix = cur_exp_minus_1_matrix/10000
+
+    # verify whether the recovered scaled counts (count/UMI) in every cell sum to 1
+    cur_colsum = apply(cur_exp_minus_1_div10000_matrix, 2, sum)
+    if (mean(cur_colsum) != 1){
+      print(paste0(cell_type, " recovered scaled ratios do not sum up to 1 for at least one cell"))
+      break
+    }
     
     cur_recover = matrix(nrow = nrow(cur_matrix), ncol = ncol(cur_matrix))
     
     UMI = cur_meta$nCount_RNA
     cur_recover = t(t(cur_exp_minus_1_div10000_matrix)*UMI)
+    print(max(abs(cur_recover - round(cur_recover))))
     
+    cur_recover = round(cur_recover)
     cur_recover_sparse = Matrix(cur_recover, sparse = TRUE) 
     colnames(cur_recover_sparse) = colnames(cur_matrix)
     rownames(cur_recover_sparse) = rownames(cur_matrix)
+
+    # subset to only keep genes appearing in >= 2000 cells from all cell types
+    cur_recover_sparse_subset = cur_recover_sparse[genes2keep, ]
+    
     cell_type_parse = strsplit(cell_type, " ")[[1]]
     cell_type_write = paste(cell_type_parse[-1], collapse = "")
-    saveRDS(cur_recover_sparse, file = paste(data_dir, "ct_mtx/", cell_type_write, ".rds", sep = ""))
+    saveRDS(cur_recover_sparse_subset, file = paste(data_dir, "ct_mtx/", cell_type_write, ".rds", sep = ""))
     
     print(paste("Done with cell type: ", cell_type, sep = ""))
 
 }
 
 
+gc()
+
+sessionInfo()
+q(save="no")

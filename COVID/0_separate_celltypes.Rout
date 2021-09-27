@@ -17,6 +17,12 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
+Warning: namespace ‘DBI’ is not available and has been replaced
+by .GlobalEnv when processing object ‘PBMC_cohort1_10x_jonas_FG’
+Warning: namespace ‘DBI’ is not available and has been replaced
+by .GlobalEnv when processing object ‘PBMC_cohort1_10x_jonas_FG’
+[Previously saved workspace restored]
+
 > library(data.table)
 > library(plyr)
 > library(ggplot2)
@@ -974,8 +980,58 @@ control    mild  severe
                         161 
 > 
 > # Write out the meta data file to tsv
+> cell = rownames(cell_info)
+> cell_info = cbind(cell, cell_info)
+> write.table(cell_info, file = "../../ideas_data/COVID/PBMC_10x/meta.tsv", row.names=FALSE,  sep="\t")
 > 
-> write.table(PBMC_cohort1_10x_jonas_FG@meta.data, file = "../../ideas_data/COVID/PBMC_10x/meta.tsv", row.names=TRUE,  sep="\t")
+> 
+> # Identify genes to keep in downstream analysis
+> 
+> # Only keep genes with nonzero counts in at least 2000 cells 
+> # in all the cell types combined
+> 
+> # directly use the PBMC_cohort1_10x_jonas_FG@assays$RNA sparse matrix for getting
+> # the number of nonzero counts cells for each gene
+> # since by the transformation, only the (gene, cell) combinations with zero original count
+> # will end up with 0 in the matrix PBMC_cohort1_10x_jonas_FG@assays$RNA
+> 
+> print(max(PBMC_cohort1_10x_jonas_FG@meta.data$nCount_RNA))
+[1] 74913
+> 
+> n_nonzero_cells <- function(v){
++   return(sum(v!= 0))
++ }
+> 
+> for (i in 1:9){
++   start_idx = (i-1)*5000 + 1
++   end_idx = i * 5000
++   cur_dat_2 = dat_2[c(start_idx:end_idx), ]
++   if (i == 1){
++     row_nonzero_cells = apply(cur_dat_2, 1, n_nonzero_cells)
++   }else{
++     row_nonzero_cells = c(row_nonzero_cells, apply(cur_dat_2, 1, n_nonzero_cells))
++   }
++ }
+> 
+> row_nonzero_cells = c(row_nonzero_cells, apply(dat_2[c((end_idx+1):nrow(dat_2)),], 1, n_nonzero_cells))
+> 
+> print(summary(row_nonzero_cells))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+      0       0      15    3413    1038   98917 
+> 
+> print(length(row_nonzero_cells))
+[1] 46584
+> print(sum(row_nonzero_cells >= 200))
+[1] 15804
+> print(sum(row_nonzero_cells >= 2000))
+[1] 10167
+> 
+> genes2keep = which(row_nonzero_cells >= 2000)
+> genes2keep[1:10]
+LINC00115     NOC2L      HES4     ISG15  C1orf159  TNFRSF18   TNFRSF4      SDF4 
+        5         6        10        12        14        15        16        17 
+  B3GALT6    UBE2J2 
+       18        20 
 > 
 > # Write out recovered count matrix for each cell type
 > 
@@ -992,48 +1048,149 @@ control    mild  severe
 +     cur_exp_matrix = exp(cur_matrix)
 +     cur_exp_minus_1_matrix = cur_exp_matrix - 1
 +     cur_exp_minus_1_div10000_matrix = cur_exp_minus_1_matrix/10000
++ 
++     # verify whether the recovered scaled counts (count/UMI) in every cell sum to 1
++     cur_colsum = apply(cur_exp_minus_1_div10000_matrix, 2, sum)
++     if (mean(cur_colsum) != 1){
++       print(paste0(cell_type, " recovered scaled ratios do not sum up to 1 for at least one cell"))
++       break
++     }
 +     
 +     cur_recover = matrix(nrow = nrow(cur_matrix), ncol = ncol(cur_matrix))
 +     
 +     UMI = cur_meta$nCount_RNA
 +     cur_recover = t(t(cur_exp_minus_1_div10000_matrix)*UMI)
++     print(max(abs(cur_recover - round(cur_recover))))
 +     
++     cur_recover = round(cur_recover)
 +     cur_recover_sparse = Matrix(cur_recover, sparse = TRUE) 
 +     colnames(cur_recover_sparse) = colnames(cur_matrix)
 +     rownames(cur_recover_sparse) = rownames(cur_matrix)
++ 
++     # subset to only keep genes appearing in >= 2000 cells from all cell types
++     cur_recover_sparse_subset = cur_recover_sparse[genes2keep, ]
++     
 +     cell_type_parse = strsplit(cell_type, " ")[[1]]
 +     cell_type_write = paste(cell_type_parse[-1], collapse = "")
-+     saveRDS(cur_recover_sparse, file = paste(data_dir, "ct_mtx/", cell_type_write, ".rds", sep = ""))
++     saveRDS(cur_recover_sparse_subset, file = paste(data_dir, "ct_mtx/", cell_type_write, ".rds", sep = ""))
 +     
 +     print(paste("Done with cell type: ", cell_type, sep = ""))
 + 
 + }
+[1] 1.136868e-12
 [1] "Done with cell type: 1: HLA-DR+ CD83+ Monocytes"
+[1] 1.136868e-12
 [1] "Done with cell type: 14: CD8+ T cells_3"
+[1] 9.094947e-13
 [1] "Done with cell type: 16: B cells_1"
+[1] 4.547474e-13
 [1] "Done with cell type: 7: mDCs"
+[1] 6.82121e-13
 [1] "Done with cell type: 12: CD8+ T cells_1"
+[1] 6.82121e-13
 [1] "Done with cell type: 0: Classical Monocytes"
+[1] 1.136868e-12
 [1] "Done with cell type: 9: CD4+ T cells_1"
+[1] 5.684342e-13
 [1] "Done with cell type: 13: CD8+ T cells_2"
+[1] 6.82121e-13
 [1] "Done with cell type: 15: NK cells"
+[1] 9.094947e-13
 [1] "Done with cell type: 11: CD4+ T cells_3"
+[1] 1.364242e-12
 [1] "Done with cell type: 4: Non-classical Monocytes"
+[1] 1.364242e-12
 [1] "Done with cell type: 2: CD163+ Monocytes"
+[1] 9.094947e-13
 [1] "Done with cell type: 10: CD4+ T cells_2"
+[1] 4.547474e-13
 [1] "Done with cell type: 17: B cells_2"
+[1] 4.547474e-13
 [1] "Done with cell type: 8: pDCs"
+[1] 5.684342e-13
 [1] "Done with cell type: 21: mixed"
+[1] 9.094947e-13
 [1] "Done with cell type: 18: B cells_3"
+[1] 1.818989e-12
 [1] "Done with cell type: 3: HLA-DR- S100A+ monocytes"
+[1] 1.818989e-12
 [1] "Done with cell type: 5: Neutrophils"
+[1] 1.818989e-12
 [1] "Done with cell type: 20: Megakaryocyte"
+[1] 3.637979e-11
 [1] "Done with cell type: 19: Plasmablasts"
+[1] 4.547474e-12
 [1] "Done with cell type: 6: Immature Neutrophils"
+[1] 6.82121e-13
 [1] "Done with cell type: 22: undefined"
 > 
 > 
+> gc()
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   2733790  146.1    4477127   239.2         NA    4477127   239.2
+Vcells 752709857 5742.8 4825812128 36818.1      65536 7526820250 57425.1
 > 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] maftools_2.8.05      SeuratObject_4.0.2   Seurat_4.0.4        
+ [4] segmented_1.3-4      Matrix_1.3-3         dplyr_1.0.7         
+ [7] stringr_1.4.0        ggrepel_0.9.1        ggpointdensity_0.1.0
+[10] ggpubr_0.4.0         ggplot2_3.3.5        plyr_1.8.6          
+[13] data.table_1.14.0   
+
+loaded via a namespace (and not attached):
+  [1] Rtsne_0.15            colorspace_2.0-2      ggsignif_0.6.2       
+  [4] deldir_0.2-10         ellipsis_0.3.2        rio_0.5.27           
+  [7] ggridges_0.5.3        spatstat.data_2.1-0   leiden_0.3.9         
+ [10] listenv_0.8.0         fansi_0.5.0           codetools_0.2-18     
+ [13] splines_4.1.0         polyclip_1.10-0       jsonlite_1.7.2       
+ [16] broom_0.7.8           ica_1.0-2             cluster_2.1.2        
+ [19] png_0.1-7             uwot_0.1.10           shiny_1.7.0          
+ [22] sctransform_0.3.2     spatstat.sparse_2.0-0 compiler_4.1.0       
+ [25] httr_1.4.2            backports_1.2.1       fastmap_1.1.0        
+ [28] lazyeval_0.2.2        later_1.3.0           htmltools_0.5.2      
+ [31] tools_4.1.0           igraph_1.2.6          gtable_0.3.0         
+ [34] glue_1.4.2            RANN_2.6.1            reshape2_1.4.4       
+ [37] Rcpp_1.0.7            scattermore_0.7       carData_3.0-4        
+ [40] cellranger_1.1.0      vctrs_0.3.8           nlme_3.1-152         
+ [43] lmtest_0.9-38         globals_0.14.0        openxlsx_4.2.4       
+ [46] mime_0.11             miniUI_0.1.1.1        lifecycle_1.0.0      
+ [49] irlba_2.3.3           rstatix_0.7.0         goftest_1.2-2        
+ [52] future_1.22.1         MASS_7.3-54           zoo_1.8-9            
+ [55] scales_1.1.1          spatstat.core_2.3-0   hms_1.1.0            
+ [58] promises_1.2.0.1      spatstat.utils_2.2-0  parallel_4.1.0       
+ [61] RColorBrewer_1.1-2    curl_4.3.2            reticulate_1.22      
+ [64] pbapply_1.5-0         gridExtra_2.3         rpart_4.1-15         
+ [67] stringi_1.6.2         zip_2.2.0             rlang_0.4.11         
+ [70] pkgconfig_2.0.3       matrixStats_0.59.0    lattice_0.20-44      
+ [73] ROCR_1.0-11           purrr_0.3.4           tensor_1.5           
+ [76] patchwork_1.1.1       htmlwidgets_1.5.4     cowplot_1.1.1        
+ [79] tidyselect_1.1.1      parallelly_1.28.1     RcppAnnoy_0.0.19     
+ [82] magrittr_2.0.1        R6_2.5.0              generics_0.1.0       
+ [85] pillar_1.6.1          haven_2.4.1           foreign_0.8-81       
+ [88] withr_2.4.2           mgcv_1.8-35           fitdistrplus_1.1-5   
+ [91] survival_3.2-11       abind_1.4-5           tibble_3.1.2         
+ [94] future.apply_1.8.1    crayon_1.4.1          car_3.0-11           
+ [97] KernSmooth_2.23-20    utf8_1.2.1            spatstat.geom_2.2-2  
+[100] plotly_4.9.4.1        grid_4.1.0            readxl_1.3.1         
+[103] forcats_0.5.1         digest_0.6.27         xtable_1.8-4         
+[106] tidyr_1.1.3           httpuv_1.6.3          munsell_0.5.0        
+[109] viridisLite_0.4.0    
+> q(save="no")
 > proc.time()
    user  system elapsed 
-262.988 110.004 382.790 
+557.001 196.279 757.861 

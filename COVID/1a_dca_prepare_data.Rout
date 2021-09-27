@@ -1,0 +1,222 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(Matrix)
+> 
+> data.dir = "../../ideas_data/COVID/PBMC_10x"
+> 
+> fls = list.files(path=file.path(data.dir, "ct_mtx"))
+> fls
+ [1] "Bcells_1.rds"               "Bcells_2.rds"              
+ [3] "Bcells_3.rds"               "CD163+Monocytes.rds"       
+ [5] "CD4+Tcells_1.rds"           "CD4+Tcells_2.rds"          
+ [7] "CD4+Tcells_3.rds"           "CD8+Tcells_1.rds"          
+ [9] "CD8+Tcells_2.rds"           "CD8+Tcells_3.rds"          
+[11] "ClassicalMonocytes.rds"     "HLA-DR-S100A+monocytes.rds"
+[13] "HLA-DR+CD83+Monocytes.rds"  "ImmatureNeutrophils.rds"   
+[15] "mDCs.rds"                   "Megakaryocyte.rds"         
+[17] "mixed.rds"                  "Neutrophils.rds"           
+[19] "NKcells.rds"                "Non-classicalMonocytes.rds"
+[21] "pDCs.rds"                   "Plasmablasts.rds"          
+[23] "undefined.rds"             
+> 
+> ctypes = c('Bcells_1', 'Bcells_2', 'Bcells_3','CD163+Monocytes', 
++            'CD4+Tcells_1', 'CD4+Tcells_2', 'CD4+Tcells_3', 'CD8+Tcells_1',
++            'CD8+Tcells_2', 'CD8+Tcells_3', 'ClassicalMonocytes', 'HLA-DR-S100A+monocytes', 
++            'HLA-DR+CD83+Monocytes', 'ImmatureNeutrophils', 'mDCs', 'Megakaryocyte', 
++            'mixed', 'Neutrophils', 'NKcells', 'Non-classicalMonocytes', 'pDCs', 
++            'Plasmablasts', 'undefined')
+> 
+> ct.mtrx = NULL
+> 
+> for(i in 1:length(ctypes)){
++   ctp  = ctypes[i]
++   
++   cat(i, ": ", ctp, date(), "\n")
++   
++   dat1 = readRDS(file.path(data.dir, "ct_mtx", sprintf("%s.rds", ctp)))
++   dim(dat1)
++   if(i == 1){
++     ct.mtrx = as.matrix(dat1)
++   }else{
++     ct.mtrx = cbind(ct.mtrx, as.matrix(dat1))
++   }
++   rm(dat1)
++   
++   gci = gc()
++   print(gc())
++   cat("\n")
++ }
+1 :  Bcells_1 Sun Sep 26 01:00:26 2021 
+           used  (Mb) gc trigger   (Mb) limit (Mb) max used  (Mb)
+Ncells  1418232  75.8    3102962  165.8         NA  1564554  83.6
+Vcells 76020668 580.0  131975715 1006.9      65536 89867292 685.7
+
+2 :  Bcells_2 Sun Sep 26 01:00:27 2021 
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  1418672  75.8    3102962  165.8         NA   1564554   83.6
+Vcells 78655562 600.1  188806378 1440.5      65536 155601786 1187.2
+
+3 :  Bcells_3 Sun Sep 26 01:00:27 2021 
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  1418881  75.8    3102962  165.8         NA   1564554   83.6
+Vcells 80781510 616.4  188806378 1440.5      65536 160009964 1220.8
+
+4 :  CD163+Monocytes Sun Sep 26 01:00:28 2021 
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  1420326  75.9    3102962  165.8         NA   1564554   83.6
+Vcells 95480050 728.5  235104314 1793.8      65536 194185053 1481.6
+
+5 :  CD4+Tcells_1 Sun Sep 26 01:00:28 2021 
+            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   1436126   76.7    3102962  165.8         NA   1564554   83.6
+Vcells 256197650 1954.7  649654985 4956.5      65536 539659746 4117.3
+
+6 :  CD4+Tcells_2 Sun Sep 26 01:00:31 2021 
+            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   1446714   77.3    3102962  165.8         NA   1564554   83.6
+Vcells 363898786 2776.4  906514788 6916.2      65536 753720170 5750.5
+
+7 :  CD4+Tcells_3 Sun Sep 26 01:00:33 2021 
+            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   1449683   77.5    3102962  165.8         NA   1564554   83.6
+Vcells 394099454 3006.8  906514788 6916.2      65536 795285959 6067.6
+
+8 :  CD8+Tcells_1 Sun Sep 26 01:00:34 2021 
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used   (Mb)
+Ncells   1460685   78.1    3102962  165.8         NA    1564554   83.6
+Vcells 506011798 3860.6 1242630712 9480.6      65536 1033830744 7887.6
+
+9 :  CD8+Tcells_2 Sun Sep 26 01:00:37 2021 
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used   (Mb)
+Ncells   1461804   78.1    3102962  165.8         NA    1564554   83.6
+Vcells 517394266 3947.5 1242630712 9480.6      65536 1037350575 7914.4
+
+10 :  CD8+Tcells_3 Sun Sep 26 01:00:39 2021 
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used   (Mb)
+Ncells   1464785   78.3    3102962  165.8         NA    1564554   83.6
+Vcells 547716998 4178.8 1242630712 9480.6      65536 1096498371 8365.7
+
+11 :  ClassicalMonocytes Sun Sep 26 01:00:41 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1481767   79.2    3102962   165.8         NA    1564554    83.6
+Vcells 720457902 5496.7 1765698708 13471.3      65536 1469741823 11213.3
+
+12 :  HLA-DR-S100A+monocytes Sun Sep 26 01:00:44 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1487040   79.5    3102962   165.8         NA    1564554    83.6
+Vcells 774094858 5905.9 1765698708 13471.3      65536 1564057577 11932.9
+
+13 :  HLA-DR+CD83+Monocytes Sun Sep 26 01:00:47 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1490454   79.6    3102962   165.8         NA    1564554    83.6
+Vcells 808822066 6170.9 1765698708 13471.3      65536 1625580889 12402.2
+
+14 :  ImmatureNeutrophils Sun Sep 26 01:00:50 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1491840   79.7    3102962   165.8         NA    1564554    83.6
+Vcells 822920458 6278.4 1765698708 13471.3      65536 1644747452 12548.5
+
+15 :  mDCs Sun Sep 26 01:00:52 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1492673   79.8    3102962   165.8         NA    1564554    83.6
+Vcells 831393734 6343.1 1765698708 13471.3      65536 1663718510 12693.2
+
+16 :  Megakaryocyte Sun Sep 26 01:00:55 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1493834   79.8    3102962   165.8         NA    1564554    83.6
+Vcells 843203426 6433.2 1765698708 13471.3      65536 1685482154 12859.3
+
+17 :  mixed Sun Sep 26 01:00:57 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1493998   79.8    3102962   165.8         NA    1564554    83.6
+Vcells 844871634 6445.9 1765698708 13471.3      65536 1687649065 12875.8
+
+18 :  Neutrophils Sun Sep 26 01:01:00 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1496876   80.0    3102962   165.8         NA    1564554    83.6
+Vcells 874146655 6669.3 1765698708 13471.3      65536 1750778240 13357.4
+
+19 :  NKcells Sun Sep 26 01:01:03 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1505312   80.4    3102962   165.8         NA    1564554    83.6
+Vcells 959957647 7323.9 2326603888 17750.6      65536 1937186351 14779.6
+
+20 :  Non-classicalMonocytes Sun Sep 26 01:01:06 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1508711   80.6    3102962   165.8         NA    1564554    83.6
+Vcells 994532275 7587.7 2326603888 17750.6      65536 1995657826 15225.7
+
+21 :  pDCs Sun Sep 26 01:01:09 2021 
+            used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells   1509227   80.7    3102962   165.8         NA    1564554    83.6
+Vcells 999781027 7627.8 2326603888 17750.6      65536 1998276214 15245.7
+
+22 :  Plasmablasts Sun Sep 26 01:01:12 2021 
+             used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    1510066   80.7    3102962   165.8         NA    1564554    83.6
+Vcells 1008315335 7692.9 2326603888 17750.6      65536 2017499447 15392.3
+
+23 :  undefined Sun Sep 26 01:01:15 2021 
+             used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    1510227   80.7    3102962   165.8         NA    1564554    83.6
+Vcells 1009953027 7705.4 2326603888 17750.6      65536 2017951553 15395.8
+
+> 
+> dim(ct.mtrx)
+[1] 10167 99049
+> ct.mtrx[1:2,1:5]
+          1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1 1_AAAGAACCACACAGAG-1
+LINC00115                    0                    0                    1
+NOC2L                        0                    0                    0
+          1_AAAGGATTCATCTCTA-1 1_AAAGGGCCAGCTTCGG-1
+LINC00115                    0                    0
+NOC2L                        0                    1
+> 
+> write.csv(ct.mtrx, file.path(data.dir, "all.csv"))
+> 
+> gc()
+             used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    1511658   80.8    3102962   165.8         NA    1612003    86.1
+Vcells 1010021781 7705.9 2326603888 17750.6      65536 2017951553 15395.8
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] Matrix_1.3-3
+
+loaded via a namespace (and not attached):
+[1] compiler_4.1.0  grid_4.1.0      lattice_0.20-44
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+451.627  24.137 476.187 
