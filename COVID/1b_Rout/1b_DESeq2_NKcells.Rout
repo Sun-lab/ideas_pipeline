@@ -755,7 +755,7 @@ low counts [2]     : 0, 0%
 > #dev.off()
 > 
 > pdf(sprintf("figures/1b_DESeq2_%s_pval_hist.pdf", grp), 
-+     width=3, height=3)
++     width=4.5, height=3.5)
 > hist(pvals[,1], main=nms[1], xlab="p-value", breaks=50)
 > dev.off()
 null device 
@@ -863,4 +863,4 @@ loaded via a namespace (and not attached):
 > q(save="no")
 > proc.time()
    user  system elapsed 
- 15.322   0.423  15.741 
+ 15.218   0.384  15.598 

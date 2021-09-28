@@ -206,7 +206,7 @@ summary(pvals)
 #dev.off()
 
 pdf(sprintf("figures/1b_DESeq2_%s_pval_hist.pdf", grp), 
-    width=3, height=3)
+    width=4.5, height=3.5)
 hist(pvals[,1], main=nms[1], xlab="p-value", breaks=50)
 dev.off()
 
