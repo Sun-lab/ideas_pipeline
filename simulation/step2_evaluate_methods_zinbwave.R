@@ -50,6 +50,7 @@ nall  = ncase + nctrl
 # ---------------------------------------------------------------
 # initial setup
 # ---------------------------------------------------------------
+
 library(zinbwave)
 library(DESeq2)
 
@@ -89,18 +90,17 @@ gc()
 # ---------------------------------------------------------------
 # 5. zinb_pval analysis 
 # ---------------------------------------------------------------
-# We use the zinbwave to reduce the dimension, then apply DESeq2 for analysis
-# all cells of an individual within a gene
+# We use the zinbwave to estimate weights the dimension, then apply 
+# DESeq2 given the weights
 # ---------------------------------------------------------------
 
-
-
-sca2 = SummarizedExperiment(count_matrix,colData = meta_cell)
+sca2 = SummarizedExperiment(count_matrix, colData = meta_cell)
 #sca2=sca2[1:50,(50*1:160)]
 gc()
 date()
-zinb = zinbFit(sca2,K=2, epsilon=1000)
+zinb = zinbFit(sca2, K=2)
 date()
+
 sca_zinb = zinbwave(sca2, fitted_model = zinb, K = 2, epsilon=1000,
                     observationalWeights = TRUE)
 date()

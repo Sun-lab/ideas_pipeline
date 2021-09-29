@@ -5,7 +5,7 @@ library(dplyr)
 library(DESeq2)
 
 
-data.dir = "../../ideas_data/COVID/PBMC_10x"
+data.dir = "../ideas_data/COVID/PBMC_10x"
 
 args=(commandArgs(TRUE))
 args
@@ -28,7 +28,10 @@ covid_donor_info =
   read.csv(file.path(data.dir, "covid_donor_info_from_mmc1.csv"), 
            header = TRUE)
 
+dim(covid_donor_info)
+covid_donor_info[1:2,]
 summary(covid_donor_info)
+
 # ------------------------------------------------------------------------
 # read in cell information
 # ------------------------------------------------------------------------
@@ -92,7 +95,7 @@ if(nrow(meta_ind_explore) != length(unique(meta$donor))){
 # group_per_sample columns match
 table(meta$disease_stage)
 table(meta$group_per_sample)
-mean(which(meta$disease_stage=="control") == which(meta$group_per_sample=="control"))
+table(meta$disease_stage, meta$group_per_sample)
 
 table(meta$donor, meta$disease_stage)
 
@@ -133,6 +136,8 @@ meta_ind$age = donor_info_match$age
 
 sort(meta_ind$age[which(meta_ind$group_per_sample=="mild")])
 sort(meta_ind$age[which(meta_ind$group_per_sample=="severe")])
+
+table(meta_ind$group_per_sample)
 
 # ------------------------------------------------------------------------
 # collect count data

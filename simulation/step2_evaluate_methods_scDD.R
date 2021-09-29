@@ -50,6 +50,7 @@ nall  = ncase + nctrl
 # ---------------------------------------------------------------
 # initial setup
 # ---------------------------------------------------------------
+
 library(scDD)
 library(SingleCellExperiment)
 
@@ -112,18 +113,20 @@ gene_id = rownames(count_matrix)   # get the gene id from the data
 gc()
 date()
 sca3 = SingleCellExperiment(list(normcounts=count_matrix))
-colData(sca3)$condition = meta_cell$phenotype
+
+colData(sca3)$condition = meta_cell$phenotype + 1
+table(sca3$condition)
+
 #sca3=sca3[1:100,50*(1:160)]
 colData(sca3)
 date()
-#prior_param=list(alpha=0.01, mu0=0, s0=0.01, a0=0.01, b0=0.01)
-#sca_dd = scDD(sca3, prior_param=prior_param, testZeroes=FALSE)
-sca_dd = scDD(sca3, testZeroes=FALSE)
+sca_dd = scDD(sca3)
 date()
-scDD_pval=scDD::results(sca_dd)$nonzero.pvalue
-names(scDD_pval)=rownames(sca_dd)
 
-date()
+res = results(sca_dd)
+dim(res)
+res[1:2,]
+
 gc()
 
 # ---------------------------------------------------------------
@@ -144,39 +147,32 @@ geneType = rep("EE", nrow(count_matrix))
 geneType[mean_index] = "meanDE"
 geneType[var_index]  = "varDE"
 
-
-df1=read.table(file=sprintf("results/pval_wv_%s.txt", config), header=TRUE)
-
-df1 = cbind(df1, data.frame(scDD_pval))
-#data.frame(geneType, pval_KR, pval_PS, deseq2_pval, 
-#                 mast_pval_glm, mast_pval_glmer,scDD_pval)
-dim(df1)
-df1[1:2,]
-
+table(res$DDcategory, geneType)
 
 pdf(sprintf("figures/pvalue_hist_scDD_%s.pdf", config), 
     width = 9, height = 9)
 par(mfrow = c(3, 3), mar=c(5,4,2,1), pty = "s", bty="n")
-for(k in 2:ncol(df1)){
-  plot.hist(df1[,k], idx_grp, names(df1)[k])
-}
+plot.hist(res$nonzero.pvalue,  idx_grp, "nonzero.pvalue")
+plot.hist(res$zero.pvalue,     idx_grp, "zero.pvalue")
+plot.hist(res$combined.pvalue, idx_grp, "combined.pvalue")
 dev.off()
 
 # ---------------------------------------------------------------
 # save results
 # ---------------------------------------------------------------
 
-
 fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
-apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.05)})
-apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.01)})
+res_pval = res[,c("nonzero.pvalue", "zero.pvalue", "combined.pvalue")]
+apply(res_pval, 2, function(v){tapply(v, geneType, fun1, alpha=0.05)})
+apply(res_pval, 2, function(v){tapply(v, geneType, fun1, alpha=0.01)})
 
-write.table(df1, file=sprintf("results/pval_scDD_%s.txt", config), append=FALSE, 
-            quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+write.table(geneType, file=sprintf("results/res_scDD_%s.txt", config), 
+            append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
+            col.names = TRUE)
 
 sessionInfo()
 
-#mem_used()
+mem_used()
 gc()
 
 q(save = "no")

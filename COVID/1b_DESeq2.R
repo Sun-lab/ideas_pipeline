@@ -5,7 +5,7 @@ library(dplyr)
 library(DESeq2)
 
 
-data.dir = "../../ideas_data/COVID/PBMC_10x"
+data.dir = "../ideas_data/COVID/PBMC_10x"
 
 args=(commandArgs(TRUE))
 args
@@ -54,7 +54,6 @@ summary(meta$nCount_RNA/meta$nFeature_RNA)
 # check how many samples (each sample contains multiple cells) each donor has
 table(tapply(meta$sampleID, meta$donor, function(v){length(unique(v))}))
 
-
 table(meta$cluster_labels_res.0.4)
 table(meta$id.celltype)
 
@@ -64,11 +63,18 @@ sort(table(paste(meta$group_per_sample, meta$sampleID, sep=":")))
 # generate individual level information
 # ------------------------------------------------------------------------
 
-meta_ind_explore = distinct(meta[,c('donor', 'age', 'sex', 'group_per_sample')])
+cols2kp = c('donor', 'age', 'sex', 'group_per_sample', 
+            'disease_stage', 'sampleID')
+meta_ind_explore = distinct(meta[,..cols2kp])
 dim(meta_ind_explore)
 # none of the control donors have either age or sex information
-meta_ind_explore
 
+ncells = table(meta$sampleID)
+meta_ind_explore = meta_ind_explore[order(group_per_sample, donor),]
+setequal(names(ncells), meta_ind_explore$sampleID)
+meta_ind_explore$ncells = ncells[match(meta_ind_explore$sampleID, 
+                                       names(ncells))]
+meta_ind_explore
 
 length(unique(meta$donor))
 
@@ -96,11 +102,16 @@ cell2kp_index = which(meta$cell %in% meta2kp$cell)
 
 # select counts of cells to keep
 dat1 = dat[, cell2kp_index]
-mean(colnames(dat1) == meta2kp$cell)
+table(colnames(dat1) == meta2kp$cell)
 
-meta_ind = distinct(meta2kp[,c('donor', 'group_per_sample')])
-meta_ind$group_per_sample[which(meta_ind$group_per_sample != "control")] = "COVID"
+meta_ind = distinct(meta2kp[,cols2kp])
+names(meta_ind)[2] = "group"
+meta_ind$diagnosis = meta_ind$group
+meta_ind$diagnosis[which(meta_ind$group != "control")] = "COVID"
 meta_ind
+
+
+table(meta_ind$donor %in% meta_ind_explore$donor)
 
 # ------------------------------------------------------------------------
 # collect count data
@@ -119,6 +130,10 @@ for(i in 1:ncol(trec1)){
 
 dim(trec1)
 trec1[1:2,1:3]
+
+rd = colSums(trec1)
+table(names(rd) == meta_ind$donor)
+boxplot(log10(rd) ~ meta_ind$group_per_sample)
 
 # ------------------------------------------------------------------------
 # run DESeq2

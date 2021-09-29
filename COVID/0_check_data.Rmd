@@ -11,33 +11,46 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load required library
   
 ```{r warning=FALSE, echo = TRUE, results = 'hide', warning = FALSE, message = FALSE}
-library(data.table)
-library(plyr)
-library(ggplot2)
-library(ggpubr)
-library(ggpointdensity)
-library(ggrepel)
-library(stringr)
-library(dplyr)
-library(segmented)
-library(maftools)
-theme_set(theme_bw())
+library(SingleCellExperiment)
+library(Seurat)
 ```
 
-## Read in somatic mutation data
+## Read in the data
 
+These data files were downloaded from 
+
+https://beta.fastgenomics.org/p/schulte-schrepping_covid19
+
+on 9/20/2021. More details of this dataset can be found from the reference
+
+Schulte-Schrepping, et al. Severe COVID-19 Is Marked by a Dysregulated Myeloid Cell Compartment. Cell. 2020 Sep 17;182(6):1419-40.
+
+The data file is too larg to be shared on Github. 
 
 ```{r}
 path = "~/research/data/COVID/"
-fnm  = "seurat_COVID19_Neutrophils_cohort1_10x_jonas_FG_2020-08-19.rds"
-neu  = readRDS(paste0(path, fnm))
-dim(neu)
-slotNames(neu)
-dat = neu@assays$RNA
+fnm  = "seurat_COVID19_PBMC_cohort1_10x_jonas_FG_2020-08-15.rds"
+dat  = readRDS(paste0(path, fnm))
 
+dim(dat)
+slotNames(dat)
+names(dat@assays)
+rna = dat@assays$RNA
+
+dim(rna)
+rna[1:20,1:2]
+
+lapply(dat@assays, dim)
+dat@assays$HTOsPool1[,1:3]
+
+dim(dat@meta.data)
+dat@meta.data[1:2,]
+
+table(dat@meta.data$platform)
+table(dat@meta.data$donor)
+table(dat@meta.data$sampleID)
+table(dat@meta.data$disease_stage)
 ```
-
-
 
 
 ```{r}
