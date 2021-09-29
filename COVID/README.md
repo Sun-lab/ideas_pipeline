@@ -17,6 +17,7 @@ DESeq2  :
 [1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) 
 
 [1b_DESeq2_mild_severe.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2_mild_severe.R) 
+
 Rank sum test:
 
 [1b_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum.R) 
