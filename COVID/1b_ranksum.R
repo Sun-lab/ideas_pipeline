@@ -27,7 +27,7 @@ cell_info[1:2,]
 table(cell_info$id.celltype)
 
 # ------------------------------------------------------------------------
-# read in count data of one region and one cluster
+# read in count data of cell type
 # ------------------------------------------------------------------------
 
 dat = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
@@ -57,34 +57,31 @@ sort(table(paste(meta$group_per_sample, meta$sampleID, sep=":")))
 
 
 # ------------------------------------------------------------------------
-# filter out cells from early stage samples
-# get individual level information
+# filter out cells from control samples
 # ------------------------------------------------------------------------
 
 table(meta$donor, meta$disease_stage)
 
-meta_no_early = meta[which(meta$disease_stage != "early"),]
-dim(meta_no_early)
+meta_covid = meta[which(meta$group_per_sample != "control"),]
+dim(meta_covid)
 
-table(meta_no_early$donor, meta_no_early$disease_stage)
+table(meta_covid$group_per_sample)
+table(meta_covid$disease_stage)
+table(meta_covid$donor)
 
-df_donor = as.data.frame(table(meta_no_early$donor))
-df_donor[1:2, ]
-donor2kp = df_donor$Var1[which(df_donor$Freq >= 30)]
+table(meta_covid$donor, meta_covid$disease_stage)
 
-meta2kp = meta_no_early[which(meta_no_early$donor %in% donor2kp),]
+df_donor = as.data.frame(table(meta_covid$donor))
+donor2kp = df_donor$Var1[which(df_donor$Freq >= 10)]
+
+meta2kp = meta_covid[which(meta_covid$donor %in% donor2kp),]
 dim(meta2kp)
+table(meta2kp$donor)
+length(unique(meta2kp$donor))
 
 cell2kp_index = which(meta$cell %in% meta2kp$cell)
 
 
-# create a column for cell level label in terms of COVID and control
-table(meta2kp$group_per_sample)
-meta2kp$diagnosis = meta2kp$group_per_sample
-meta2kp$diagnosis[which(meta2kp$group_per_sample == "mild")] = "COVID"
-meta2kp$diagnosis[which(meta2kp$group_per_sample == "severe")] = "COVID"
-table(meta2kp$diagnosis)
-dim(meta2kp)
 
 # select counts of cells to keep
 dat1 = dat[, cell2kp_index]
@@ -108,10 +105,10 @@ dim(dat1)
 dat1[1:3,1:6]
 summary(colSums(dat1))
 
-diagnosis=meta2kp$diagnosis
+diagnosis=meta2kp$group_per_sample
 
 date()
-ranksum_pval=apply(dat1,1,function(x) wilcox.test(x[diagnosis!="control"],x[diagnosis=="control"])$p.value)
+ranksum_pval=apply(dat1,1,function(x) wilcox.test(x[diagnosis!="severe"],x[diagnosis=="severe"])$p.value)
 date()
 
 rm(dat1)

@@ -1,4 +1,6 @@
-Run analysis using COVID data from paper Schulte-Schrepping et al. 2020 [[1]](#1). Data available at [https://beta.fastgenomics.org/home](https://beta.fastgenomics.org/home) by searching key word *Schulte-Schrepping* in data section. The data file used here is PBMC 10x data from cohort 1. 
+Run analysis using COVID data from paper Schulte-Schrepping et al. 2020 [[1]](#1). Data available at [https://beta.fastgenomics.org/home](https://beta.fastgenomics.org/home) by searching key word *Schulte-Schrepping* in data section. The data file used here is PBMC 10x data from cohort 1.  
+
+The goal is to do gene differential analysis in terms of mild v.s. severe COVID diease status. 
 
 Recover count data, fliter out genes appearing in less than 2000 cells and split into different cell types:
 
@@ -14,9 +16,10 @@ Note on running DCA: (1) should install keras version 2.4 and tensorflow >=2.0 a
 
 DESeq2  :
 
-[1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) 
-
 [1b_DESeq2_mild_severe.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2_mild_severe.R) 
+
+[1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) is the version for DE in terms of COVID v.s. control. 
+
 
 Rank sum test:
 
