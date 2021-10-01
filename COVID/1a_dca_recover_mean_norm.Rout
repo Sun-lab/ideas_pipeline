@@ -200,7 +200,7 @@ Type 'q()' to quit R.
 [5,]           0.06372158           0.04484554
 [6,]           0.14832571           0.10642825
 > 
-> fwrite(mean_norm_dt, file = file.path(dca.dir, "mean_norm.tsv"))
+> fwrite(mean_norm_dt, file = file.path(dca.dir, "mean_norm.tsv"), sep="\t")
 > 
 > 
 > 
@@ -208,4 +208,4 @@ Type 'q()' to quit R.
 > 
 > proc.time()
    user  system elapsed 
-738.452  35.304 806.318 
+846.684  46.059 926.174 

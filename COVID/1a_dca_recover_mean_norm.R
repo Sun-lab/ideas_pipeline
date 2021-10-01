@@ -89,7 +89,7 @@ setcolorder(mean_norm_dt, "V1")
 mean_norm_dt[1:6, 1:3]
 mean_norm_mat[1:6, 1:2]
 
-fwrite(mean_norm_dt, file = file.path(dca.dir, "mean_norm.tsv"))
+fwrite(mean_norm_dt, file = file.path(dca.dir, "mean_norm.tsv"), sep="\t")
 
 
 
