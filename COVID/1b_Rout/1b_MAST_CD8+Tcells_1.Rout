@@ -178,6 +178,7 @@ Loading required package: rngtools
 > grp
 [1] "CD8+Tcells_1"
 > 
+> 
 > # ------------------------------------------------------------------------
 > # read in cell information
 > # ------------------------------------------------------------------------
@@ -389,9 +390,81 @@ severe:C19-CB-0016_d16 severe:C19-CB-0020_d16 severe:C19-CB-0198_d18
 > 
 > 
 > # ------------------------------------------------------------------------
-> # filter out cells from early stage samples
-> # get individual level information
+> # filter out cells from control
 > # ------------------------------------------------------------------------
+> 
+> # explore indivdual level information
+> meta_ind_explore = distinct(meta[,c('donor', 'group_per_sample')])
+> dim(meta_ind_explore)
+[1] 40  2
+> meta_ind_explore
+          donor group_per_sample
+ 1: C19-CB-0002             mild
+ 2: C19-CB-0003             mild
+ 3: C19-CB-0001             mild
+ 4: C19-CB-0005             mild
+ 5: C19-CB-0009           severe
+ 6: C19-CB-0012           severe
+ 7: C19-CB-0008           severe
+ 8: C19-CB-0011           severe
+ 9: C19-CB-0013           severe
+10: C19-CB-0020           severe
+11: C19-CB-0016           severe
+12: C19-CB-0021           severe
+13: C19-CB-0204             mild
+14: C19-CB-0198           severe
+15: C19-CB-0199           severe
+16: C19-CB-0053             mild
+17: C19-CB-0052             mild
+18: C19-CB-0214             mild
+19:        P20H          control
+20:        P18F          control
+21:        P17H          control
+22:        P13H          control
+23:        P08H          control
+24:        P15F          control
+25:        P04H          control
+26:        P06F          control
+27:        P07H          control
+28:      C2P01H          control
+29:        P09H          control
+30:        P02H          control
+31:      C2P05F          control
+32:      C2P07H          control
+33:      C2P16H          control
+34:      C2P10H          control
+35:      C2P13F          control
+36:      C2P15H          control
+37:      C2P19H          control
+38:    one_k_v3          control
+39:   Five_k_v3          control
+40:    Ten_k_v3          control
+          donor group_per_sample
+> 
+> length(unique(meta$donor))
+[1] 40
+> 
+> if(nrow(meta_ind_explore) != length(unique(meta$donor))){
++   stop("there is non-unique information\n")
++ }
+> 
+> 
+> # check whether the control label from disease_stage and that from
+> # group_per_sample columns match
+> table(meta$disease_stage)
+
+control   early    late 
+   5441    1166    4395 
+> table(meta$group_per_sample)
+
+control    mild  severe 
+   5441    1366    4195 
+> table(meta$disease_stage, meta$group_per_sample)
+         
+          control mild severe
+  control    5441    0      0
+  early         0  705    461
+  late          0  661   3734
 > 
 > table(meta$donor, meta$disease_stage)
              
@@ -437,78 +510,124 @@ severe:C19-CB-0016_d16 severe:C19-CB-0020_d16 severe:C19-CB-0198_d18
   P20H            103     0    0
   Ten_k_v3       1218     0    0
 > 
-> meta_no_early = meta[which(meta$disease_stage != "early"),]
-> dim(meta_no_early)
-[1] 9836   40
+> # filter out cells from control samples
+> meta_covid = meta[which(meta$group_per_sample != "control"),]
+> dim(meta_covid)
+[1] 5561   40
 > 
-> table(meta_no_early$donor, meta_no_early$disease_stage)
+> table(meta_covid$group_per_sample)
+
+  mild severe 
+  1366   4195 
+> table(meta_covid$disease_stage)
+
+early  late 
+ 1166  4395 
+> table(meta_covid$donor)
+
+C19-CB-0001 C19-CB-0002 C19-CB-0003 C19-CB-0005 C19-CB-0008 C19-CB-0009 
+         45         625         108           4          70         271 
+C19-CB-0011 C19-CB-0012 C19-CB-0013 C19-CB-0016 C19-CB-0020 C19-CB-0021 
+        105         621         242         612         697         238 
+C19-CB-0052 C19-CB-0053 C19-CB-0198 C19-CB-0199 C19-CB-0204 C19-CB-0214 
+         57          92        1154         185         417          18 
+> table(meta_covid$donor, meta_covid$disease_stage)
              
-              control late
-  C19-CB-0001       0   37
-  C19-CB-0002       0   95
-  C19-CB-0003       0  108
-  C19-CB-0005       0    4
-  C19-CB-0008       0   70
-  C19-CB-0009       0  198
-  C19-CB-0011       0  105
-  C19-CB-0012       0  457
-  C19-CB-0013       0  203
-  C19-CB-0016       0  612
-  C19-CB-0020       0  697
-  C19-CB-0021       0  238
-  C19-CB-0198       0 1154
-  C19-CB-0204       0  417
-  C2P01H           95    0
-  C2P05F          317    0
-  C2P07H          353    0
-  C2P10H          186    0
-  C2P13F          206    0
-  C2P15H          538    0
-  C2P16H          605    0
-  C2P19H           54    0
-  Five_k_v3       508    0
-  one_k_v3        131    0
-  P02H             69    0
-  P04H             75    0
-  P06F             42    0
-  P07H             36    0
-  P08H             39    0
-  P09H            457    0
-  P13H             79    0
-  P15F             23    0
-  P17H             95    0
-  P18F            212    0
-  P20H            103    0
-  Ten_k_v3       1218    0
+              early late
+  C19-CB-0001     8   37
+  C19-CB-0002   530   95
+  C19-CB-0003     0  108
+  C19-CB-0005     0    4
+  C19-CB-0008     0   70
+  C19-CB-0009    73  198
+  C19-CB-0011     0  105
+  C19-CB-0012   164  457
+  C19-CB-0013    39  203
+  C19-CB-0016     0  612
+  C19-CB-0020     0  697
+  C19-CB-0021     0  238
+  C19-CB-0052    57    0
+  C19-CB-0053    92    0
+  C19-CB-0198     0 1154
+  C19-CB-0199   185    0
+  C19-CB-0204     0  417
+  C19-CB-0214    18    0
 > 
-> df_donor = as.data.frame(table(meta_no_early$donor))
-> donor2kp = df_donor$Var1[which(df_donor$Freq >= 30)]
+> df_donor = as.data.frame(table(meta_covid$donor))
+> donor2kp = df_donor$Var1[which(df_donor$Freq >= 10)]
 > 
-> meta2kp = meta_no_early[which(meta_no_early$donor %in% donor2kp),]
+> meta2kp = meta_covid[which(meta_covid$donor %in% donor2kp),]
 > dim(meta2kp)
-[1] 9809   40
-> 
-> # create a column for cell level label in terms of COVID and control
-> table(meta2kp$group_per_sample)
+[1] 5557   40
+> table(meta2kp$donor)
 
-control    mild  severe 
-   5418     657    3734 
-> meta2kp$diagnosis = meta2kp$group_per_sample
-> meta2kp$diagnosis[which(meta2kp$group_per_sample == "mild")] = "COVID"
-> meta2kp$diagnosis[which(meta2kp$group_per_sample == "severe")] = "COVID"
-> table(meta2kp$diagnosis)
-
-control   COVID 
-   5418    4391 
-> dim(meta2kp)
-[1] 9809   41
+C19-CB-0001 C19-CB-0002 C19-CB-0003 C19-CB-0008 C19-CB-0009 C19-CB-0011 
+         45         625         108          70         271         105 
+C19-CB-0012 C19-CB-0013 C19-CB-0016 C19-CB-0020 C19-CB-0021 C19-CB-0052 
+        621         242         612         697         238          57 
+C19-CB-0053 C19-CB-0198 C19-CB-0199 C19-CB-0204 C19-CB-0214 
+         92        1154         185         417          18 
+> length(unique(meta2kp$donor))
+[1] 17
 > 
+> # indexes of cells to keep
 > cell2kp_index = which(meta$cell %in% meta2kp$cell)
 > 
-> # select counts of cells to keep
+> # select counts in the cells to keep
 > dat1 = dat[, cell2kp_index]
 > mean(colnames(dat1) == meta2kp$cell)
 [1] 1
+> 
+> 
+> # ------------------------------------------------------------------------
+> # filter out genes appearning in <= 20% of the cells
+> # under current cell type
+> # ------------------------------------------------------------------------
+> 
+> n.zeros = rowSums(dat1 == 0)
+> summary(n.zeros)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+      0    4302    4989    4572    5307    5557 
+> 
+> 0.6*ncol(dat1)
+[1] 3334.2
+> 0.8*ncol(dat1)
+[1] 4445.6
+> 
+> table(n.zeros < 0.6*ncol(dat1))
+
+FALSE  TRUE 
+ 8976  1191 
+> table(n.zeros < 0.8*ncol(dat1))
+
+FALSE  TRUE 
+ 7274  2893 
+> table(n.zeros < 0.9*ncol(dat1))
+
+FALSE  TRUE 
+ 5007  5160 
+> 
+> w2kp = which(n.zeros < 0.8*ncol(dat1))
+> dat1 = dat1[w2kp,]
+> 
+> dim(dat1)
+[1] 2893 5557
+> dat1[1:5,1:4]
+5 x 4 sparse Matrix of class "dgCMatrix"
+         1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
+ISG15                       .                    3                    .
+SDF4                        .                    .                    .
+UBE2J2                      .                    .                    .
+AURKAIP1                    .                    .                    .
+MRPL20                      .                    2                    .
+         1_AAGACTCCATGGCCCA-1
+ISG15                       .
+SDF4                        .
+UBE2J2                      .
+AURKAIP1                    1
+MRPL20                      .
+> 
+> 
 > 
 > # ------------------------------------------------------------------------
 > # run MAST
@@ -518,52 +637,52 @@ control   COVID
 > med_rds = median(rds)
 > summary(rds)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-    485    2305    4371    4401    5698   24377 
+    661    3917    4605    4985    5490   18842 
 > med_rds
-[1] 4371
+[1] 4605
 > 
 > dim(dat1)
-[1] 10167  9809
+[1] 2893 5557
 > dat1[1:3,1:6]
 3 x 6 sparse Matrix of class "dgCMatrix"
-          1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
-LINC00115                    .                    .                    .
-NOC2L                        .                    .                    .
-HES4                         .                    .                    .
-          1_AAGACTCCATGGCCCA-1 1_AAGCGAGGTAGATCGG-1 1_AATGAAGTCTTGTTAC-1
-LINC00115                    .                    .                    .
-NOC2L                        .                    1                    .
-HES4                         .                    .                    .
+       1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
+ISG15                     .                    3                    .
+SDF4                      .                    .                    .
+UBE2J2                    .                    .                    .
+       1_AAGACTCCATGGCCCA-1 1_AAGCGAGGTAGATCGG-1 1_AATGAAGTCTTGTTAC-1
+ISG15                     .                    .                    .
+SDF4                      .                    .                    .
+UBE2J2                    .                    .                    .
 > dat1 = t(t(dat1)/rds)*med_rds
 > dim(dat1)
-[1] 10167  9809
+[1] 2893 5557
 > dat1[1:3,1:6]
 3 x 6 sparse Matrix of class "dgCMatrix"
-          1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
-LINC00115                    .                    .                    .
-NOC2L                        .                    .                    .
-HES4                         .                    .                    .
-          1_AAGACTCCATGGCCCA-1 1_AAGCGAGGTAGATCGG-1 1_AATGAAGTCTTGTTAC-1
-LINC00115                    .             .                           .
-NOC2L                        .             1.280691                    .
-HES4                         .             .                           .
+       1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
+ISG15                     .             5.164486                    .
+SDF4                      .             .                           .
+UBE2J2                    .             .                           .
+       1_AAGACTCCATGGCCCA-1 1_AAGCGAGGTAGATCGG-1 1_AATGAAGTCTTGTTAC-1
+ISG15                     .                    .                    .
+SDF4                      .                    .                    .
+UBE2J2                    .                    .                    .
 > summary(colSums(dat1))
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-   4371    4371    4371    4371    4371    4371 
+   4605    4605    4605    4605    4605    4605 
 > 
 > dat1_log = as.matrix(log2(1 + dat1)) #log transformed data
 > 
 > dim(dat1_log)
-[1] 10167  9809
+[1] 2893 5557
 > dat1_log[1:3, 1:4]
-          1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
-LINC00115                    0                    0                    0
-NOC2L                        0                    0                    0
-HES4                         0                    0                    0
-          1_AAGACTCCATGGCCCA-1
-LINC00115                    0
-NOC2L                        0
-HES4                         0
+       1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
+ISG15                     0             2.623981                    0
+SDF4                      0             0.000000                    0
+UBE2J2                    0             0.000000                    0
+       1_AAGACTCCATGGCCCA-1
+ISG15                     0
+SDF4                      0
+UBE2J2                    0
 > cell_id = colnames(dat1_log)   # get the cell id from the data
 > gene_id = rownames(dat1_log)   # get the gene id from the data
 > 
@@ -575,51 +694,8 @@ HES4                         0
 > CDR     = colSums(dat1 > 0) / nrow(dat1)
 > 
 > 
-> meta_ind = distinct(meta2kp[,c('donor', 'group_per_sample')])
-> meta_ind$group_per_sample[which(meta_ind$group_per_sample != "control")] = "COVID"
-> colnames(meta_ind)[2] = 'diagnosis'
-> rownames(meta_ind) = meta_ind$donor
-> meta_ind
-          donor diagnosis
- 1: C19-CB-0002     COVID
- 2: C19-CB-0003     COVID
- 3: C19-CB-0001     COVID
- 4: C19-CB-0008     COVID
- 5: C19-CB-0011     COVID
- 6: C19-CB-0020     COVID
- 7: C19-CB-0012     COVID
- 8: C19-CB-0016     COVID
- 9: C19-CB-0021     COVID
-10: C19-CB-0013     COVID
-11: C19-CB-0009     COVID
-12: C19-CB-0204     COVID
-13: C19-CB-0198     COVID
-14:        P20H   control
-15:        P18F   control
-16:        P17H   control
-17:        P13H   control
-18:        P08H   control
-19:        P04H   control
-20:        P06F   control
-21:        P07H   control
-22:      C2P01H   control
-23:        P09H   control
-24:        P02H   control
-25:      C2P05F   control
-26:      C2P07H   control
-27:      C2P16H   control
-28:      C2P10H   control
-29:      C2P13F   control
-30:      C2P15H   control
-31:      C2P19H   control
-32:    one_k_v3   control
-33:   Five_k_v3   control
-34:    Ten_k_v3   control
-          donor diagnosis
-> 
-> 
 > dim(meta2kp)
-[1] 9809   41
+[1] 5557   40
 > meta2kp[1:2,]
                    cell orig.ident nCount_RNA nFeature_RNA nReads_RNA
 1: 1_AAAGAACCATGAATAG-1    Covid19       3717         1537       3717
@@ -645,49 +721,44 @@ HES4                         0
    hpca.labels blueprint.labels monaco.labels immune.labels  dmap.labels
 1:     NK_cell     CD8+ T-cells       T cells      NK cells CD8+ T cells
 2:     NK_cell     CD8+ T-cells       T cells      NK cells CD8+ T cells
-   hemato.labels diagnosis
-1:  CD8+ T cells     COVID
-2:  CD8+ T cells     COVID
-> dim(meta_ind)
-[1] 34  2
-> meta_ind[1:2,]
-         donor diagnosis
-1: C19-CB-0002     COVID
-2: C19-CB-0003     COVID
+   hemato.labels
+1:  CD8+ T cells
+2:  CD8+ T cells
+> 
 > 
 > gc()
-            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells   6147335  328.4    9482091  506.4         NA   7122039  380.4
-Vcells 161322351 1230.8  378412088 2887.1      65536 374699858 2858.8
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  6148379 328.4    9482091  506.4         NA   7122039  380.4
+Vcells 66800488 509.7  170108619 1297.9      65536 168555421 1286.0
 > sca = FromMatrix(dat1_log, cData, fData)
 Assuming data assay in position 1, with name et is log-transformed.
 > colData(sca)$cngeneson = as.numeric(CDR)
-> colData(sca)$diagnosis = as.factor(meta2kp$diagnosis)
+> colData(sca)$diagnosis = as.factor(meta2kp$group_per_sample)
 > colData(sca)$ind = as.factor(meta2kp$donor)
 > #colData(sca)$RIN = meta$'RNA Integrity Number'
 > colData(sca)
-DataFrame with 9809 rows and 4 columns
+DataFrame with 5557 rows and 4 columns
                                   wellKey cngeneson diagnosis         ind
                               <character> <numeric>  <factor>    <factor>
-1_AAAGAACCATGAATAG-1 1_AAAGAACCATGAATAG-1  0.147536     COVID C19-CB-0002
-1_AACAAGAGTCGGTAAG-1 1_AACAAGAGTCGGTAAG-1  0.151175     COVID C19-CB-0003
-1_AACCTGATCTGTGTGA-1 1_AACCTGATCTGTGTGA-1  0.131996     COVID C19-CB-0002
-1_AAGACTCCATGGCCCA-1 1_AAGACTCCATGGCCCA-1  0.157470     COVID C19-CB-0001
-1_AAGCGAGGTAGATCGG-1 1_AAGCGAGGTAGATCGG-1  0.129438     COVID C19-CB-0002
+1_AAAGAACCATGAATAG-1 1_AAAGAACCATGAATAG-1  0.354995      mild C19-CB-0002
+1_AACAAGAGTCGGTAAG-1 1_AACAAGAGTCGGTAAG-1  0.361908      mild C19-CB-0003
+1_AACCTGATCTGTGTGA-1 1_AACCTGATCTGTGTGA-1  0.321811      mild C19-CB-0002
+1_AAGACTCCATGGCCCA-1 1_AAGACTCCATGGCCCA-1  0.366747      mild C19-CB-0001
+1_AAGCGAGGTAGATCGG-1 1_AAGCGAGGTAGATCGG-1  0.319737      mild C19-CB-0002
 ...                                   ...       ...       ...         ...
-TTTGATCTCATGCCGG_3     TTTGATCTCATGCCGG_3 0.1678961   control    Ten_k_v3
-TTTGGAGGTATGGAGC_3     TTTGGAGGTATGGAGC_3 0.0718009   control    Ten_k_v3
-TTTGGAGGTGTTGATC_3     TTTGGAGGTGTTGATC_3 0.1798957   control    Ten_k_v3
-TTTGTTGGTCTGTAAC_3     TTTGTTGGTCTGTAAC_3 0.1749779   control    Ten_k_v3
-TTTGTTGGTTTGAACC_3     TTTGTTGGTTTGAACC_3 0.1344546   control    Ten_k_v3
+6_TTGGTTTCAGCTGAAG-1 6_TTGGTTTCAGCTGAAG-1  0.569305      mild C19-CB-0053
+6_TTTACTGAGCGACTTT-1 6_TTTACTGAGCGACTTT-1  0.431040      mild C19-CB-0053
+6_TTTCCTCAGATGTTCC-1 6_TTTCCTCAGATGTTCC-1  0.796059      mild C19-CB-0053
+6_TTTCCTCCAGCAGTGA-1 6_TTTCCTCCAGCAGTGA-1  0.176979      mild C19-CB-0214
+6_TTTCCTCTCAACGCTA-1 6_TTTCCTCTCAACGCTA-1  0.503975      mild C19-CB-0053
 > 
 > #sca=sca[1:10,]
 > 
 > rm(dat1_log)
 > gc()
-            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells   6176949  329.9    9482091  506.4         NA   7660835  409.2
-Vcells 161395774 1231.4  494922104 3776.0      65536 411590029 3140.2
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used (Mb)
+Ncells  6176154 329.9    9482091  506.4         NA   8369240  447
+Vcells 66870076 510.2  170108619 1297.9      65536 168555421 1286
 > 
 > registerDoParallel(cores=nCore)
 > options(mc.cores=nCore)
@@ -695,7 +766,7 @@ Vcells 161395774 1231.4  494922104 3776.0      65536 411590029 3140.2
 [1] 4
 > 
 > date()
-[1] "Tue Sep 28 10:10:23 2021"
+[1] "Thu Sep 30 18:16:59 2021"
 > b0 = zlm(formula = ~ diagnosis + cngeneson, sca = sca, 
 +          parallel = TRUE)
 
@@ -703,223 +774,151 @@ Done!
 > #b0 = zlm(formula = ~ diagnosis + cngeneson + RIN, sca = sca, 
 > #         parallel = TRUE)
 > date()
-[1] "Tue Sep 28 10:12:23 2021"
+[1] "Thu Sep 30 18:17:16 2021"
 > b1 = zlm(formula = ~ diagnosis + (1 | ind) + cngeneson, sca = sca, 
 +          method = 'glmer', ebayes = FALSE, parallel = TRUE)
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-Error : number of levels of each grouping factor must be < number of observations (problems: ind)
-In addition: Warning messages:
-1: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  unable to evaluate scaled gradient
-2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-   Hessian is numerically singular: parameters are not uniquely determined
-3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  unable to evaluate scaled gradient
-4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-   Hessian is numerically singular: parameters are not uniquely determined
-5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.0539094 (tol = 0.002, component 1)
-6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model is nearly unidentifiable: very large eigenvalue
- - Rescale variables?
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-Error : number of levels of each grouping factor must be < number of observations (problems: ind)
-In addition: There were 18 warnings (use warnings() to see them)
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-Error in (function (cl, name, valueClass)  : 
-  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
-In addition: Warning messages:
-1: In nobs.default(object, use.fallback = use.fallback) :
-  no 'nobs' method is available
-2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  unable to evaluate scaled gradient
-3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-   Hessian is numerically singular: parameters are not uniquely determined
-4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.037621 (tol = 0.002, component 1)
-5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.0430366 (tol = 0.002, component 1)
-6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  unable to evaluate scaled gradient
-7: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-   Hessian is numerically singular: parameters are not uniquely determined
-8: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.255307 (tol = 0.002, component 1)
-9: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model is nearly unidentifiable: very large eigenvalue
- - Rescale variables?
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-Error : number of levels of each grouping factor must be < number of observations (problems: ind)
-In addition: There were 14 warnings (use warnings() to see them)
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-Error : number of levels of each grouping factor must be < number of observations (problems: ind)
-In addition: There were 50 or more warnings (use warnings() to see the first 50)
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
-fixed-effect model matrix is rank deficient so dropping 1 column / coefficient
 
 Done!
 > #b1 = zlm(formula = ~ diagnosis + (1 | ind) + cngeneson + RIN, sca = sca, 
 > #         method = 'glmer', ebayes = FALSE, parallel = TRUE)
 > date()
-[1] "Tue Sep 28 10:59:02 2021"
+[1] "Thu Sep 30 18:25:22 2021"
 > 
 > b0
-Fitted zlm on 10167 genes and 9809 cells.
+Fitted zlm on 2893 genes and 5557 cells.
  Using BayesGLMlike ~ diagnosis + cngeneson 
 > b1
-Fitted zlm on 10167 genes and 9809 cells.
+Fitted zlm on 2893 genes and 5557 cells.
  Using LMERlike ~ diagnosis + (1 | ind) + cngeneson 
 > 
 > date()
-[1] "Tue Sep 28 10:59:02 2021"
+[1] "Thu Sep 30 18:25:22 2021"
 > lrt0 = lrTest(b0, "diagnosis")
 Refitting on reduced model...
 
 Done!
 > date()
-[1] "Tue Sep 28 11:01:01 2021"
+[1] "Thu Sep 30 18:25:35 2021"
 > lrt1 = lrTest(b1, "diagnosis")
 Refitting on reduced model...
-Error : number of levels of each grouping factor must be < number of observations (problems: ind)
-Error : number of levels of each grouping factor must be < number of observations (problems: ind)
-In addition: Warning messages:
-1: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.0625697 (tol = 0.002, component 1)
-2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model is nearly unidentifiable: very large eigenvalue
- - Rescale variables?
-3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.0716419 (tol = 0.002, component 1)
-4: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model is nearly unidentifiable: very large eigenvalue
- - Rescale variables?
-5: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.0473352 (tol = 0.002, component 1)
-6: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.00222062 (tol = 0.002, component 1)
-Error in (function (cl, name, valueClass)  : 
-  assignment of an object of class “list” is not valid for @‘optimMsg’ in an object of class “LMERlike”; is(value, "character") is not TRUE
-In addition: Warning messages:
-1: In nobs.default(object, use.fallback = use.fallback) :
-  no 'nobs' method is available
-2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.508902 (tol = 0.002, component 1)
-3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model is nearly unidentifiable: very large eigenvalue
- - Rescale variables?
-Error : number of levels of each grouping factor must be < number of observations (problems: ind)
-In addition: Warning messages:
-1: In nobs.default(object, use.fallback = use.fallback) :
-  no 'nobs' method is available
-2: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model failed to converge with max|grad| = 0.070993 (tol = 0.002, component 1)
-3: In checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv,  :
-  Model is nearly unidentifiable: very large eigenvalue
- - Rescale variables?
+
+Done!
+> date()
+[1] "Thu Sep 30 18:31:07 2021"
+> 
+> dim(lrt0)
+[1] 2893    3    3
+> lrt0[1,,]
+         metric
+test.type   lambda df   Pr(>Chisq)
+   cont   54.68392  1 1.415595e-13
+   disc   22.57563  1 2.020307e-06
+   hurdle 77.25956  2 1.672245e-17
+> 
+> dim(lrt1)
+[1] 2893    3    3
+> lrt1[1,,]
+         metric
+test.type    lambda df   Pr(>Chisq)
+   cont    6.847155  1 0.0088782532
+   disc    7.857814  1 0.0050601542
+   hurdle 14.704969  2 0.0006409979
+> 
+> mast_pval_glm = apply(lrt0, 1, function(x){x[3,3]})
+> length(mast_pval_glm)
+[1] 2893
+> mast_pval_glm[1:4]
+       ISG15         SDF4       UBE2J2     AURKAIP1 
+1.672245e-17 1.144136e-01 8.451672e-07 4.545703e-07 
+> 
+> mast_pval_glmer = apply(lrt1, 1, function(x){x[3,3]})
+> length(mast_pval_glmer)
+[1] 2893
+> mast_pval_glmer[1:4]
+       ISG15         SDF4       UBE2J2     AURKAIP1 
+0.0006409979 0.6025166525 0.0007315719 0.0860942833 
+> 
+> # ------------------------------------------------------------------------
+> # summarize p-value distribution
+> # ------------------------------------------------------------------------
+> 
+> pdf(sprintf("figures/1b_MAST_%s_compare_pval_Seq.pdf", grp), 
++     width=9, height=3)
+> par(mfrow=c(1,3), bty="n", mar=c(5,4,1,1))
+> hist(mast_pval_glm, main="MAST glm", xlab="p-value")
+> hist(mast_pval_glmer, main="MAST glmer", xlab="p-value")
+> plot(-log10(mast_pval_glm), -log10(mast_pval_glmer), main="-log10(p-value)", 
++      xlab="MAST glm", ylab="MAST glmer", 
++      pch=20, cex=0.2, col=rgb(0.8, 0.1, 0.1, 0.5))
+> abline(0, 1, col="darkblue")
+> dev.off()
+null device 
+          1 
+> # ------------------------------------------------------------------------
+> # save the results
+> # ------------------------------------------------------------------------
+> 
+> 
+> fwrite(data.frame(mast_pval_glm), 
++        file=sprintf("res/1b_MAST_%s_glm.tsv", grp), 
++        sep = "\t", row.names=TRUE, col.names=FALSE)
+> 
+> fwrite(data.frame(mast_pval_glmer), 
++        file=sprintf("res/1b_MAST_%s_glmer.tsv", grp), 
++             sep = "\t", row.names=TRUE, col.names=FALSE)
+> 
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  6320617 337.6    9482091  506.4         NA   9482091  506.4
+Vcells 68239619 520.7  170108619 1297.9      65536 169152853 1290.6
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] doRNG_1.8.2                 rngtools_1.5               
+ [3] doParallel_1.0.16           iterators_1.0.13           
+ [5] foreach_1.5.1               lme4_1.1-27.1              
+ [7] MAST_1.18.0                 SingleCellExperiment_1.14.1
+ [9] SummarizedExperiment_1.22.0 Biobase_2.52.0             
+[11] GenomicRanges_1.44.0        GenomeInfoDb_1.28.4        
+[13] IRanges_2.26.0              S4Vectors_0.30.0           
+[15] BiocGenerics_0.38.0         MatrixGenerics_1.4.3       
+[17] matrixStats_0.61.0          dplyr_1.0.7                
+[19] data.table_1.14.0           Matrix_1.3-3               
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.7             lattice_0.20-44        prettyunits_1.1.1     
+ [4] digest_0.6.27          utf8_1.2.1             R6_2.5.0              
+ [7] plyr_1.8.6             ggplot2_3.3.5          pillar_1.6.1          
+[10] zlibbioc_1.38.0        rlang_0.4.11           progress_1.2.2        
+[13] minqa_1.2.4            nloptr_1.2.2.2         splines_4.1.0         
+[16] stringr_1.4.0          RCurl_1.98-1.5         munsell_0.5.0         
+[19] DelayedArray_0.18.0    compiler_4.1.0         pkgconfig_2.0.3       
+[22] tidyselect_1.1.1       tibble_3.1.2           GenomeInfoDbData_1.2.6
+[25] codetools_0.2-18       fansi_0.5.0            crayon_1.4.1          
+[28] MASS_7.3-54            bitops_1.0-7           grid_4.1.0            
+[31] nlme_3.1-152           gtable_0.3.0           lifecycle_1.0.0       
+[34] DBI_1.1.1              magrittr_2.0.1         scales_1.1.1          
+[37] stringi_1.6.2          XVector_0.32.0         reshape2_1.4.4        
+[40] ellipsis_0.3.2         generics_0.1.0         vctrs_0.3.8           
+[43] boot_1.3-28            tools_4.1.0            glue_1.4.2            
+[46] purrr_0.3.4            hms_1.1.0              abind_1.4-5           
+[49] colorspace_2.0-2      
+> q(save="no")
+> proc.time()
+    user   system  elapsed 
+2150.611 1132.973  857.704 

@@ -179,6 +179,12 @@ Warning messages:
 +   read.csv(file.path(data.dir, "covid_donor_info_from_mmc1.csv"), 
 +            header = TRUE)
 > 
+> dim(covid_donor_info)
+[1] 18  4
+> covid_donor_info[1:2,]
+        donor age sex condition
+1 C19-CB-0001  21   m      mild
+2 C19-CB-0002  31   f      mild
 > summary(covid_donor_info)
     donor                age            sex             condition        
  Length:18          Min.   :21.00   Length:18          Length:18         
@@ -187,6 +193,7 @@ Warning messages:
                     Mean   :60.17                                        
                     3rd Qu.:71.00                                        
                     Max.   :80.00                                        
+> 
 > # ------------------------------------------------------------------------
 > # read in cell information
 > # ------------------------------------------------------------------------
@@ -468,8 +475,12 @@ control   early    late
 
 control    mild  severe 
    5441    1366    4195 
-> mean(which(meta$disease_stage=="control") == which(meta$group_per_sample=="control"))
-[1] 1
+> table(meta$disease_stage, meta$group_per_sample)
+         
+          control mild severe
+  control    5441    0      0
+  early         0  705    461
+  late          0  661   3734
 > 
 > table(meta$donor, meta$disease_stage)
              
@@ -604,6 +615,11 @@ C19-CB-0053 C19-CB-0198 C19-CB-0199 C19-CB-0204 C19-CB-0214
 [1] 21 31 45 69 70 71 74
 > sort(meta_ind$age[which(meta_ind$group_per_sample=="severe")])
  [1] 42 52 53 60 61 63 71 74 75 80
+> 
+> table(meta_ind$group_per_sample)
+
+  mild severe 
+     7     10 
 > 
 > # ------------------------------------------------------------------------
 > # collect count data
@@ -1038,6 +1054,16 @@ null device
           1 
 > 
 > 
+> pdf(sprintf("figures/1b_DESeq2_%s_pval_hists_full_mild_severe.pdf", grp), 
++     width=9, height=7)
+> par(mfrow=c(2,2), bty="n", mar=c(5,4,2,1))
+> for(k in 1:length(nm3)){
++   hist(pvals3[,k], main=nm3[k], xlab="p-value", breaks=50)
++ }
+> 
+> dev.off()
+null device 
+          1 
 > 
 > # ------------------------------------------------------------------------
 > # summarize p-value distribution
@@ -1152,8 +1178,8 @@ NOC2L      46.19758      0.0098723  0.211791  0.0466134  0.962821  0.983041
 > 
 > gc()
            used  (Mb) gc trigger  (Mb) limit (Mb)  max used  (Mb)
-Ncells  6829134 364.8   10082205 538.5         NA  10082205 538.5
-Vcells 61097707 466.2  104456403 797.0      65536 104446780 796.9
+Ncells  6829464 364.8   10082205 538.5         NA  10082205 538.5
+Vcells 61098602 466.2  104466212 797.1      65536 104463761 797.0
 > 
 > 
 > 
@@ -1208,4 +1234,4 @@ loaded via a namespace (and not attached):
 > q(save="no")
 > proc.time()
    user  system elapsed 
- 33.150   1.222  34.863 
+ 32.931   1.085  34.071 

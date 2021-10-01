@@ -1,0 +1,747 @@
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(Matrix)
+> library(SAVER)
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+> 
+> nCores = 12
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> data.dir = "../../ideas_data/COVID/PBMC_10x"
+> 
+> fls = list.files(path=file.path(data.dir, "ct_mtx"))
+> fls
+ [1] "Bcells_1.rds"               "Bcells_2.rds"              
+ [3] "Bcells_3.rds"               "CD163+Monocytes.rds"       
+ [5] "CD4+Tcells_1.rds"           "CD4+Tcells_2.rds"          
+ [7] "CD4+Tcells_3.rds"           "CD8+Tcells_1.rds"          
+ [9] "CD8+Tcells_2.rds"           "CD8+Tcells_3.rds"          
+[11] "ClassicalMonocytes.rds"     "HLA-DR-S100A+monocytes.rds"
+[13] "HLA-DR+CD83+Monocytes.rds"  "ImmatureNeutrophils.rds"   
+[15] "mDCs.rds"                   "Megakaryocyte.rds"         
+[17] "mixed.rds"                  "Neutrophils.rds"           
+[19] "NKcells.rds"                "Non-classicalMonocytes.rds"
+[21] "pDCs.rds"                   "Plasmablasts.rds"          
+[23] "undefined.rds"             
+> 
+> 
+> ctypes = c('Bcells_1', 'Bcells_2', 'Bcells_3','CD163+Monocytes', 
++            'CD4+Tcells_1', 'CD4+Tcells_2', 'CD4+Tcells_3', 'CD8+Tcells_1',
++            'CD8+Tcells_2', 'CD8+Tcells_3', 'ClassicalMonocytes', 'HLA-DR-S100A+monocytes', 
++            'HLA-DR+CD83+Monocytes', 'ImmatureNeutrophils', 'mDCs', 'Megakaryocyte', 
++            'mixed', 'Neutrophils', 'NKcells', 'Non-classicalMonocytes', 'pDCs', 
++            'Plasmablasts', 'undefined')
+> 
+> #ctypes = c("Microglia", "Endothelial","Neu-mat")
+> ct.mtrx = NULL
+> meta=matrix(ncol=1,nrow=0)
+> 
+> quantile_info_before = matrix(ncol=5,nrow=length(ctypes))
+> rownames(quantile_info_before) = ctypes
+> colnames(quantile_info_before) = names(quantile(ct.mtrx))
+> 
+> dim(quantile_info_before)
+[1] 23  5
+> quantile_info_before[1:2,]
+         0% 25% 50% 75% 100%
+Bcells_1 NA  NA  NA  NA   NA
+Bcells_2 NA  NA  NA  NA   NA
+> 
+> for(i in 1:length(ctypes)){
++   ctp  = ctypes[i]
++   
++   cat(i, ": ", ctp, date(), "\n")
++   
++   dat1 = readRDS(file.path(data.dir, "ct_mtx", sprintf("%s.rds", ctp)))
++   dim(dat1)
++   
++   quantile_info_before[i,] = quantile(colSums(dat1))
++   
++   meta=c(meta,rep(ctp,ncol(dat1)))
++   
++   if(i == 1){
++     ct.mtrx = as.matrix(dat1)
++   }else{
++     ct.mtrx = cbind(ct.mtrx, as.matrix(dat1))
++   }
++   rm(dat1)
++   
++   gci = gc()
++   print(gc())
++   cat("\n")
++ }
+1 :  Bcells_1 Tue Sep 28 08:31:48 2021 
+           used  (Mb) gc trigger   (Mb) max used  (Mb)
+Ncells  1531330  81.8    2521344  134.7  2521344 134.7
+Vcells 76199744 581.4  132233570 1008.9 90046359 687.0
+
+2 :  Bcells_2 Tue Sep 28 08:31:50 2021 
+           used  (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells  1531770  81.9    2521344  134.7   2521344  134.7
+Vcells 78834897 601.5  189021580 1442.2 155781122 1188.6
+
+3 :  Bcells_3 Tue Sep 28 08:31:51 2021 
+           used  (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells  1531979  81.9    2521344  134.7   2521344  134.7
+Vcells 80961054 617.7  189021580 1442.2 160198701 1222.3
+
+4 :  CD163+Monocytes Tue Sep 28 08:31:52 2021 
+           used  (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells  1533424  81.9    2521344  134.7   2521344  134.7
+Vcells 95661039 729.9  235321500 1795.4 194366043 1482.9
+
+5 :  CD4+Tcells_1 Tue Sep 28 08:31:53 2021 
+            used   (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells   1549224   82.8    2521344  134.7   2521344  134.7
+Vcells 256394439 1956.2  649891132 4958.3 539856536 4118.8
+
+6 :  CD4+Tcells_2 Tue Sep 28 08:31:58 2021 
+            used   (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells   1559812   83.4    2521344  134.7   2521344  134.7
+Vcells 364106163 2778.0  906763641 6918.1 753927548 5752.1
+
+7 :  CD4+Tcells_3 Tue Sep 28 08:32:03 2021 
+            used   (Mb) gc trigger   (Mb)  max used   (Mb)
+Ncells   1562781   83.5    2521344  134.7   2521344  134.7
+Vcells 394309800 3008.4  906763641 6918.1 795548720 6069.6
+
+8 :  CD8+Tcells_1 Tue Sep 28 08:32:06 2021 
+            used   (Mb) gc trigger   (Mb)   max used   (Mb)
+Ncells   1573783   84.1    2521344  134.7    2521344  134.7
+Vcells 506233146 3862.3 1242896330 9482.6 1034052093 7889.2
+
+9 :  CD8+Tcells_2 Tue Sep 28 08:32:11 2021 
+            used   (Mb) gc trigger   (Mb)   max used   (Mb)
+Ncells   1574902   84.2    2521344  134.7    2521344  134.7
+Vcells 517616733 3949.2 1242896330 9482.6 1037629265 7916.5
+
+10 :  CD8+Tcells_3 Tue Sep 28 08:32:13 2021 
+            used   (Mb) gc trigger   (Mb)   max used   (Mb)
+Ncells   1577883   84.3    2521344  134.7    2521344  134.7
+Vcells 547942446 4180.5 1242896330 9482.6 1096791390 8367.9
+
+11 :  ClassicalMonocytes Tue Sep 28 08:32:16 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1594865   85.2    2521344   134.7    2521344   134.7
+Vcells 720700332 5498.6 1765989624 13473.5 1469984254 11215.1
+
+12 :  HLA-DR-S100A+monocytes Tue Sep 28 08:32:24 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1600138   85.5    2521344   134.7    2521344   134.7
+Vcells 774342561 5907.8 1765989624 13473.5 1564405420 11935.5
+
+13 :  HLA-DR+CD83+Monocytes Tue Sep 28 08:32:29 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1603552   85.7    2521344   134.7    2521344   134.7
+Vcells 809073183 6172.8 1765989624 13473.5 1625927226 12404.9
+
+14 :  ImmatureNeutrophils Tue Sep 28 08:32:33 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1604938   85.8    2521344   134.7    2521344   134.7
+Vcells 823172961 6280.4 1765989624 13473.5 1645087423 12551.1
+
+15 :  mDCs Tue Sep 28 08:32:37 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1605771   85.8    2521344   134.7    2521344   134.7
+Vcells 831647075 6345.0 1765989624 13473.5 1664057673 12695.8
+
+16 :  Megakaryocyte Tue Sep 28 08:32:41 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1606932   85.9    2521344   134.7    2521344   134.7
+Vcells 843457928 6435.1 1765989624 13473.5 1685825086 12861.9
+
+17 :  mixed Tue Sep 28 08:32:45 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1607096   85.9    2521344   134.7    2521344   134.7
+Vcells 845126300 6447.9 1765989624 13473.5 1687987870 12878.4
+
+18 :  Neutrophils Tue Sep 28 08:32:49 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1609974   86.0    2521344   134.7    2521344   134.7
+Vcells 874404194 6671.2 1765989624 13473.5 1751134968 13360.1
+
+19 :  NKcells Tue Sep 28 08:32:53 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1618410   86.5    2521344   134.7    2521344   134.7
+Vcells 960223622 7326.0 2326923058 17753.1 1937452327 14781.6
+
+20 :  Non-classicalMonocytes Tue Sep 28 08:33:00 2021 
+            used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   1621809   86.7    2521344   134.7    2521344   134.7
+Vcells 994801649 7589.8 2326923058 17753.1 1996040590 15228.6
+
+21 :  pDCs Tue Sep 28 08:33:05 2021 
+             used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1622325   86.7    2521344   134.7    2521344   134.7
+Vcells 1000050917 7629.8 2326923058 17753.1 1998647056 15248.5
+
+22 :  Plasmablasts Tue Sep 28 08:33:09 2021 
+             used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1623164   86.7    2521344   134.7    2521344   134.7
+Vcells 1008586064 7695.0 2326923058 17753.1 2017873401 15395.2
+
+23 :  undefined Tue Sep 28 08:33:14 2021 
+             used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1623325   86.7    2521344   134.7    2521344   134.7
+Vcells 1010223917 7707.4 2326923058 17753.1 2018322766 15398.6
+
+> 
+> dim(ct.mtrx)
+[1] 10167 99049
+> ct.mtrx[1:2,1:5]
+          1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1 1_AAAGAACCACACAGAG-1
+LINC00115                    0                    0                    1
+NOC2L                        0                    0                    0
+          1_AAAGGATTCATCTCTA-1 1_AAAGGGCCAGCTTCGG-1
+LINC00115                    0                    0
+NOC2L                        0                    1
+> 
+> table(meta)
+meta
+              Bcells_1               Bcells_2               Bcells_3 
+                  7235                    259                    209 
+       CD163+Monocytes           CD4+Tcells_1           CD4+Tcells_2 
+                  1445                  15800                  10588 
+          CD4+Tcells_3           CD8+Tcells_1           CD8+Tcells_2 
+                  2969                  11002                   1119 
+          CD8+Tcells_3     ClassicalMonocytes HLA-DR-S100A+monocytes 
+                  2981                  16982                   5273 
+ HLA-DR+CD83+Monocytes    ImmatureNeutrophils                   mDCs 
+                  3414                   1386                    833 
+         Megakaryocyte                  mixed            Neutrophils 
+                  1161                    164                   2878 
+               NKcells Non-classicalMonocytes                   pDCs 
+                  8436                   3399                    516 
+          Plasmablasts              undefined 
+                   839                    161 
+> 
+> # ---------------------------------------------------------------
+> # saver 
+> # ---------------------------------------------------------------
+> 
+> dim(ct.mtrx)
+[1] 10167 99049
+> 
+> # first a test run for memory usage and computational time
+> date()
+[1] "Tue Sep 28 08:33:19 2021"
+> mem_used()
+8.17 GB
+> gc()
+             used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1629689   87.1    2521344   134.7    2521344   134.7
+Vcells 1010238425 7707.6 2326923058 17753.1 2018322766 15398.6
+> ct.mtrx.saver = saver(ct.mtrx[1:1000, 1:200], 
++                       estimates.only = TRUE, ncores=nCores)
+1000 genes, 200 cells
+starting worker pid=17174 on localhost:11029 at 08:33:20.793
+starting worker pid=17170 on localhost:11029 at 08:33:20.793
+starting worker pid=17169 on localhost:11029 at 08:33:20.795
+starting worker pid=17178 on localhost:11029 at 08:33:20.799
+starting worker pid=17171 on localhost:11029 at 08:33:20.802
+starting worker pid=17179 on localhost:11029 at 08:33:20.803
+starting worker pid=17176 on localhost:11029 at 08:33:20.804
+starting worker pid=17175 on localhost:11029 at 08:33:20.804
+starting worker pid=17173 on localhost:11029 at 08:33:20.816
+starting worker pid=17172 on localhost:11029 at 08:33:20.817
+starting worker pid=17177 on localhost:11029 at 08:33:20.818
+starting worker pid=17180 on localhost:11029 at 08:33:20.818
+Running SAVER with 12 worker(s)
+Calculating predictions for 967 genes using 526 genes and 200 cells...
+Start time: 2021-09-28 08:33:20
+Estimating finish time...
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+Loading required package: SAVER
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 12/1000 genes. Approximate finish time: 2021-09-28 08:33:53
+Calculating max cor cutoff...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 100/1000 genes. Approximate finish time: 2021-09-28 08:33:36
+Calculating lambda coefficients...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 600/1000 genes. Approximate finish time: 2021-09-28 08:33:42
+Predicting remaining genes...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 692/1000 genes. Approximate finish time: 2021-09-28 08:33:43
+Predicting remaining genes...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 967/1000 genes. Approximate finish time: 2021-09-28 08:33:43
+Estimating remaining 33 genes.
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Done!
+Finish time: 2021-09-28 08:33:43
+Total time: 22.40804 secs
+Warning message:
+In if (!(grepl("matrix", class(x), ignore.case = TRUE))) { :
+  the condition has length > 1 and only the first element will be used
+> date()
+[1] "Tue Sep 28 08:33:43 2021"
+> mem_used()
+8.18 GB
+> gc()
+             used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668088   89.1    2521344   134.7    2521344   134.7
+Vcells 1010523027 7709.7 2326923058 17753.1 2018322766 15398.6
+> 
+> 
+> date()
+[1] "Tue Sep 28 08:33:43 2021"
+> mem_used()
+8.18 GB
+> gc()
+             used   (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668088   89.1    2521344   134.7    2521344   134.7
+Vcells 1010523027 7709.7 2326923058 17753.1 2018322766 15398.6
+> ct.mtrx.saver = saver(ct.mtrx,estimates.only = TRUE, ncores=nCores)
+10167 genes, 99049 cells
+starting worker pid=17636 on localhost:11029 at 08:34:02.810
+starting worker pid=17634 on localhost:11029 at 08:34:02.811
+starting worker pid=17637 on localhost:11029 at 08:34:02.816
+starting worker pid=17631 on localhost:11029 at 08:34:02.818
+starting worker pid=17635 on localhost:11029 at 08:34:02.830
+starting worker pid=17638 on localhost:11029 at 08:34:02.837
+starting worker pid=17639 on localhost:11029 at 08:34:02.837
+starting worker pid=17628 on localhost:11029 at 08:34:02.837
+starting worker pid=17632 on localhost:11029 at 08:34:02.855
+starting worker pid=17629 on localhost:11029 at 08:34:02.860
+starting worker pid=17630 on localhost:11029 at 08:34:02.861
+starting worker pid=17633 on localhost:11029 at 08:34:02.861
+Running SAVER with 12 worker(s)
+Calculating predictions for 10167 genes using 5725 genes and 99049 cells...
+Start time: 2021-09-28 08:35:19
+Estimating finish time...
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Loading required package: SAVER
+loaded SAVER and set parent environment
+Finished 12/10167 genes. Approximate finish time: 2021-09-28 08:52:54
+Calculating max cor cutoff...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 100/10167 genes. Approximate finish time: 2021-09-28 10:15:59
+Calculating lambda coefficients...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 200/10167 genes. Approximate finish time: 2021-09-28 11:50:34
+Predicting remaining genes...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Finished 2692/10167 genes. Approximate finish time: 2021-09-29 10:53:16
+Predicting remaining genes...
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+loaded SAVER and set parent environment
+Done!
+Finish time: 2021-09-29 09:47:51
+Total time: 1.050369 days
+Warning message:
+In if (!(grepl("matrix", class(x), ignore.case = TRUE))) { :
+  the condition has length > 1 and only the first element will be used
+> date()
+[1] "Wed Sep 29 09:47:51 2021"
+> gc()
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668357    89.1    2521344   134.7    2521344   134.7
+Vcells 2017353249 15391.2 5738575996 43781.9 6807935356 51940.5
+> mem_used()
+16.2 GB
+> 
+> # ---------------------------------------------------------------
+> # save results
+> # ---------------------------------------------------------------
+> 
+> quantile_info_after = matrix(ncol=5,nrow=length(ctypes))
+> rownames(quantile_info_after) = ctypes
+> colnames(quantile_info_after) = names(quantile(ct.mtrx.saver))
+> 
+> for(i in 1:length(ctypes)){
++   ctp  = ctypes[i]
++   
++   cat(i, ": ", ctp, date(), "\n")
++   
++   dat1=ct.mtrx.saver[,which(meta==ctp)]
++    
++   quantile_info_after[i,] = quantile(colSums(dat1)) 
++   print(dim(dat1))
++   saveRDS(dat1,file.path(data.dir, "ct_mtx", sprintf("saver_%s.rds", ctp)))
++   
++   gci = gc()
++   print(gc())
++   cat("\n")
++ }
+1 :  Bcells_1 Wed Sep 29 09:48:36 2021 
+[1] 10167  7235
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2090929987 15952.6 5738575996 43781.9 6807935356 51940.5
+
+2 :  Bcells_2 Wed Sep 29 09:49:22 2021 
+[1] 10167   259
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2019998019 15411.4 5738575996 43781.9 6807935356 51940.5
+
+3 :  Bcells_3 Wed Sep 29 09:49:24 2021 
+[1] 10167   209
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2019489619 15407.5 5738575996 43781.9 6807935356 51940.5
+
+4 :  CD163+Monocytes Wed Sep 29 09:49:26 2021 
+[1] 10167  1445
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2032057267 15503.4 5738575996 43781.9 6807935356 51940.5
+
+5 :  CD4+Tcells_1 Wed Sep 29 09:49:35 2021 
+[1] 10167 15800
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2178018907 16617.0 5738575996 43781.9 6807935356 51940.5
+
+6 :  CD4+Tcells_2 Wed Sep 29 09:51:11 2021 
+[1] 10167 10588
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2125023291 16212.7 5738575996 43781.9 6807935356 51940.5
+
+7 :  CD4+Tcells_3 Wed Sep 29 09:52:16 2021 
+[1] 10167  2969
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2047553299 15621.6 5738575996 43781.9 6807935356 51940.5
+
+8 :  CD8+Tcells_1 Wed Sep 29 09:52:35 2021 
+[1] 10167 11002
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2129232843 16244.8 5738575996 43781.9 6807935356 51940.5
+
+9 :  CD8+Tcells_2 Wed Sep 29 09:53:45 2021 
+[1] 10167  1119
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2028742499 15478.1 5738575996 43781.9 6807935356 51940.5
+
+10 :  CD8+Tcells_3 Wed Sep 29 09:53:52 2021 
+[1] 10167  2981
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2047675315 15622.6 5738575996 43781.9 6807935356 51940.5
+
+11 :  ClassicalMonocytes Wed Sep 29 09:54:11 2021 
+[1] 10167 16982
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2190037483 16708.7 5738575996 43781.9 6807935356 51940.5
+
+12 :  HLA-DR-S100A+monocytes Wed Sep 29 09:55:55 2021 
+[1] 10167  5273
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2070980371 15800.4 5738575996 43781.9 6807935356 51940.5
+
+13 :  HLA-DR+CD83+Monocytes Wed Sep 29 09:56:27 2021 
+[1] 10167  3414
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2052078059 15656.2 5738575996 43781.9 6807935356 51940.5
+
+14 :  ImmatureNeutrophils Wed Sep 29 09:56:49 2021 
+[1] 10167  1386
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2031457355 15498.8 5738575996 43781.9 6807935356 51940.5
+
+15 :  mDCs Wed Sep 29 09:56:58 2021 
+[1] 10167   833
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2025834451 15455.9 5738575996 43781.9 6807935356 51940.5
+
+16 :  Megakaryocyte Wed Sep 29 09:57:04 2021 
+[1] 10167  1161
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2029169555 15481.4 5738575996 43781.9 6807935356 51940.5
+
+17 :  mixed Wed Sep 29 09:57:11 2021 
+[1] 10167   164
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2019032059 15404.0 5738575996 43781.9 6807935356 51940.5
+
+18 :  Neutrophils Wed Sep 29 09:57:12 2021 
+[1] 10167  2878
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2046628011 15614.6 5738575996 43781.9 6807935356 51940.5
+
+19 :  NKcells Wed Sep 29 09:57:30 2021 
+[1] 10167  8436
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2103141755 16045.7 5738575996 43781.9 6807935356 51940.5
+
+20 :  Non-classicalMonocytes Wed Sep 29 09:58:23 2021 
+[1] 10167  3399
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2051925539 15655.0 5738575996 43781.9 6807935356 51940.5
+
+21 :  pDCs Wed Sep 29 09:58:44 2021 
+[1] 10167   516
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2022611195 15431.3 5738575996 43781.9 6807935356 51940.5
+
+22 :  Plasmablasts Wed Sep 29 09:58:47 2021 
+[1] 10167   839
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2025895459 15456.4 5738575996 43781.9 6807935356 51940.5
+
+23 :  undefined Wed Sep 29 09:58:52 2021 
+[1] 10167   161
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1668785    89.2    2521344   134.7    2521344   134.7
+Vcells 2019001555 15403.8 5738575996 43781.9 6807935356 51940.5
+
+> 
+> dat1[1:3,1:2]
+          3_AGTGATCCATCACGGC-1 3_ATCCGTCTCCGTTGGG-1
+LINC00115                0.021                0.043
+NOC2L                    0.190                0.160
+HES4                     0.003                0.005
+> quantile_info_before
+                         0%      25%     50%      75%  100%
+Bcells_1                487  1885.50  3984.0  5823.00 30028
+Bcells_2                913  4801.50  5811.0  7003.00 17790
+Bcells_3               1759  9758.00 12020.0 14424.00 30708
+CD163+Monocytes         517  5076.00  9102.0 13732.00 34721
+CD4+Tcells_1            487  1704.75  5363.5  7171.00 19687
+CD4+Tcells_2            485  3971.75  6519.0  8605.00 30921
+CD4+Tcells_3            617  5719.00  7043.0  8430.00 20610
+CD8+Tcells_1            485  2472.00  4561.0  5887.75 24377
+CD8+Tcells_2            507  7359.50 11738.0 17913.50 38751
+CD8+Tcells_3            485  1066.00  1625.0  2263.00 10453
+ClassicalMonocytes      489  1143.00  2092.5  5244.50 24458
+HLA-DR-S100A+monocytes  907  5889.00  9649.0 13798.00 31987
+HLA-DR+CD83+Monocytes   497  3700.50  5903.5  8817.00 23937
+ImmatureNeutrophils     492  1622.00  1933.0  2593.25 25565
+mDCs                    525  5340.00 16419.0 20305.00 29883
+Megakaryocyte           436   885.00  2243.0  5399.00 37175
+mixed                  1007  5382.50  9886.0 14345.25 24737
+Neutrophils             487  1618.25  2195.0  3979.75 28420
+NKcells                 489  2029.75  4376.0  5976.25 17765
+Non-classicalMonocytes  503  2336.00  4660.0 11164.50 31837
+pDCs                    549  2515.75  4998.5 11229.50 28251
+Plasmablasts            495 10303.00 26926.0 35210.50 73977
+undefined               539 15403.00 19363.0 21545.00 30961
+> quantile_info_after
+                             0%      25%      50%      75%     100%
+Bcells_1               4304.611 5433.110 5564.753 5693.040 6586.605
+Bcells_2               4452.946 5368.410 5498.267 5603.318 6403.945
+Bcells_3               4998.882 5597.485 5677.531 5753.426 5991.279
+CD163+Monocytes        4536.966 5396.745 5537.409 5650.484 6160.091
+CD4+Tcells_1           4680.220 5540.351 5648.757 5764.459 6756.597
+CD4+Tcells_2           4486.738 5412.859 5536.597 5646.526 6485.734
+CD4+Tcells_3           4450.585 5350.995 5477.545 5596.521 6942.859
+CD8+Tcells_1           4284.713 5446.038 5567.345 5680.435 6337.012
+CD8+Tcells_2           4014.852 5350.663 5526.697 5675.633 6515.414
+CD8+Tcells_3           3911.483 5316.092 5585.933 5858.873 7016.989
+ClassicalMonocytes     4600.499 5443.021 5552.828 5669.307 6536.037
+HLA-DR-S100A+monocytes 4750.084 5470.114 5560.318 5651.293 6256.392
+HLA-DR+CD83+Monocytes  4427.595 5344.294 5507.797 5661.489 6616.329
+ImmatureNeutrophils    4220.509 5481.413 5698.504 5895.603 6654.558
+mDCs                   4613.753 5490.172 5588.103 5679.566 6193.658
+Megakaryocyte          3176.496 5386.061 5662.711 6081.812 7172.848
+mixed                  4811.354 5383.322 5525.117 5607.177 5802.513
+Neutrophils            4155.260 5395.365 5615.636 5899.616 6626.407
+NKcells                4410.531 5329.718 5479.776 5621.953 6597.021
+Non-classicalMonocytes 4422.532 5376.075 5508.763 5627.111 6236.639
+pDCs                   4505.906 5069.053 5225.563 5392.384 6092.244
+Plasmablasts           4104.217 5498.577 5661.927 5805.334 6778.544
+undefined              4697.642 5212.237 5298.874 5421.310 5963.622
+> 
+> sessionInfo()
+R version 4.0.2 (2020-06-22)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 18.04.5 LTS
+
+Matrix products: default
+BLAS:   /fh/scratch/delete90/sun_w/si_liu/R/R-4.0.2/lib/libRblas.so
+LAPACK: /fh/scratch/delete90/sun_w/si_liu/R/R-4.0.2/lib/libRlapack.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] pryr_0.1.4    SAVER_1.1.2   Matrix_1.2-18
+
+loaded via a namespace (and not attached):
+ [1] compiler_4.0.2    magrittr_1.5      parallel_4.0.2    tools_4.0.2      
+ [5] Rcpp_1.0.5        stringi_1.5.3     codetools_0.2-16  doParallel_1.0.16
+ [9] grid_4.0.2        iterators_1.0.13  foreach_1.5.1     stringr_1.4.0    
+[13] lattice_0.20-41  
+> mem_used()
+16.2 GB
+> gc()
+             used    (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells    1671673    89.3    2521344   134.7    2521344   134.7
+Vcells 2019008069 15403.9 5738575996 43781.9 6807935356 51940.5
+> q(save="no")
+> proc.time()
+     user    system   elapsed 
+ 1106.271   186.134 91630.063 

@@ -1,4 +1,6 @@
-Run analysis using COVID data from paper Schulte-Schrepping et al. 2020 [[1]](#1). Data available at [https://beta.fastgenomics.org/home](https://beta.fastgenomics.org/home) by searching key word *Schulte-Schrepping* in data section. The data file used here is PBMC 10x data from cohort 1. 
+Run analysis using COVID data from paper Schulte-Schrepping et al. 2020 [[1]](#1). Data available at [https://beta.fastgenomics.org/home](https://beta.fastgenomics.org/home) by searching key word *Schulte-Schrepping* in data section. The data file used here is PBMC 10x data from cohort 1.  
+
+The goal is to do gene differential analysis in terms of mild v.s. severe COVID diease status. 
 
 Recover count data, fliter out genes appearing in less than 2000 cells and split into different cell types:
 
@@ -10,13 +12,22 @@ DCA[[2]](#2) related steps:
 
 [1a_dca.sh](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1a_dca.sh)
 
-Note on running DCA: (1) should install keras version 2.4 and tensorflow >=2.0 and <2.5, following the [requirements of DCA](https://github.com/theislab/dca/blob/master/setup.py),  not the new versions. (2) current version (as of 09/26/2021) of DCA sets nb as default option. Need to set type to zinb-conddisp if zinb result is wanted. (3) current version does not output mean\_norm.tsv. 
+[1a_dca_recover_mean_norm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1a_dca_recover_mean_norm.R)
+
+Note on running DCA: 
+
+(1) should install keras version 2.4 and tensorflow >=2.0 and <2.5, following the [requirements of DCA](https://github.com/theislab/dca/blob/master/setup.py),  not the new versions. 
+
+(2) current version (as of 09/26/2021) of DCA sets nb as default option. Need to set type to zinb-conddisp if zinb result is wanted. 
+
+(3) current version does not output mean\_norm.tsv. Need to recover the mean\_norm.tsv file using mean.tsv file and the raw count file.  
 
 DESeq2  :
 
-[1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) 
-
 [1b_DESeq2_mild_severe.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2_mild_severe.R) 
+
+[1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) is the version for DE in terms of COVID v.s. control. 
+
 
 Rank sum test:
 

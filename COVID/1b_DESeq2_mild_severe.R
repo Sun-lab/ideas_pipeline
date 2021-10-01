@@ -5,7 +5,7 @@ library(dplyr)
 library(DESeq2)
 
 
-data.dir = "../ideas_data/COVID/PBMC_10x"
+data.dir = "../../ideas_data/COVID/PBMC_10x"
 
 args=(commandArgs(TRUE))
 args
@@ -329,6 +329,14 @@ hist(pvals3[,k], main="log(totalrd)+sex+age", xlab="p-value", breaks=50)
 dev.off()
 
 
+pdf(sprintf("figures/1b_DESeq2_%s_pval_hists_full_mild_severe.pdf", grp), 
+    width=9, height=7)
+par(mfrow=c(2,2), bty="n", mar=c(5,4,2,1))
+for(k in 1:length(nm3)){
+  hist(pvals3[,k], main=nm3[k], xlab="p-value", breaks=50)
+}
+
+dev.off()
 
 # ------------------------------------------------------------------------
 # summarize p-value distribution
