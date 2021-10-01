@@ -33,6 +33,9 @@ Rank sum test:
 
 [1b_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum.R) 
 
+[1b_ranksum_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum_perm.R) permutes labels on donor level. Only involves 7 mild and 7 severe donors in each permuation to keep balance. 
+
+
 MAST:
 
 [1b_MAST.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_MAST.R) 
