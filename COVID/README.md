@@ -28,12 +28,15 @@ DESeq2  :
 
 [1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) is the version for DE in terms of COVID v.s. control. 
 
+Create permutated donor level labels:
+
+[1b_permutation_label.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_permutation_label.R) Only involves 7 mild and 7 severe donors in each permutation to keep balance.
 
 Rank sum test:
 
 [1b_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum.R) 
 
-[1b_ranksum_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum_perm.R) permutes labels on donor level. Only involves 7 mild and 7 severe donors in each permuation to keep balance. 
+[1b_ranksum_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum_perm.R)
 
 
 MAST:
