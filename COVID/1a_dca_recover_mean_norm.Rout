@@ -1,0 +1,211 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> # the current version of DCA (as of Sept.28, 2021) does not 
+> # provide the mean_norm.tsv as one of the outputs by default
+> # this code recovers mean_norm.tsv making use of 
+> # (1) original count matrix to compute size factors
+> # (2) mean.tsv
+> 
+> 
+> 
+> library(Matrix)
+> library(data.table)
+> 
+> dca.dir = "../../ideas_data/COVID/PBMC_10x/dca_zinb_all"
+> data.dir = "../../ideas_data/COVID/PBMC_10x"
+> 
+> # Load the original count matrix used for DCA training
+> 
+> all_counts = read.csv(file.path(data.dir, "all.csv"), 
++                       header = TRUE, sep = ",", check.names=FALSE)
+> dim(all_counts)
+[1] 10167 99050
+> 
+> all_counts[1:6, 1:3]
+            1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1
+1 LINC00115                    0                    0
+2     NOC2L                    0                    0
+3      HES4                    0                    0
+4     ISG15                    0                    0
+5  C1orf159                    0                    0
+6  TNFRSF18                    0                    0
+> 
+> col_sums = apply(all_counts[, 2:ncol(all_counts)], 2, sum)
+> length(col_sums)
+[1] 99049
+> 
+> as.numeric(col_sums[1:10])
+ [1] 4031 6729 1467  903 5498 6316 3705 1204 6562 7314
+> 
+> med_rd = median(col_sums)
+> med_rd
+[1] 4615
+> 
+> size_factors = as.numeric(col_sums)/med_rd
+> size_factors[1:10]
+ [1] 0.8734561 1.4580715 0.3178765 0.1956663 1.1913326 1.3685807 0.8028169
+ [8] 0.2608884 1.4218852 1.5848321
+> 
+> summary(col_sums)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    436    1934    4615    5554    7451   73977 
+> 
+> median(size_factors)
+[1] 1
+> 
+> 
+> 
+> # load mean matrix
+> 
+> mean_mat = fread(file.path(dca.dir, "mean.tsv"), 
++                  header = TRUE, sep = "\t")
+> dim(mean_mat)
+[1] 10167 99050
+> 
+> mean(all_counts[, 1] == unlist(mean_mat[, 1]))
+[1] 1
+> 
+> # Recover mean norm matrix.
+> 
+> mean_norm_mat = t(t(mean_mat[, 2:ncol(mean_mat)])/size_factors)
+> dim(mean_norm_mat)
+[1] 10167 99049
+> 
+> mean_names = names(mean_mat)
+> mean_names[1:10]
+ [1] "V1"                   "1_AAACGAATCAGACCTA-1" "1_AAAGAACCACAAGGTG-1"
+ [4] "1_AAAGAACCACACAGAG-1" "1_AAAGGATTCATCTCTA-1" "1_AAAGGGCCAGCTTCGG-1"
+ [7] "1_AAAGGGCGTGGGATTG-1" "1_AAAGTCCGTAGGCAGT-1" "1_AAAGTCCTCGGTTGTA-1"
+[10] "1_AACAAAGCAGATCCAT-1"
+> 
+> mean_norm_names = colnames(mean_norm_mat)
+> mean_norm_names[1:9]
+[1] "1_AAACGAATCAGACCTA-1" "1_AAAGAACCACAAGGTG-1" "1_AAAGAACCACACAGAG-1"
+[4] "1_AAAGGATTCATCTCTA-1" "1_AAAGGGCCAGCTTCGG-1" "1_AAAGGGCGTGGGATTG-1"
+[7] "1_AAAGTCCGTAGGCAGT-1" "1_AAAGTCCTCGGTTGTA-1" "1_AACAAAGCAGATCCAT-1"
+> 
+> mean_mat[1:6, 2:3]
+   1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1
+1:             0.054066             0.063250
+2:             0.198273             0.244617
+3:             0.141245             0.208079
+4:             0.742166             2.330781
+5:             0.055658             0.065388
+6:             0.129556             0.155180
+> mean_norm_mat[1:6, 1:2]
+     1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1
+[1,]           0.06189893           0.04337922
+[2,]           0.22699824           0.16776749
+[3,]           0.16170818           0.14270836
+[4,]           0.84968893           1.59853683
+[5,]           0.06372158           0.04484554
+[6,]           0.14832571           0.10642825
+> 
+> mean(mean_names[2:ncol(mean_mat)] == mean_norm_names)
+[1] 1
+> 
+> # test recovery for mean_norm_mat, using certain cells
+> j = 10000
+> summary(mean_mat[, (j+1):(j+1)]/as.numeric(unlist(mean_norm_mat[, j:j])))
+ 4_ACCACAAGTTCCACAA-1
+ Min.   :2.32        
+ 1st Qu.:2.32        
+ Median :2.32        
+ Mean   :2.32        
+ 3rd Qu.:2.32        
+ Max.   :2.32        
+> sum(as.numeric(unlist(mean_norm_mat[, j:j])))
+[1] 4955.467
+> sum(as.numeric(unlist(mean_norm_mat[, j:j]))) * sum(all_counts[, (j+1)])
+[1] 53048274
+> sum(as.numeric(unlist(mean_mat[, (j+1):(j+1)]))) * med_rd
+[1] 53048274
+> 
+> rnames = rownames(mean_mat)
+> length(rnames)
+[1] 10167
+> 
+> mean(colnames(all_counts)[2:ncol(all_counts)] == names(mean_mat)[2:ncol(mean_mat)])
+[1] 1
+> 
+> 
+> mean_norm_dt = as.data.table(mean_norm_mat)
+> dim(mean_norm_dt)
+[1] 10167 99049
+> mean_norm_dt[1:6, 1:3]
+   1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1 1_AAAGAACCACACAGAG-1
+1:           0.06189893           0.04337922           0.09093154
+2:           0.22699824           0.16776749           0.30726085
+3:           0.16170818           0.14270836           0.20466754
+4:           0.84968893           1.59853683           0.61911468
+5:           0.06372158           0.04484554           0.11131053
+6:           0.14832571           0.10642825           0.09487962
+> 
+> mean_norm_dt[, V1:= mean_mat[, 1]]
+> dim(mean_norm_dt)
+[1] 10167 99050
+> 
+> mean_norm_dt[1:6, 99048:99050]
+   TTGCGTCCATATGCGT_3 TTTATGCTCACTCCGT_3        V1
+1:         0.07195961         0.06062555 LINC00115
+2:         0.30012856         0.33358036     NOC2L
+3:         0.13955831         0.14279946      HES4
+4:         0.50261969         0.96444568     ISG15
+5:         0.06641407         0.06101967  C1orf159
+6:         0.26932235         0.40860339  TNFRSF18
+> mean_norm_mat[1:6, 99047:99049]
+     TTAGTCTAGCAATAAC_3 TTGCGTCCATATGCGT_3 TTTATGCTCACTCCGT_3
+[1,]          0.1389097         0.07195961         0.06062555
+[2,]          0.3608137         0.30012856         0.33358036
+[3,]          0.1427138         0.13955831         0.14279946
+[4,]          0.3145083         0.50261969         0.96444568
+[5,]          0.1147613         0.06641407         0.06101967
+[6,]          0.3573932         0.26932235         0.40860339
+> 
+> setcolorder(mean_norm_dt, "V1")
+> 
+> mean_norm_dt[1:6, 1:3]
+          V1 1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1
+1: LINC00115           0.06189893           0.04337922
+2:     NOC2L           0.22699824           0.16776749
+3:      HES4           0.16170818           0.14270836
+4:     ISG15           0.84968893           1.59853683
+5:  C1orf159           0.06372158           0.04484554
+6:  TNFRSF18           0.14832571           0.10642825
+> mean_norm_mat[1:6, 1:2]
+     1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1
+[1,]           0.06189893           0.04337922
+[2,]           0.22699824           0.16776749
+[3,]           0.16170818           0.14270836
+[4,]           0.84968893           1.59853683
+[5,]           0.06372158           0.04484554
+[6,]           0.14832571           0.10642825
+> 
+> fwrite(mean_norm_dt, file = file.path(dca.dir, "mean_norm.tsv"))
+> 
+> 
+> 
+> 
+> 
+> proc.time()
+   user  system elapsed 
+738.452  35.304 806.318 
