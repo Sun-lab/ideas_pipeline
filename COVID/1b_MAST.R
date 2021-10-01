@@ -23,6 +23,7 @@ if (length(args) != 1) {
 
 grp
 
+
 # ------------------------------------------------------------------------
 # read in cell information
 # ------------------------------------------------------------------------
@@ -66,36 +67,76 @@ sort(table(paste(meta$group_per_sample, meta$sampleID, sep=":")))
 
 
 # ------------------------------------------------------------------------
-# filter out cells from early stage samples
-# get individual level information
+# filter out cells from control
 # ------------------------------------------------------------------------
+
+# explore indivdual level information
+meta_ind_explore = distinct(meta[,c('donor', 'group_per_sample')])
+dim(meta_ind_explore)
+meta_ind_explore
+
+length(unique(meta$donor))
+
+if(nrow(meta_ind_explore) != length(unique(meta$donor))){
+  stop("there is non-unique information\n")
+}
+
+
+# check whether the control label from disease_stage and that from
+# group_per_sample columns match
+table(meta$disease_stage)
+table(meta$group_per_sample)
+table(meta$disease_stage, meta$group_per_sample)
 
 table(meta$donor, meta$disease_stage)
 
-meta_no_early = meta[which(meta$disease_stage != "early"),]
-dim(meta_no_early)
+# filter out cells from control samples
+meta_covid = meta[which(meta$group_per_sample != "control"),]
+dim(meta_covid)
 
-table(meta_no_early$donor, meta_no_early$disease_stage)
+table(meta_covid$group_per_sample)
+table(meta_covid$disease_stage)
+table(meta_covid$donor)
+table(meta_covid$donor, meta_covid$disease_stage)
 
-df_donor = as.data.frame(table(meta_no_early$donor))
-donor2kp = df_donor$Var1[which(df_donor$Freq >= 30)]
+df_donor = as.data.frame(table(meta_covid$donor))
+donor2kp = df_donor$Var1[which(df_donor$Freq >= 10)]
 
-meta2kp = meta_no_early[which(meta_no_early$donor %in% donor2kp),]
+meta2kp = meta_covid[which(meta_covid$donor %in% donor2kp),]
 dim(meta2kp)
+table(meta2kp$donor)
+length(unique(meta2kp$donor))
 
-# create a column for cell level label in terms of COVID and control
-table(meta2kp$group_per_sample)
-meta2kp$diagnosis = meta2kp$group_per_sample
-meta2kp$diagnosis[which(meta2kp$group_per_sample == "mild")] = "COVID"
-meta2kp$diagnosis[which(meta2kp$group_per_sample == "severe")] = "COVID"
-table(meta2kp$diagnosis)
-dim(meta2kp)
-
+# indexes of cells to keep
 cell2kp_index = which(meta$cell %in% meta2kp$cell)
 
-# select counts of cells to keep
+# select counts in the cells to keep
 dat1 = dat[, cell2kp_index]
 mean(colnames(dat1) == meta2kp$cell)
+
+
+# ------------------------------------------------------------------------
+# filter out genes appearning in <= 20% of the cells
+# under current cell type
+# ------------------------------------------------------------------------
+
+n.zeros = rowSums(dat1 == 0)
+summary(n.zeros)
+
+0.6*ncol(dat1)
+0.8*ncol(dat1)
+
+table(n.zeros < 0.6*ncol(dat1))
+table(n.zeros < 0.8*ncol(dat1))
+table(n.zeros < 0.9*ncol(dat1))
+
+w2kp = which(n.zeros < 0.8*ncol(dat1))
+dat1 = dat1[w2kp,]
+
+dim(dat1)
+dat1[1:5,1:4]
+
+
 
 # ------------------------------------------------------------------------
 # run MAST
@@ -128,22 +169,14 @@ cell_rd = colSums(dat1)
 CDR     = colSums(dat1 > 0) / nrow(dat1)
 
 
-meta_ind = distinct(meta2kp[,c('donor', 'group_per_sample')])
-meta_ind$group_per_sample[which(meta_ind$group_per_sample != "control")] = "COVID"
-colnames(meta_ind)[2] = 'diagnosis'
-rownames(meta_ind) = meta_ind$donor
-meta_ind
-
-
 dim(meta2kp)
 meta2kp[1:2,]
-dim(meta_ind)
-meta_ind[1:2,]
+
 
 gc()
 sca = FromMatrix(dat1_log, cData, fData)
 colData(sca)$cngeneson = as.numeric(CDR)
-colData(sca)$diagnosis = as.factor(meta2kp$diagnosis)
+colData(sca)$diagnosis = as.factor(meta2kp$group_per_sample)
 colData(sca)$ind = as.factor(meta2kp$donor)
 #colData(sca)$RIN = meta$'RNA Integrity Number'
 colData(sca)
