@@ -1,8 +1,21 @@
-#library(Matrix)
+library(Matrix)
 library(data.table)
-#library(dplyr)
 
-data.dir = "data"
+
+data.dir = "../../ideas_data/COVID/PBMC_10x"
+
+args=(commandArgs(TRUE))
+args
+
+if (length(args) != 1) {
+  message("one argument is expected, use 'CD8+Tcells_1' as default.\n")
+  grp = "CD8+Tcells_1"
+}else{
+  eval(parse(text=args[[1]]))
+}
+
+grp
+
 # ------------------------------------------------------------------------
 # read in cell information
 # ------------------------------------------------------------------------
@@ -11,17 +24,56 @@ cell_info = fread(file.path(data.dir, "meta.tsv"))
 dim(cell_info)
 cell_info[1:2,]
 
-table(cell_info$region)
+table(cell_info$id.celltype)
 
-cell_info = cell_info[which(cell_info$region=="PFC"),]
+
+# ------------------------------------------------------------------------
+# read in count data of cell type
+# ------------------------------------------------------------------------
+
+dat = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+dim(dat)
+class(dat)
+dat[1:5,1:4]
+
+
+# ------------------------------------------------------------------------
+# subset cell information
+# ------------------------------------------------------------------------
+
+table(colnames(dat) %in% cell_info$cell)
+meta = cell_info[match(colnames(dat), cell_info$cell),]
+dim(meta)
+meta[1:2,]
+
+
+# ------------------------------------------------------------------------
+# filter out cells from control samples
+# ------------------------------------------------------------------------
+
+table(meta$donor, meta$group_per_sample)
+
+meta_covid = meta[which(meta$group_per_sample != "control"),]
+dim(meta_covid)
+
+table(meta_covid$donor, meta_covid$group_per_sample)
+
+df_donor = as.data.frame(table(meta_covid$donor))
+donor2kp = df_donor$Var1[which(df_donor$Freq >= 10)]
+
+meta2kp = meta_covid[which(meta_covid$donor %in% donor2kp),]
+dim(meta2kp)
+table(meta2kp$donor)
+length(unique(meta2kp$donor))
+
 
 #individual level cell info
-cell_info_ind = unique(paste(cell_info$diagnosis, cell_info$sample, sep=":"))
+cell_info_ind = unique(paste(meta2kp$group_per_sample, meta2kp$donor, sep=":"))
 
-#map from ind level info to cell level info
-match_ind_index = match(cell_info$individual,unique(cell_info$individual))
+#map from donor level info to cell level info
+match_ind_index = match(meta2kp$donor,unique(meta2kp$donor))
 
-case_index = grep("ASD",cell_info_ind)
+case_index = grep("severe",cell_info_ind)
 length(case_index)
 
 set.seed(1)
@@ -29,30 +81,24 @@ perm_table=matrix(ncol=100,nrow=length(match_ind_index))
 dim(perm_table)
 
 # try to get balanced case/control sample here, 
-# so only choose 20 out of 23 samples for permutations.
+# so only choose 7 out of 10 samples for severe.
 for(i in 1:100){
-  select_index = seq(1:23)[-case_index[sample.int(13,3)]]
-  case_index_perm=sample.int(20,10)
-  perm_label=rep(NA,23)
-  perm_label[select_index]="Control"
-  perm_label[select_index[case_index_perm]]="ASD"
+  select_index = seq(1:17)[-case_index[sample.int(10,3)]]
+  case_index_perm=sample.int(14,7)
+  perm_label=rep(NA,17)
+  perm_label[select_index]="mild"
+  perm_label[select_index[case_index_perm]]="severe"
   perm_table[,i]=perm_label[match_ind_index]
 }
 
 colnames(perm_table)=paste0("p",1:100)
-##to use it ####### add current lines after 
-#cell_info = cell_info[which(cell_info$region=="PFC"),]
-
-#eg:
-#cell_info$sample = perm_table[,i] #for ith permutation
-#dat = dat[,!is.na(cell_info$sample)]
-#cell_info = cell_info[!is.na(cell_info$sample),]
 
 # ------------------------------------------------------------------------
 # save the results
 # ------------------------------------------------------------------------
 
-fwrite(data.frame(perm_table), file=sprintf("data/step1b_permlabel.tsv"), 
+fwrite(data.frame(perm_table), 
+       file=sprintf("../../ideas_data/COVID/1b_permlabel.tsv"), 
        sep = "\t",row.names=FALSE,quote = FALSE,col.names=TRUE)
 
 gc()
