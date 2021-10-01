@@ -94,27 +94,23 @@ gc()
 # DESeq2 given the weights
 # ---------------------------------------------------------------
 
-sca2 = SummarizedExperiment(count_matrix, colData = meta_cell)
-#sca2=sca2[1:50,(50*1:160)]
+sca1 = SingleCellExperiment(list(counts=count_matrix), 
+                            colData = meta_cell)
 gc()
 date()
-zinb = zinbFit(sca2, K=2)
-date()
-
-sca_zinb = zinbwave(sca2, fitted_model = zinb, K = 2, epsilon=1000,
-                    observationalWeights = TRUE)
+sca_zinb = zinbwave(sca1, K = 2, observationalWeights = TRUE)
 date()
 gc()
 
 dds = DESeqDataSet(sca_zinb, design = ~ phenotype)
 dds = DESeq(dds, sfType="poscounts", useT=TRUE, minmu=1e-6)
-wv_pval = results(dds)$pvalue
-names(wv_pval)=rownames(dds)
+res = results(dds)
+dim(res)
+res[1:2,]
 
-summary(wv_pval)
-table(wv_pval[EE_index] < 0.05)
-table(wv_pval[EE_index] < 0.05)/length(EE_index)
-
+summary(res$pvalue)
+table(res$pvalue[EE_index] < 0.05)
+table(res$pvalue[EE_index] < 0.05)/length(EE_index)
 
 # ---------------------------------------------------------------
 # check p-value
@@ -134,35 +130,28 @@ geneType = rep("EE", nrow(count_matrix))
 geneType[mean_index] = "meanDE"
 geneType[var_index]  = "varDE"
 
+table(res$pvalue < 0.05, geneType)
 
-df1=read.table(file=sprintf("results/pval_ranksum_%s.txt", config), header=TRUE)
-
-df1 = cbind(df1, data.frame(wv_pval))
-#data.frame(geneType, pval_KR, pval_PS, deseq2_pval, 
-#                 mast_pval_glm, mast_pval_glmer,wv_pval)
-dim(df1)
-df1[1:2,]
-
-
-pdf(sprintf("figures/pvalue_hist_wv_%s.pdf", config), 
-    width = 9, height = 9)
-par(mfrow = c(3, 3), mar=c(5,4,2,1), pty = "s", bty="n")
-for(k in 2:ncol(df1)){
-  plot.hist(df1[,k], idx_grp, names(df1)[k])
-}
+pdf(sprintf("figures/pvalue_hist_zinbwave_%s.pdf", config), 
+    width = 9, height = 3)
+par(mfrow = c(1,3), mar=c(5,4,2,1), pty = "s", bty="n")
+plot.hist(res$pvalue,  idx_grp, "ZINB-WaVE")
 dev.off()
 
 # ---------------------------------------------------------------
 # save results
 # ---------------------------------------------------------------
 
-
 fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
-apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.05)})
-apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.01)})
+tapply(res$pvalue, geneType, fun1, alpha=0.05)
+tapply(res$pvalue, geneType, fun1, alpha=0.01)
 
-write.table(df1, file=sprintf("results/pval_wv_%s.txt", config), append=FALSE, 
-            quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+res$gene = rownames(res)
+res
+
+write.table(res, file=sprintf("results/res_ZINB-WaVE_%s.txt", config), 
+            append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
+            col.names = TRUE)
 
 sessionInfo()
 

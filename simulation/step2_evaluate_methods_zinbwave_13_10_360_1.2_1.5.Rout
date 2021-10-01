@@ -72,8 +72,7 @@ Type 'q()' to quit R.
 > # initial setup
 > # ---------------------------------------------------------------
 > 
-> library(scDD)
-> library(SingleCellExperiment)
+> library(zinbwave)
 Loading required package: SummarizedExperiment
 Loading required package: MatrixGenerics
 Loading required package: matrixStats
@@ -152,7 +151,8 @@ The following objects are masked from ‘package:matrixStats’:
 
     anyMissing, rowMedians
 
-> 
+Loading required package: SingleCellExperiment
+> library(DESeq2)
 > 
 > library(data.table)
 
@@ -187,12 +187,6 @@ The following object is masked from ‘package:data.table’:
 
 > library(ggplot2)
 > library(ggpubr)
-Registered S3 methods overwritten by 'car':
-  method                          from
-  influence.merMod                lme4
-  cooks.distance.influence.merMod lme4
-  dfbeta.influence.merMod         lme4
-  dfbetas.influence.merMod        lme4
 > theme_set(theme_bw())
 > 
 > # ---------------------------------------------------------------
@@ -239,106 +233,68 @@ ind2       ind2         1 -0.7018300
 > rm(sim_data)
 > gc()
            used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
-Ncells  6881946 367.6   10379790 554.4         NA  9704889 518.3
-Vcells 77879045 594.2  114547320 874.0      32768 77941311 594.7
+Ncells  6777799 362.0   10342452 552.4         NA  9302201 496.8
+Vcells 77863933 594.1  114525132 873.8      32768 77925904 594.6
 > 
 > # ---------------------------------------------------------------
-> # 6. scDD analysis 
+> # 5. zinb_pval analysis 
 > # ---------------------------------------------------------------
-> # We use the zinbwave to reduce the dimension, then apply DESeq2 for analysis
-> # all cells of an individual within a gene
+> # We use the zinbwave to estimate weights the dimension, then apply 
+> # DESeq2 given the weights
 > # ---------------------------------------------------------------
 > 
-> rds = colSums(count_matrix)
-> med_rds = median(rds)
-> summary(rds)
-   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-   8921    9656    9974   10035   10323   14193 
-> med_rds
-[1] 9974
-> 
-> dim(count_matrix)
-[1] 8000 8280
-> count_matrix[1:3,1:6]
-      cell1 cell2 cell3 cell4 cell5 cell6
-gene1     1     1     0     0     0     0
-gene2     1     1     0     0     2     0
-gene3     0     0     0     2     0     1
-> count_matrix = t(t(count_matrix)/rds)*med_rds
-> dim(count_matrix)
-[1] 8000 8280
-> count_matrix[1:3,1:6]
-         cell1    cell2 cell3    cell4    cell5   cell6
-gene1 1.024235 1.038417     0 0.000000 0.000000 0.00000
-gene2 1.024235 1.038417     0 0.000000 1.858221 0.00000
-gene3 0.000000 0.000000     0 1.992608 0.000000 1.03626
-> summary(colSums(count_matrix))
-   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-   9974    9974    9974    9974    9974    9974 
-> 
-> cell_id = colnames(count_matrix)   # get the cell id from the data
-> gene_id = rownames(count_matrix)   # get the gene id from the data
-> 
+> sca1 = SingleCellExperiment(list(counts=count_matrix), 
++                             colData = meta_cell)
 > gc()
-           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells  6886626 367.8   10379790  554.4         NA   9704889  518.3
-Vcells 77898367 594.4  254547327 1942.1      32768 210441929 1605.6
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  6801957 363.3   10342452 552.4         NA  9302201 496.8
+Vcells 77921354 594.5  114525132 873.8      32768 78478440 598.8
 > date()
-[1] "Wed Sep 29 11:54:21 2021"
-> sca3 = SingleCellExperiment(list(normcounts=count_matrix))
-> 
-> colData(sca3)$condition = meta_cell$phenotype + 1
-> table(sca3$condition)
-
-   1    2 
-3600 4680 
-> 
-> #sca3=sca3[1:100,50*(1:160)]
-> colData(sca3)
-DataFrame with 8280 rows and 1 column
-         condition
-         <numeric>
-cell1            2
-cell2            2
-cell3            2
-cell4            2
-cell5            2
-...            ...
-cell8276         1
-cell8277         1
-cell8278         1
-cell8279         1
-cell8280         1
+[1] "Wed Sep 29 13:43:26 2021"
+> sca_zinb = zinbwave(sca1, K = 2, observationalWeights = TRUE)
 > date()
-[1] "Wed Sep 29 11:54:21 2021"
-> sca_dd = scDD(sca3)
-Setting up parallel back-end using 14 cores
-Clustering observed expression data for each gene
-Notice: Number of permutations is set to zero; using 
-            Kolmogorov-Smirnov to test for differences in distributions
-            instead of the Bayes Factor permutation test
-Classifying significant genes into patterns
-> date()
-[1] "Wed Sep 29 12:24:02 2021"
+[1] "Wed Sep 29 15:13:46 2021"
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used    (Mb)
+Ncells   6842379  365.5   10342452  552.4         NA    9302201   496.8
+Vcells 144252335 1100.6 1209551472 9228.2      32768 1511799083 11534.2
 > 
-> res = results(sca_dd)
+> dds = DESeqDataSet(sca_zinb, design = ~ phenotype)
+converting counts to integer mode
+  the design formula contains one or more numeric variables with integer values,
+  specifying a model with increasing fold change for higher values.
+  did you mean for this to be a factor? if so, first convert
+  this variable to a factor using the factor() function
+> dds = DESeq(dds, sfType="poscounts", useT=TRUE, minmu=1e-6)
+estimating size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+> res = results(dds)
 > dim(res)
-[1] 8000   11
+[1] 8000    6
 > res[1:2,]
-       gene DDcategory Clusters.combined Clusters.c1 Clusters.c2 nonzero.pvalue
-gene1 gene1         NS                 2           2           2     0.04433325
-gene2 gene2         NS                 1           1           1     0.10796673
-      nonzero.pvalue.adj zero.pvalue zero.pvalue.adj combined.pvalue
-gene1         0.06475552   0.5149700       0.6067394       0.1091212
-gene2         0.13466384   0.5619882       0.6486662       0.2307028
-      combined.pvalue.adj
-gene1           0.1288136
-gene2           0.2519621
+log2 fold change (MLE): phenotype 
+Wald test p-value: phenotype 
+DataFrame with 2 rows and 6 columns
+       baseMean log2FoldChange     lfcSE      stat    pvalue      padj
+      <numeric>      <numeric> <numeric> <numeric> <numeric> <numeric>
+gene1  0.418364      -0.121373 0.0506169  -2.39787 0.0165177 0.0287835
+gene2  0.344354       0.109751 0.0584248   1.87850 0.0603594 0.0921950
 > 
-> gc()
-            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells   6957666  371.6   13797914  736.9         NA  13797914  736.9
-Vcells 210805766 1608.4  542985683 4142.7      32768 542985683 4142.7
+> summary(res$pvalue)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.0000000 0.0000001 0.0030087 0.1486534 0.1801029 0.9999951 
+> table(res$pvalue[EE_index] < 0.05)
+
+FALSE  TRUE 
+ 2476  3524 
+> table(res$pvalue[EE_index] < 0.05)/length(EE_index)
+
+    FALSE      TRUE 
+0.4126667 0.5873333 
 > 
 > # ---------------------------------------------------------------
 > # check p-value
@@ -358,22 +314,16 @@ Vcells 210805766 1608.4  542985683 4142.7      32768 542985683 4142.7
 > geneType[mean_index] = "meanDE"
 > geneType[var_index]  = "varDE"
 > 
-> table(res$DDcategory, geneType)
-    geneType
-       EE meanDE varDE
-  DB  583    151   354
-  DE  870    274   407
-  DM   55     12    34
-  DP  358    125     0
-  DZ 1229    270   195
-  NS 2905    168    10
+> table(res$pvalue < 0.05, geneType)
+       geneType
+          EE meanDE varDE
+  FALSE 2476    144   246
+  TRUE  3524    856   754
 > 
-> pdf(sprintf("figures/pvalue_hist_scDD_%s.pdf", config), 
-+     width = 9, height = 9)
-> par(mfrow = c(3, 3), mar=c(5,4,2,1), pty = "s", bty="n")
-> plot.hist(res$nonzero.pvalue,  idx_grp, "nonzero.pvalue")
-> plot.hist(res$zero.pvalue,     idx_grp, "zero.pvalue")
-> plot.hist(res$combined.pvalue, idx_grp, "combined.pvalue")
+> pdf(sprintf("figures/pvalue_hist_zinbwave_%s.pdf", config), 
++     width = 9, height = 3)
+> par(mfrow = c(1,3), mar=c(5,4,2,1), pty = "s", bty="n")
+> plot.hist(res$pvalue,  idx_grp, "ZINB-WaVE")
 > dev.off()
 null device 
           1 
@@ -383,113 +333,72 @@ null device
 > # ---------------------------------------------------------------
 > 
 > fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
-> res_pval = res[,c("nonzero.pvalue", "zero.pvalue", "combined.pvalue")]
-> apply(res_pval, 2, function(v){tapply(v, geneType, fun1, alpha=0.05)})
-$nonzero.pvalue
-$nonzero.pvalue$EE
+> tapply(res$pvalue, geneType, fun1, alpha=0.05)
+$EE
 
     FALSE      TRUE 
-0.3548333 0.6451667 
+0.4126667 0.5873333 
 
-$nonzero.pvalue$meanDE
-
-FALSE  TRUE 
-0.237 0.763 
-
-$nonzero.pvalue$varDE
+$meanDE
 
 FALSE  TRUE 
-0.037 0.963 
+0.144 0.856 
 
+$varDE
 
-$zero.pvalue
-$zero.pvalue$EE
+FALSE  TRUE 
+0.246 0.754 
+
+> tapply(res$pvalue, geneType, fun1, alpha=0.01)
+$EE
 
     FALSE      TRUE 
-0.5118333 0.4881667 
+0.5141667 0.4858333 
 
-$zero.pvalue$meanDE
-
-FALSE  TRUE 
-0.179 0.821 
-
-$zero.pvalue$varDE
+$meanDE
 
 FALSE  TRUE 
-0.086 0.914 
+0.196 0.804 
 
-
-$combined.pvalue
-$combined.pvalue$EE
-
-    FALSE      TRUE 
-0.2843333 0.7156667 
-
-$combined.pvalue$meanDE
+$varDE
 
 FALSE  TRUE 
-0.077 0.923 
-
-$combined.pvalue$varDE
-
-FALSE  TRUE 
-0.001 0.999 
-
-
-> apply(res_pval, 2, function(v){tapply(v, geneType, fun1, alpha=0.01)})
-$nonzero.pvalue
-$nonzero.pvalue$EE
-
-    FALSE      TRUE 
-0.5726667 0.4273333 
-
-$nonzero.pvalue$meanDE
-
-FALSE  TRUE 
-0.413 0.587 
-
-$nonzero.pvalue$varDE
-
-FALSE  TRUE 
-0.088 0.912 
-
-
-$zero.pvalue
-$zero.pvalue$EE
-
-    FALSE      TRUE 
-0.6273333 0.3726667 
-
-$zero.pvalue$meanDE
-
-FALSE  TRUE 
-0.263 0.737 
-
-$zero.pvalue$varDE
-
-FALSE  TRUE 
- 0.15  0.85 
-
-
-$combined.pvalue
-$combined.pvalue$EE
-
-    FALSE      TRUE 
-0.4343333 0.5656667 
-
-$combined.pvalue$meanDE
-
-FALSE  TRUE 
-0.147 0.853 
-
-$combined.pvalue$varDE
-
-FALSE  TRUE 
-0.002 0.998 
-
+0.328 0.672 
 
 > 
-> write.table(res, file=sprintf("results/res_scDD_%s.txt", config), 
+> res$gene = rownames(res)
+> res
+log2 fold change (MLE): phenotype 
+Wald test p-value: phenotype 
+DataFrame with 8000 rows and 7 columns
+          baseMean log2FoldChange     lfcSE      stat      pvalue        padj
+         <numeric>      <numeric> <numeric> <numeric>   <numeric>   <numeric>
+gene1     0.418364     -0.1213729 0.0506169 -2.397872 1.65177e-02 2.87835e-02
+gene2     0.344354      0.1097512 0.0584248  1.878504 6.03594e-02 9.21950e-02
+gene3     0.250343      0.1891785 0.0652417  2.899655 3.75037e-03 7.38989e-03
+gene4     0.764600     -0.3066700 0.0372206 -8.239258 2.04328e-16 1.81625e-15
+gene5     0.259592     -0.0264594 0.0670417 -0.394671 6.93120e-01 7.48510e-01
+...            ...            ...       ...       ...         ...         ...
+gene7996  0.294209     -0.2929414 0.0603014  -4.85795 1.23157e-06 4.15193e-06
+gene7997  0.551920     -0.0746079 0.0463399  -1.61001 1.07451e-01 1.53119e-01
+gene7998  0.330948     -0.1074515 0.0565933  -1.89866 5.76649e-02 8.86300e-02
+gene7999  0.659312      0.4196431 0.0412499  10.17318 3.84033e-24 5.68937e-23
+gene8000  0.634100     -0.1228166 0.0416703  -2.94734 3.21922e-03 6.40481e-03
+                gene
+         <character>
+gene1          gene1
+gene2          gene2
+gene3          gene3
+gene4          gene4
+gene5          gene5
+...              ...
+gene7996    gene7996
+gene7997    gene7997
+gene7998    gene7998
+gene7999    gene7999
+gene8000    gene8000
+> 
+> write.table(res, file=sprintf("results/res_ZINB-WaVE_%s.txt", config), 
 +             append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
 +             col.names = TRUE)
 > 
@@ -512,80 +421,47 @@ attached base packages:
 other attached packages:
  [1] ggpubr_0.4.0                ggplot2_3.3.3              
  [3] pryr_0.1.4                  data.table_1.13.6          
- [5] SingleCellExperiment_1.12.0 SummarizedExperiment_1.20.0
- [7] Biobase_2.50.0              GenomicRanges_1.42.0       
- [9] GenomeInfoDb_1.26.2         IRanges_2.24.1             
-[11] S4Vectors_0.28.1            BiocGenerics_0.36.0        
-[13] MatrixGenerics_1.2.0        matrixStats_0.57.0         
-[15] scDD_1.14.0                
+ [5] DESeq2_1.30.0               zinbwave_1.12.0            
+ [7] SingleCellExperiment_1.12.0 SummarizedExperiment_1.20.0
+ [9] Biobase_2.50.0              GenomicRanges_1.42.0       
+[11] GenomeInfoDb_1.26.2         IRanges_2.24.1             
+[13] S4Vectors_0.28.1            BiocGenerics_0.36.0        
+[15] MatrixGenerics_1.2.0        matrixStats_0.57.0         
 
 loaded via a namespace (and not attached):
-  [1] minqa_1.2.4               colorspace_2.0-0         
-  [3] ggsignif_0.6.0            rio_0.5.16               
-  [5] ellipsis_0.3.1            mclust_5.4.7             
-  [7] scuttle_1.0.4             htmlTable_2.2.1          
-  [9] bluster_1.0.0             XVector_0.30.0           
- [11] base64enc_0.1-3           BiocNeighbors_1.8.2      
- [13] rstudioapi_0.13           codetools_0.2-18         
- [15] splines_4.0.3             sparseMatrixStats_1.2.0  
- [17] knitr_1.30                spam_2.7-0               
- [19] Formula_1.2-4             EBSeq_1.30.0             
- [21] nloptr_1.2.2.2            broom_0.7.3              
- [23] cluster_2.1.0             png_0.1-7                
- [25] compiler_4.0.3            dqrng_0.2.1              
- [27] backports_1.2.1           Matrix_1.3-0             
- [29] limma_3.46.0              BiocSingular_1.6.0       
- [31] htmltools_0.5.0           tools_4.0.3              
- [33] blockmodeling_1.0.5       rsvd_1.0.3               
- [35] igraph_1.2.6              dotCall64_1.0-1          
- [37] coda_0.19-4               gtable_0.3.0             
- [39] glue_1.4.2                GenomeInfoDbData_1.2.4   
- [41] dplyr_1.0.2               maps_3.4.0               
- [43] Rcpp_1.0.5                carData_3.0-4            
- [45] cellranger_1.1.0          vctrs_0.3.6              
- [47] nlme_3.1-151              DelayedMatrixStats_1.12.1
- [49] xfun_0.19                 stringr_1.4.0            
- [51] openxlsx_4.2.3            testthat_3.0.1           
- [53] beachmat_2.6.4            lme4_1.1-26              
- [55] lifecycle_0.2.0           irlba_2.3.3              
- [57] gtools_3.8.2              rstatix_0.6.0            
- [59] statmod_1.4.35            edgeR_3.32.0             
- [61] zlibbioc_1.36.0           MASS_7.3-53              
- [63] scales_1.1.1              hms_0.5.3                
- [65] RColorBrewer_1.1-2        fields_12.5              
- [67] curl_4.3                  gridExtra_2.3            
- [69] rpart_4.1-15              latticeExtra_0.6-29      
- [71] stringi_1.5.3             checkmate_2.0.0          
- [73] scran_1.18.3              caTools_1.18.0           
- [75] zip_2.1.1                 boot_1.3-25              
- [77] BiocParallel_1.24.1       rlang_0.4.10             
- [79] pkgconfig_2.0.3           bitops_1.0-6             
- [81] arm_1.11-2                lattice_0.20-41          
- [83] purrr_0.3.4               htmlwidgets_1.5.3        
- [85] tidyselect_1.1.0          magrittr_2.0.1           
- [87] R6_2.5.0                  gplots_3.1.1             
- [89] generics_0.1.0            Hmisc_4.5-0              
- [91] DelayedArray_0.16.0       haven_2.3.1              
- [93] pillar_1.4.7              foreign_0.8-81           
- [95] withr_2.3.0               survival_3.2-7           
- [97] abind_1.4-5               RCurl_1.98-1.2           
- [99] nnet_7.3-14               tibble_3.0.4             
-[101] car_3.0-10                crayon_1.3.4             
-[103] KernSmooth_2.23-18        viridis_0.5.1            
-[105] jpeg_0.1-9                readxl_1.3.1             
-[107] locfit_1.5-9.4            grid_4.0.3               
-[109] forcats_0.5.0             digest_0.6.27            
-[111] tidyr_1.1.2               outliers_0.14            
-[113] munsell_0.5.0             viridisLite_0.3.0        
+ [1] httr_1.4.2             edgeR_3.32.0           tidyr_1.1.2           
+ [4] bit64_4.0.5            splines_4.0.3          carData_3.0-4         
+ [7] blob_1.2.1             cellranger_1.1.0       GenomeInfoDbData_1.2.4
+[10] pillar_1.4.7           RSQLite_2.2.1          backports_1.2.1       
+[13] lattice_0.20-41        glue_1.4.2             limma_3.46.0          
+[16] digest_0.6.27          RColorBrewer_1.1-2     XVector_0.30.0        
+[19] ggsignif_0.6.0         colorspace_2.0-0       Matrix_1.3-0          
+[22] XML_3.99-0.5           pkgconfig_2.0.3        broom_0.7.3           
+[25] haven_2.3.1            genefilter_1.72.0      zlibbioc_1.36.0       
+[28] purrr_0.3.4            xtable_1.8-4           scales_1.1.1          
+[31] openxlsx_4.2.3         rio_0.5.16             BiocParallel_1.24.1   
+[34] tibble_3.0.4           annotate_1.68.0        generics_0.1.0        
+[37] car_3.0-10             ellipsis_0.3.1         withr_2.3.0           
+[40] readxl_1.3.1           survival_3.2-7         magrittr_2.0.1        
+[43] crayon_1.3.4           memoise_1.1.0          forcats_0.5.0         
+[46] rstatix_0.6.0          foreign_0.8-81         tools_4.0.3           
+[49] hms_0.5.3              softImpute_1.4-1       lifecycle_0.2.0       
+[52] stringr_1.4.0          munsell_0.5.0          locfit_1.5-9.4        
+[55] zip_2.1.1              DelayedArray_0.16.0    AnnotationDbi_1.52.0  
+[58] compiler_4.0.3         rlang_0.4.10           grid_4.0.3            
+[61] RCurl_1.98-1.2         bitops_1.0-6           gtable_0.3.0          
+[64] codetools_0.2-18       abind_1.4-5            DBI_1.1.0             
+[67] curl_4.3               R6_2.5.0               dplyr_1.0.2           
+[70] bit_4.0.4              stringi_1.5.3          Rcpp_1.0.5            
+[73] vctrs_0.3.6            geneplotter_1.68.0     tidyselect_1.1.0      
 > 
-> mem_used()
-2.08 GB
+> #mem_used()
 > gc()
-            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells   6970839  372.3   13797914  736.9         NA  13797914  736.9
-Vcells 210844537 1608.7  542985683 4142.7      32768 542985683 4142.7
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used    (Mb)
+Ncells   6912884  369.2   10342452  552.4         NA   10342452   552.4
+Vcells 409706186 3125.9 1271079297 9697.6      32768 1588849121 12122.0
 > 
 > q(save = "no")
 > proc.time()
      user    system   elapsed 
-13933.383   277.423  1794.541 
+33384.733  6852.222  7315.168 

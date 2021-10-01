@@ -240,7 +240,7 @@ ind2       ind2         1 0.07409364
 > gc()
            used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
 Ncells  6877253 367.3   10379790 554.4         NA  9704889 518.3
-Vcells 40387522 308.2   60633718 462.6      32768 40449788 308.7
+Vcells 40387526 308.2   60633724 462.6      32768 40449792 308.7
 > 
 > # ---------------------------------------------------------------
 > # 6. scDD analysis 
@@ -282,9 +282,9 @@ gene3 0.000000 0.00000     0 2.041782 0.000000 1.054697
 > gc()
            used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
 Ncells  6881933 367.6   10379790 554.4         NA  9704889 518.3
-Vcells 40402164 308.3  119695883 913.3      32768 98030626 748.0
+Vcells 40402168 308.3  119695888 913.3      32768 98030630 748.0
 > date()
-[1] "Tue Sep 28 10:04:17 2021"
+[1] "Wed Sep 29 13:19:29 2021"
 > sca3 = SingleCellExperiment(list(normcounts=count_matrix))
 > 
 > colData(sca3)$condition = meta_cell$phenotype + 1
@@ -310,7 +310,7 @@ cell3598         1
 cell3599         1
 cell3600         1
 > date()
-[1] "Tue Sep 28 10:04:17 2021"
+[1] "Wed Sep 29 13:19:29 2021"
 > sca_dd = scDD(sca3)
 Setting up parallel back-end using 14 cores
 Clustering observed expression data for each gene
@@ -319,7 +319,7 @@ Notice: Number of permutations is set to zero; using
             instead of the Bayes Factor permutation test
 Classifying significant genes into patterns
 > date()
-[1] "Tue Sep 28 10:21:57 2021"
+[1] "Wed Sep 29 13:38:54 2021"
 > 
 > res = results(sca_dd)
 > dim(res)
@@ -337,8 +337,8 @@ gene2        4.269936e-05
 > 
 > gc()
            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells  6953033 371.4   13819791  738.1         NA  13819791  738.1
-Vcells 98223695 749.4  259454506 1979.5      32768 259454506 1979.5
+Ncells  6953036 371.4   13819662  738.1         NA  13819662  738.1
+Vcells 98223704 749.4  259427320 1979.3      32768 259427320 1979.3
 > 
 > # ---------------------------------------------------------------
 > # check p-value
@@ -361,12 +361,12 @@ Vcells 98223695 749.4  259454506 1979.5      32768 259454506 1979.5
 > table(res$DDcategory, geneType)
     geneType
        EE meanDE varDE
-  DB 1668    268   386
-  DE  784    182   236
-  DM  512     99   121
+  DB 1664    267   385
+  DE  789    180   235
+  DM  516    100   122
   DP   13      1     0
-  DZ  903    233   219
-  NS 2120    217    38
+  DZ  897    233   221
+  NS 2121    219    37
 > 
 > pdf(sprintf("figures/pvalue_hist_scDD_%s.pdf", config), 
 +     width = 9, height = 9)
@@ -489,7 +489,7 @@ FALSE  TRUE
 
 
 > 
-> write.table(geneType, file=sprintf("results/res_scDD_%s.txt", config), 
+> write.table(res, file=sprintf("results/res_scDD_%s.txt", config), 
 +             append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
 +             col.names = TRUE)
 > 
@@ -582,10 +582,10 @@ loaded via a namespace (and not attached):
 1.18 GB
 > gc()
            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells  6966146 372.1   13819791  738.1         NA  13819791  738.1
-Vcells 98262366 749.7  259454506 1979.5      32768 259454506 1979.5
+Ncells  6966146 372.1   13819662  738.1         NA  13819662  738.1
+Vcells 98262370 749.7  259427320 1979.3      32768 259427320 1979.3
 > 
 > q(save = "no")
 > proc.time()
     user   system  elapsed 
-6067.732  167.963 1072.814 
+5811.098  130.488 1178.345 

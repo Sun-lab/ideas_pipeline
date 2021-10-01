@@ -166,7 +166,7 @@ res_pval = res[,c("nonzero.pvalue", "zero.pvalue", "combined.pvalue")]
 apply(res_pval, 2, function(v){tapply(v, geneType, fun1, alpha=0.05)})
 apply(res_pval, 2, function(v){tapply(v, geneType, fun1, alpha=0.01)})
 
-write.table(geneType, file=sprintf("results/res_scDD_%s.txt", config), 
+write.table(res, file=sprintf("results/res_scDD_%s.txt", config), 
             append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
             col.names = TRUE)
 
