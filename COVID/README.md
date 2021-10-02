@@ -48,7 +48,9 @@ IDEAS related:
 
 [1d_dca_direct.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_dca_direct.R)
 
+[1d_saver.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_saver.R)
 
+[1d_saver_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_saver_perm.R)
 
 
 ## References
