@@ -6,7 +6,7 @@ Recover count data, fliter out genes appearing in less than 2000 cells and split
 
 [0_separate_celltypes.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/0_separate_celltypes.R) 
 
-DCA[[2]](#2) related steps:
+DCA[[2]](#2) related preparation steps:
 
 [1a_dca_prepare_data.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1a_dca_prepare_data.R)
 
@@ -20,29 +20,31 @@ Note on running DCA:
 
 (1) should install keras version 2.4 and tensorflow >=2.0 and <2.5, following the [requirements of DCA](https://github.com/theislab/dca/blob/master/setup.py),  not the new versions.  (2) current version (as of 09/26/2021) of DCA sets nb as default option. Need to set type to zinb-conddisp if zinb result is wanted. (3) current version does not output mean\_norm.tsv. Need to recover the mean\_norm.tsv file using mean.tsv file and the raw count file.  (4) current version does not provide meaningful column names for the dropout and dispersion matrix, need to borrow the column names (V1 followed by cell names) from mean\_norm matrix when splitting the matrices to celltypes. 
 
-DESeq2  :
+**DESeq2:**
 
 [1b_DESeq2_mild_severe.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2_mild_severe.R) 
 
 [1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) is the version for DE in terms of COVID v.s. control. 
 
+
+
+**Rank sum test:**
+
+[1b_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum.R) 
+
 Create permutated donor level labels:
 
 [1b_permutation_label.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_permutation_label.R) Only involves 7 mild and 7 severe donors in each permutation to keep balance.
 
-Rank sum test:
-
-[1b_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum.R) 
-
 [1b_ranksum_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum_perm.R)
 
 
-MAST:
+**MAST:**
 
 [1b_MAST.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_MAST.R) 
 
 
-IDEAS related:
+**IDEAS related:**
 
 [1c_ideas.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1c_ideas.R)
 
