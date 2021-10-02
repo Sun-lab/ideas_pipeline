@@ -20,6 +20,10 @@ Note on running DCA:
 
 (1) should install keras version 2.4 and tensorflow >=2.0 and <2.5, following the [requirements of DCA](https://github.com/theislab/dca/blob/master/setup.py),  not the new versions.  (2) current version (as of 09/26/2021) of DCA sets nb as default option. Need to set type to zinb-conddisp if zinb result is wanted. (3) current version does not output mean\_norm.tsv. Need to recover the mean\_norm.tsv file using mean.tsv file and the raw count file.  (4) current version does not provide meaningful column names for the dropout and dispersion matrix, need to borrow the column names (V1 followed by cell names) from mean\_norm matrix when splitting the matrices to celltypes. 
 
+SAVER[[3]](#3) related preparation step:
+
+[1a_saver_prepare_data.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1a_saver_prepare_data.R)
+
 **DESeq2:**
 
 [1b_DESeq2_mild_severe.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2_mild_severe.R) 
@@ -61,3 +65,6 @@ Schulte-Schrepping, Jonas, et al. "Severe COVID-19 is marked by a dysregulated m
 
 <a id="2">[2]</a> 
 Eraslan, Gökcen, et al. "Single-cell RNA-seq denoising using a deep count autoencoder." Nature communications 10.1 (2019): 1-14.
+
+<a id="3">[3]</a> 
+Huang, Mo, et al. "SAVER: gene expression recovery for single-cell RNA sequencing." Nature methods 15.7 (2018): 539-542.
