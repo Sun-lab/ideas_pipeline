@@ -42,7 +42,11 @@ MAST:
 [1b_MAST.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_MAST.R) 
 
 
+IDEAS related:
 
+[1c_ideas.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1c_ideas.R)
+
+[1d_dca_direct.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_dca_direct.R)
 
 
 
