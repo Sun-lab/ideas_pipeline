@@ -168,7 +168,7 @@ will replace the existing scale.
 > rownames(pi1_sub) = rownames(pi1_sub)
 > 
 > g1 = ggcorrplot(pi1_sub, tl.srt=90)
-> g1 = g1 + scale_fill_gradient2(limit = c(0,0.61), low = "blue", 
+> g1 = g1 + scale_fill_gradient2(limit = c(0,1), low = "blue", 
 +                                high =  "red", mid = "white", 
 +                                midpoint = 0.2)
 Scale for 'fill' is already present. Adding another scale for 'fill', which
@@ -203,8 +203,8 @@ CD8+Tcells_1       0.743
 > 
 > gc()
           used (Mb) gc trigger  (Mb) limit (Mb) max used (Mb)
-Ncells  962839 51.5    1952220 104.3         NA  1263980 67.6
-Vcells 1650744 12.6    8388608  64.0      65536  6650174 50.8
+Ncells  962836 51.5    1952211 104.3         NA  1263980 67.6
+Vcells 1650736 12.6    8388608  64.0      65536  6650174 50.8
 > 
 > sessionInfo()
 R version 4.1.0 (2021-05-18)
@@ -242,4 +242,4 @@ loaded via a namespace (and not attached):
 > q(save="no")
 > proc.time()
    user  system elapsed 
-  1.036   0.100   1.128 
+  1.042   0.100   1.135 

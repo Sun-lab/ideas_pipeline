@@ -121,7 +121,7 @@ summary(c(pi1_sub))
 rownames(pi1_sub) = rownames(pi1_sub)
 
 g1 = ggcorrplot(pi1_sub, tl.srt=90)
-g1 = g1 + scale_fill_gradient2(limit = c(0,0.61), low = "blue", 
+g1 = g1 + scale_fill_gradient2(limit = c(0,1), low = "blue", 
                                high =  "red", mid = "white", 
                                midpoint = 0.2)
 
