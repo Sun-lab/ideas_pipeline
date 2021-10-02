@@ -1,0 +1,275 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> 
+> library(data.table)
+> library(ggplot2)
+> library(emdbook)
+> library(stringr)
+> 
+> 
+> 
+> data.dir = "../../ideas_data/COVID/PBMC_10x"
+> 
+> 
+> # ---------------------------------------------------------------------
+> # a function to split the statistics from DCA into individual files
+> # for each cell type separately
+> # ---------------------------------------------------------------------
+> 
+> split_cluster <- function(dat, cell_info, statistics){
++   cell_ids = names(dat)[-1]
++   length(cell_ids)
++   cell_ids[1:5]
++   
++   # the current version of dca (as of Sept.26, 2021) does not provide
++   # meaningful headers (cell names) for the dropout matrix
++   # so cannot verify the matching between dropout matrix column and
++   # cells in meta info for now
++   #stopifnot(all(cell_ids %in% cell_info$cell))
++   
++   celltypes = cell_info$id.celltype[match(cell_ids, cell_info$cell)]
++   table(celltypes)
++   
++   ucelltypes = unique(celltypes)
++   
++   for(c1 in ucelltypes){
++     # index +1 since dca_mean has one extra column of gene id
++     c1 = as.character(c1)   
++     w2kp = which(celltypes == c1) + 1
++     dat_celltype = dat[,c(1, w2kp),with=FALSE]
++     c1 = strsplit(c1, " ")[[1]]
++     c1 = paste(c1[-1], collapse = "")
++     fnm = file.path(data.dir, 
++                     sprintf("dca_zinb_celltypes/%s_%s.tsv", c1, statistics))
++     fwrite(dat_celltype, file = fnm, sep = "\t")
++     # also tried to save to rds, it seems the file size is not much difference
++   }
++ }
+> 
+> # ---------------------------------------------------------------------
+> # read in cell information and read count
+> # ---------------------------------------------------------------------
+> 
+> cell_info = fread(file.path(data.dir, "meta.tsv"), stringsAsFactors=TRUE)
+> dim(cell_info)
+[1] 99049    40
+> cell_info[1:2,]
+                   cell orig.ident nCount_RNA nFeature_RNA nReads_RNA
+1: 1_AAACCCAAGGCTTTCA-1    Covid19       4842         1925       4842
+2: 1_AAACCCACAACTTCTT-1    Covid19       9582         3004       9582
+   nReads_ALL percent.mito percent.hb       donor onset_of_symptoms
+1:       5102     6.608839          0 C19-CB-0001        25.02.2020
+2:      10008     4.195366          0 C19-CB-0003        29.02.2020
+   days_after_onset        sampleID origID date_of_sampling DaysAfterSample0
+1:               11 C19-CB-0001_d11   1_d4       06.03.2020                4
+2:               13 C19-CB-0003_d13   3_d0       12.03.2020                0
+   experiment PoolID sampletag         hash.ID        platform purification
+1:       A3_2      1  Hashtag6 Hashtag6-TotalA scRNA-seq (10x)        Fresh
+2:       A3_2      1  Hashtag8 Hashtag8-TotalA scRNA-seq (10x)        Fresh
+   cells   age  sex group_per_sample who_per_sample disease_stage    outcome
+1:  PBMC 21_25 male             mild              3          late discharged
+2:  PBMC 41_45 male             mild              3          late discharged
+             comorbidities COVID.19.related_medication_and_anti.microbials
+1:                    none                                            none
+2: Cardiovascular diseases                                            none
+   RNA_snn_res.0.4  cluster_labels_res.0.4 new.order                id.celltype
+1:               7 HLA-DR+ CD83+ Monocytes         1 1: HLA-DR+ CD83+ Monocytes
+2:               7 HLA-DR+ CD83+ Monocytes         1 1: HLA-DR+ CD83+ Monocytes
+   hpca.labels blueprint.labels monaco.labels immune.labels dmap.labels
+1:    Monocyte        Monocytes     Monocytes     Monocytes   Monocytes
+2:    Monocyte        Monocytes     Monocytes     Monocytes   Monocytes
+   hemato.labels
+1:     Monocytes
+2:     Monocytes
+> 
+> table(cell_info$id.celltype)
+
+     0: Classical Monocytes          10: CD4+ T cells_2 
+                      16982                       10588 
+         11: CD4+ T cells_3          12: CD8+ T cells_1 
+                       2969                       11002 
+         13: CD8+ T cells_2          14: CD8+ T cells_3 
+                       1119                        2981 
+               15: NK cells               16: B cells_1 
+                       8436                        7235 
+              17: B cells_2               18: B cells_3 
+                        259                         209 
+           19: Plasmablasts  1: HLA-DR+ CD83+ Monocytes 
+                        839                        3414 
+          20: Megakaryocyte                   21: mixed 
+                       1161                         164 
+              22: undefined         2: CD163+ Monocytes 
+                        161                        1445 
+3: HLA-DR- S100A+ monocytes  4: Non-classical Monocytes 
+                       5273                        3399 
+             5: Neutrophils     6: Immature Neutrophils 
+                       2878                        1386 
+                    7: mDCs                     8: pDCs 
+                        833                         516 
+          9: CD4+ T cells_1 
+                      15800 
+> 
+> 
+> # ---------------------------------------------------------------------
+> # read in dca output and split data into different cell types
+> # ---------------------------------------------------------------------
+> 
+> 
+> # first is the intermediate level output mean_norm.tsv, before scaling
+> # back to the raw scale
+> dca_mean_norm  = fread(file.path(data.dir, "dca_zinb_all/mean_norm.tsv"))
+> gc()
+             used    (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    3233008   172.7    6047314   323.0         NA    4917495   262.7
+Vcells 6058629078 46223.7 8541773496 65168.6      65536 6059512665 46230.5
+> dim(dca_mean_norm)
+[1] 10167 99050
+> dca_mean_norm[1:2,1:5]
+          V1 1_AAACGAATCAGACCTA-1 1_AAAGAACCACAAGGTG-1 1_AAAGAACCACACAGAG-1
+1: LINC00115           0.06189893           0.04337922           0.09093154
+2:     NOC2L           0.22699824           0.16776749           0.30726085
+   1_AAAGGATTCATCTCTA-1
+1:            0.1852542
+2:            0.3768252
+> # can only do the following verification directly for mean_norm
+> stopifnot(all(names(dca_mean_norm)[-1] %in% cell_info$cell))
+> 
+> split_cluster(dca_mean_norm, cell_info, "mean_norm")
+> 
+> gc()
+             used    (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    3494350   186.7    6047314   323.0         NA    4917495   262.7
+Vcells 6058925488 46226.0 8541773496 65168.6      65536 7071904297 53954.4
+> 
+> 
+> # second is the pi parameter
+> dca_pi = fread(file.path(data.dir, "dca_zinb_all/dropout.tsv"))
+> gc()
+             used    (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    3692335   197.2    6047314   323.0         NA    5378370   287.3
+Vcells 7166878801 54679.0 8541773496 65168.6      65536 7168037361 54687.8
+> dim(dca_pi)
+[1] 10167 99050
+> dca_pi[1:2,1:5]
+          V1       V2       V3       V4       V5
+1: LINC00115 0.467932 0.526950 0.479017 0.366787
+2:     NOC2L 0.159981 0.163476 0.232343 0.218318
+> # set column names of dropout matrix 
+> # to follow those of mean_norm matrix
+> names(dca_pi) = names(dca_mean_norm)
+>   
+> split_cluster(dca_pi, cell_info, "pi")
+> 
+> gc()
+             used    (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    3891776   207.9    6047314   323.0         NA    5378370   287.3
+Vcells 7167134307 54680.9 8541773496 65168.6      65536 8180012539 62408.6
+> 
+> 
+> # third is the dispersion parameter
+> dca_theta = fread(file.path(data.dir, "dca_zinb_all/dispersion.tsv"))
+> gc()
+             used    (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    3990707   213.2    6047314   323.0         NA    5676747   303.2
+Vcells 8274360172 63128.4 8541773496 65168.6      65536 8275488788 63137.0
+> dim(dca_theta)
+[1] 10167 99050
+> dca_theta[1:2,1:5]
+          V1       V2       V3       V4       V5
+1: LINC00115 1.536658 1.640553 1.185153 1.237172
+2:     NOC2L 4.391044 4.742513 3.019122 3.223116
+> # set column names of dispersion matrix 
+> # to follow those of mean_norm matrix
+> names(dca_theta) = names(dca_mean_norm)
+> 
+> split_cluster(dca_theta, cell_info, "dispersion")
+> 
+> gc()
+             used    (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
+Ncells    3990743   213.2    6047314   323.0         NA    5676747   303.2
+Vcells 8274394715 63128.7 8543361006 65180.7      65536 8543358431 65180.7
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] stringr_1.4.0     emdbook_1.3.12    ggplot2_3.3.5     data.table_1.14.0
+
+loaded via a namespace (and not attached):
+  [1] nlme_3.1-152          matrixStats_0.61.0    spatstat.sparse_2.0-0
+  [4] RcppAnnoy_0.0.19      RColorBrewer_1.1-2    httr_1.4.2           
+  [7] numDeriv_2016.8-1.1   sctransform_0.3.2     tools_4.1.0          
+ [10] utf8_1.2.1            R6_2.5.0              irlba_2.3.3          
+ [13] rpart_4.1-15          KernSmooth_2.23-20    uwot_0.1.10          
+ [16] DBI_1.1.1             lazyeval_0.2.2        mgcv_1.8-35          
+ [19] colorspace_2.0-2      withr_2.4.2           tidyselect_1.1.1     
+ [22] gridExtra_2.3         compiler_4.1.0        plotly_4.9.4.1       
+ [25] Seurat_4.0.4          scales_1.1.1          mvtnorm_1.1-2        
+ [28] lmtest_0.9-38         spatstat.data_2.1-0   ggridges_0.5.3       
+ [31] pbapply_1.5-0         goftest_1.2-2         digest_0.6.27        
+ [34] spatstat.utils_2.2-0  pkgconfig_2.0.3       htmltools_0.5.2      
+ [37] parallelly_1.28.1     bbmle_1.0.23.1        fastmap_1.1.0        
+ [40] htmlwidgets_1.5.4     rlang_0.4.11          shiny_1.7.0          
+ [43] generics_0.1.0        zoo_1.8-9             jsonlite_1.7.2       
+ [46] ica_1.0-2             dplyr_1.0.7           magrittr_2.0.1       
+ [49] patchwork_1.1.1       Matrix_1.3-3          Rcpp_1.0.7           
+ [52] munsell_0.5.0         fansi_0.5.0           abind_1.4-5          
+ [55] reticulate_1.22       lifecycle_1.0.0       stringi_1.6.2        
+ [58] MASS_7.3-54           Rtsne_0.15            plyr_1.8.6           
+ [61] grid_4.1.0            parallel_4.1.0        listenv_0.8.0        
+ [64] promises_1.2.0.1      ggrepel_0.9.1         bdsmatrix_1.3-4      
+ [67] crayon_1.4.1          miniUI_0.1.1.1        deldir_0.2-10        
+ [70] lattice_0.20-44       cowplot_1.1.1         splines_4.1.0        
+ [73] tensor_1.5            pillar_1.6.1          igraph_1.2.6         
+ [76] spatstat.geom_2.2-2   stats4_4.1.0          future.apply_1.8.1   
+ [79] reshape2_1.4.4        codetools_0.2-18      leiden_0.3.9         
+ [82] glue_1.4.2            SeuratObject_4.0.2    png_0.1-7            
+ [85] vctrs_0.3.8           httpuv_1.6.3          gtable_0.3.0         
+ [88] RANN_2.6.1            purrr_0.3.4           spatstat.core_2.3-0  
+ [91] polyclip_1.10-0       tidyr_1.1.3           scattermore_0.7      
+ [94] future_1.22.1         mime_0.11             xtable_1.8-4         
+ [97] coda_0.19-4           later_1.3.0           survival_3.2-11      
+[100] viridisLite_0.4.0     tibble_3.1.2          cluster_2.1.2        
+[103] globals_0.14.0        fitdistrplus_1.1-5    ellipsis_0.3.2       
+[106] ROCR_1.0-11          
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+670.130  59.911 903.317 
