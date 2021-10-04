@@ -28,8 +28,6 @@ SAVER[[3]](#3) related preparation step:
 
 [1b_DESeq2_mild_severe.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2_mild_severe.R) 
 
-[1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2.R) is the version for DE in terms of COVID v.s. control. 
-
 
 
 **Rank sum test:**
