@@ -1,0 +1,927 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> # ========================================================================
+> # take arguments
+> # ========================================================================
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+character(0)
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'CD8+Tcells_1' as default.\n")
++   grp = "CD8+Tcells_1"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+one argument is expected, use 'CD8+Tcells_1' as default.
+
+> 
+> grp
+[1] "CD8+Tcells_1"
+> 
+> 
+> # ========================================================================
+> # libraries and path
+> # ========================================================================
+> 
+> library(MASS)
+> library(data.table)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+> library(doRNG)
+Loading required package: rngtools
+> library(qvalue)
+> library(ggplot2)
+> library(ggpubr)
+> library(ggpointdensity)
+> library(fgsea)
+> library(stringr)
+> 
+> # number of cores for multi-core computation
+> nCore = 4
+> # nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> RNGkind("L'Ecuyer-CMRG")
+> # ------------------------------------------------------------------------
+> # read in pathway information
+> # ------------------------------------------------------------------------
+> 
+> gmtfile_go_bp     = "../Autism/data/c5.bp.v7.1.symbols.gmt"
+> gmtfile_reactome  = "../Autism/data/c2.cp.reactome.v7.1.symbols.gmt"
+> pathways_go_bp    = gmtPathways(gmtfile_go_bp)
+> pathways_reactome = gmtPathways(gmtfile_reactome)
+> 
+> length(pathways_reactome)
+[1] 1532
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   5.00   11.00   23.00   57.02   57.00 1470.00 
+> reactome_genes = unique(unlist(pathways_reactome))
+> length(reactome_genes)
+[1] 10807
+> 
+> # ------------------------------------------------------------------------
+> # read in p-values
+> # ------------------------------------------------------------------------
+> 
+> 
+> pvals = fread(sprintf("res/1e_pvals_%s.tsv", grp))
+> 
+> 
+> dim(pvals)
+[1] 2893   17
+> head(pvals)
+       gene      DESeq2 KR_nb_Was KR_nb_JSD PS_nb_Was PS_nb_JSD
+1:    ISG15 0.353055274    0.0157    0.0074    0.0142    0.0106
+2:     SDF4 0.052880583    0.2524    0.1960    0.2910    0.2334
+3:   UBE2J2 0.012907553    0.2980    0.6254    0.2710    0.5816
+4: AURKAIP1 0.003491869    0.0264    0.0227    0.0284    0.0239
+5:   MRPL20 0.005056790    0.5456    0.5908    0.5560    0.5836
+6:    SSU72 0.020070112    0.0738    0.1304    0.0747    0.1444
+   KR_dca_direct_Was KR_dca_direct_JSD PS_dca_direct_Was PS_dca_direct_JSD
+1:            0.0192            0.0306            0.0144            0.0144
+2:            0.1666            0.1566            0.0949            0.1544
+3:            0.0397            0.0521            0.0135            0.0245
+4:            0.0447            0.0488            0.0123            0.0162
+5:            0.2526            0.5848            0.2276            0.5246
+6:            0.0030            0.0087            0.0006            0.0023
+       MAST_glm   MAST_glmer     rank_sum KR_saver_direct_Was
+1: 1.672245e-17 0.0006409979 6.006121e-08              0.0042
+2: 1.144136e-01 0.6025166525 1.063160e-02              0.1344
+3: 8.451672e-07 0.0007315719 5.809272e-06              0.0260
+4: 4.545703e-07 0.0860942833 2.341623e-10              0.0538
+5: 5.090390e-07 0.0003590724 4.110250e-07              0.4654
+6: 1.965369e-05 0.0269847971 2.182268e-07              0.0157
+   KR_saver_direct_JSD PS_saver_direct_Was PS_saver_direct_JSD
+1:              0.0037              0.0056              0.0040
+2:              0.1790              0.1020              0.1276
+3:              0.0436              0.0006              0.0030
+4:              0.0653              0.0042              0.0036
+5:              0.4280              0.4464              0.3628
+6:              0.0263              0.0002              0.0007
+> 
+> w_ens = grep("_", pvals$gene)
+> length(w_ens)
+[1] 0
+> 
+> #pvals$gene[w_ens[1:20]]
+> genes = pvals$gene
+> #genes[w_ens] = str_extract(genes[w_ens], '(\\S+)(?=_)')  # gene symbol
+> #genes[w_ens][1:20]
+> 
+> pvals$gene_symbol = genes
+> 
+> # ------------------------------------------------------------------------
+> # filter genes in reactome annoations
+> # ------------------------------------------------------------------------
+> 
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   5.00   11.00   23.00   57.02   57.00 1470.00 
+> for(p1 in names(pathways_reactome)){
++   pathways_reactome[[p1]] = intersect(pathways_reactome[[p1]], genes)
++ }
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   0.00    1.00    5.00   14.79   13.00  392.00 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # GESA
+> # ------------------------------------------------------------------------
+> 
+> 
+> methods = names(pvals)[2:17]
+> 
+> gsea = list()
+> 
+> for(m1 in methods){
++   stats = unlist(-log10(pvals[[m1]]))
++   names(stats) =  pvals$gene_symbol
++   length(stats)
++   
++   stats = stats[unique(names(stats))]
++   length(stats)
++   stats = na.omit(stats)
++   length(stats)
++   
++   set.seed(918)
++   fgseaRes = fgseaMultilevel(pathways_reactome, stats, 
++                              minSize=10, maxSize=1000)
++   od1 = order(fgseaRes[,"padj"], -fgseaRes[,"NES"])
++   fgseaRes   = fgseaRes[od1,]
++   gsea[[m1]] = fgseaRes
++ }
+There were 50 or more warnings (use warnings() to see the first 50)
+> 
+> lapply(gsea, head, n=10)
+$DESeq2
+                                                                                                                      pathway
+ 1: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+ 2:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+ 3:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+ 4:                                                                           REACTOME_CELLULAR_RESPONSES_TO_EXTERNAL_STIMULI
+ 5:                                                                                                 REACTOME_SIGNALING_BY_WNT
+ 6:                                                                       REACTOME_TCF_DEPENDENT_SIGNALING_IN_RESPONSE_TO_WNT
+ 7:                                                                                   REACTOME_MAPK_FAMILY_SIGNALING_CASCADES
+ 8:                                                                                       REACTOME_NERVOUS_SYSTEM_DEVELOPMENT
+ 9:                                                                        REACTOME_METABOLISM_OF_AMINO_ACIDS_AND_DERIVATIVES
+10:                                                                           REACTOME_BETA_CATENIN_INDEPENDENT_WNT_SIGNALING
+            pval         padj   log2err        ES      NES size
+ 1: 1.000000e-10 2.395000e-08        NA 0.6664263 1.689119   93
+ 2: 1.000000e-10 2.395000e-08        NA 0.6536554 1.664812  106
+ 3: 7.078569e-08 1.130211e-05 0.7049757 0.6371108 1.593385   75
+ 4: 4.458797e-06 5.339410e-04 0.6105269 0.5033870 1.319869  238
+ 5: 1.132357e-05 1.084798e-03 0.5933255 0.5695963 1.444429   96
+ 6: 1.773252e-05 1.415646e-03 0.5756103 0.5928229 1.475675   67
+ 7: 3.732393e-05 2.301980e-03 0.5573322 0.5572698 1.414219   97
+ 8: 3.844643e-05 2.301980e-03 0.5573322 0.4973910 1.300387  214
+ 9: 6.035192e-05 3.212063e-03 0.5573322 0.5240381 1.353747  139
+10: 7.840062e-05 3.755390e-03 0.5384341 0.5866403 1.456657   63
+                                     leadingEdge
+ 1: COX6B1,NDUFA11,UQCRH,ATP5PB,MT-ATP8,ETFB,...
+ 2: COX6B1,NDUFA11,UQCRH,ATP5PB,MT-ATP8,ETFB,...
+ 3:   COX6B1,NDUFA11,UQCRH,ETFB,COX8A,NDUFC2,...
+ 4:         TXN,PSMA1,PRDX1,DCTN3,PSMB3,ELOB,...
+ 5:      PSMA1,PSMB3,SNX3,TNRC6A,PSMB1,USP34,...
+ 6:        PSMA1,PSMB3,PSMB1,USP34,UBB,PSMB8,...
+ 7:      MAP2K2,PSMA1,PSMB3,TNRC6A,PSMB1,UBB,...
+ 8:      MAP2K2,MYL12B,PSMA1,PSMB3,ELOB,UTRN,...
+ 9:       PSMA1,PSMB3,PSMB1,ETHE1,PSMB8,RPS3,...
+10:        PSMA1,PSMB3,TNRC6A,PSMB1,GNG5,UBB,...
+
+$KR_nb_Was
+                                                                           pathway
+ 1:              REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES
+ 2:                                       REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 3:              REACTOME_DOWNREGULATION_OF_SMAD2_3_SMAD4_TRANSCRIPTIONAL_ACTIVITY
+ 4:              REACTOME_DEACTIVATION_OF_THE_BETA_CATENIN_TRANSACTIVATING_COMPLEX
+ 5: REACTOME_FACTORS_INVOLVED_IN_MEGAKARYOCYTE_DEVELOPMENT_AND_PLATELET_PRODUCTION
+ 6:                   REACTOME_NOTCH1_INTRACELLULAR_DOMAIN_REGULATES_TRANSCRIPTION
+ 7:            REACTOME_TRANSCRIPTIONAL_ACTIVITY_OF_SMAD2_SMAD3_SMAD4_HETEROTRIMER
+ 8:                                       REACTOME_RESPONSE_OF_MTB_TO_PHAGOCYTOSIS
+ 9:                                              REACTOME_ONCOGENIC_MAPK_SIGNALING
+10:                                           REACTOME_CHROMATIN_MODIFYING_ENZYMES
+            pval      padj   log2err        ES      NES size
+ 1: 0.0017113028 0.2531022 0.4550599 0.7054583 1.596741   17
+ 2: 0.0016488898 0.2531022 0.4550599 0.7175540 1.587992   14
+ 3: 0.0052674457 0.2531022 0.4070179 0.7301925 1.560175   11
+ 4: 0.0045534967 0.2531022 0.4070179 0.6863329 1.518898   14
+ 5: 0.0005913398 0.2531022 0.4772708 0.6429301 1.517714   27
+ 6: 0.0046709618 0.2531022 0.4070179 0.6742754 1.512647   16
+ 7: 0.0038450314 0.2531022 0.4317077 0.6643588 1.511270   18
+ 8: 0.0053061249 0.2531022 0.4070179 0.6822180 1.509791   14
+ 9: 0.0036109227 0.2531022 0.4317077 0.6133690 1.446101   26
+10: 0.0048707119 0.2531022 0.4070179 0.5208879 1.326628   64
+                                  leadingEdge
+ 1:    UBE2E3,USP9X,UBB,RPS27A,UBE2G2,UBC,...
+ 2:  KMT2A,ASH1L,KMT2C,SETD2,ATF7IP,EHMT1,...
+ 3:      HDAC1,USP9X,UBB,RPS27A,NCOR1,UBC,...
+ 4:       CHD8,HDAC1,UBB,RPS27A,BCL9L,UBC,...
+ 5: RAC1,DOCK11,DOCK10,HDAC1,JMJD1C,DOCK8,...
+ 6:  TBL1XR1,HDAC1,UBB,RPS27A,NCOR1,FBXW7,...
+ 7:     HDAC1,USP9X,UBB,RPS27A,CCNK,CCNT2,...
+ 8:    RNF213,UBB,SFPQ,RPS27A,KPNB1,MAPK1,...
+ 9:  ARRB2,PEBP1,ZC3HAV1,MARK3,BRAF,CALM1,...
+10:   KMT2A,TBL1XR1,ASH1L,DR1,KMT2C,HDAC1,...
+
+$KR_nb_JSD
+                                                                                           pathway
+ 1:                                                       REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 2:                              REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES
+ 3:                                                             REACTOME_RHO_GTPASES_ACTIVATE_PAKS
+ 4:                                                   REACTOME_NEGATIVE_REGULATION_OF_MAPK_PATHWAY
+ 5:      REACTOME_ANTIGEN_ACTIVATES_B_CELL_RECEPTOR_BCR_LEADING_TO_GENERATION_OF_SECOND_MESSENGERS
+ 6:       REACTOME_NR1H3_NR1H2_REGULATE_GENE_EXPRESSION_LINKED_TO_CHOLESTEROL_TRANSPORT_AND_EFFLUX
+ 7: REACTOME_RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION
+ 8:                              REACTOME_DEACTIVATION_OF_THE_BETA_CATENIN_TRANSACTIVATING_COMPLEX
+ 9:                              REACTOME_DOWNREGULATION_OF_SMAD2_3_SMAD4_TRANSCRIPTIONAL_ACTIVITY
+10:                            REACTOME_TRANSCRIPTIONAL_ACTIVITY_OF_SMAD2_SMAD3_SMAD4_HETEROTRIMER
+           pval      padj   log2err        ES      NES size
+ 1: 0.001496812 0.3666859 0.4550599 0.7411821 1.620041   14
+ 2: 0.001838959 0.3666859 0.4550599 0.6985756 1.559790   17
+ 3: 0.013509428 0.3666859 0.3807304 0.7294702 1.522887   10
+ 4: 0.004964912 0.3666859 0.4070179 0.6723697 1.501277   17
+ 5: 0.009836608 0.3666859 0.3807304 0.6985819 1.498514   12
+ 6: 0.016912136 0.3666859 0.3524879 0.7173761 1.497638   10
+ 7: 0.005624237 0.3666859 0.4070179 0.6897648 1.496745   13
+ 8: 0.008529642 0.3666859 0.3807304 0.6840419 1.495147   14
+ 9: 0.012672082 0.3666859 0.3807304 0.7004952 1.481983   11
+10: 0.006383435 0.3666859 0.4070179 0.6604190 1.481532   18
+                                  leadingEdge
+ 1:  ASH1L,KMT2A,KMT2C,ATF7IP,SETD2,EHMT1,...
+ 2: UBE2E3,USP9X,UBB,UBE2Q2,RPS27A,UBE2G2,...
+ 3:           RAC1,PPP1R12A,MYL12B,MYL6,CALM1
+ 4:       PEBP1,BRAF,UBB,RPS27A,MARK3,UBC,...
+ 5:              IGLC3,ITPR2,CALM1,IGLC2,GRB2
+ 6:         TBL1XR1,TNRC6B,TNRC6C,EP300,NCOR1
+ 7: KMT2A,KMT2C,HDAC1,TNRC6B,TNRC6C,EP300,...
+ 8:      HDAC1,CHD8,BCL9L,UBB,RPS27A,XPO1,...
+ 9:   HDAC1,USP9X,UBB,RPS27A,TRIM33,NCOR1,...
+10:       CCNT2,HDAC1,JUNB,USP9X,UBB,CCNK,...
+
+$PS_nb_Was
+                                                                                           pathway
+ 1: REACTOME_RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION
+ 2:                                                       REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 3:      REACTOME_ANTIGEN_ACTIVATES_B_CELL_RECEPTOR_BCR_LEADING_TO_GENERATION_OF_SECOND_MESSENGERS
+ 4:                                             REACTOME_INFECTION_WITH_MYCOBACTERIUM_TUBERCULOSIS
+ 5:                 REACTOME_FACTORS_INVOLVED_IN_MEGAKARYOCYTE_DEVELOPMENT_AND_PLATELET_PRODUCTION
+ 6:                                                       REACTOME_RESPONSE_OF_MTB_TO_PHAGOCYTOSIS
+ 7:                                                              REACTOME_STIMULI_SENSING_CHANNELS
+ 8:                              REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES
+ 9:                                                   REACTOME_NEGATIVE_REGULATION_OF_MAPK_PATHWAY
+10:                                   REACTOME_NOTCH1_INTRACELLULAR_DOMAIN_REGULATES_TRANSCRIPTION
+           pval      padj   log2err        ES      NES size
+ 1: 0.002835861 0.3532407 0.4317077 0.7299896 1.585621   13
+ 2: 0.002038821 0.3532407 0.4317077 0.7168919 1.567523   14
+ 3: 0.009551076 0.3532407 0.3807304 0.7068832 1.516753   12
+ 4: 0.004530592 0.3532407 0.4070179 0.6854528 1.513335   15
+ 5: 0.001408227 0.3532407 0.4550599 0.6472640 1.507369   27
+ 6: 0.008084911 0.3532407 0.3807304 0.6787715 1.484171   14
+ 7: 0.010389432 0.3532407 0.3807304 0.7008746 1.482679   11
+ 8: 0.007130027 0.3532407 0.4070179 0.6555579 1.464948   17
+ 9: 0.009228584 0.3532407 0.3807304 0.6489453 1.450171   17
+10: 0.009237850 0.3532407 0.3807304 0.6544618 1.449293   16
+                                   leadingEdge
+ 1:  KMT2C,KMT2A,TNRC6B,TNRC6C,EP300,HDAC1,...
+ 2:   KMT2C,KMT2A,ASH1L,EHMT1,SETD2,ATF7IP,...
+ 3:           IGLC2,IGLC3,ITPR2,GRB2,CALM1,FYN
+ 4:     RNF213,UBB,UBA52,RPS27A,SFPQ,KPNB1,...
+ 5: RAC1,DOCK11,DOCK10,JMJD1C,HDAC1,CAPZA1,...
+ 6:     RNF213,UBB,UBA52,RPS27A,SFPQ,KPNB1,...
+ 7:           TRPM7,UBB,UBA52,RPS27A,CALM1,UBC
+ 8:   USP9X,UBE2E3,UBB,UBA52,RPS27A,UBE2Q2,...
+ 9:      PEBP1,MARK3,UBB,UBA52,RPS27A,BRAF,...
+10:   TBL1XR1,EP300,HDAC1,UBB,UBA52,RPS27A,...
+
+$PS_nb_JSD
+                                                                                           pathway
+ 1:                                                             REACTOME_RHO_GTPASES_ACTIVATE_PAKS
+ 2:                                                       REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 3:                                                                    REACTOME_CARDIAC_CONDUCTION
+ 4: REACTOME_RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION
+ 5:                                REACTOME_SMAD2_SMAD3_SMAD4_HETEROTRIMER_REGULATES_TRANSCRIPTION
+ 6:      REACTOME_ANTIGEN_ACTIVATES_B_CELL_RECEPTOR_BCR_LEADING_TO_GENERATION_OF_SECOND_MESSENGERS
+ 7:                              REACTOME_DEACTIVATION_OF_THE_BETA_CATENIN_TRANSACTIVATING_COMPLEX
+ 8:                                             REACTOME_INFECTION_WITH_MYCOBACTERIUM_TUBERCULOSIS
+ 9:                              REACTOME_SYNTHESIS_OF_ACTIVE_UBIQUITIN_ROLES_OF_E1_AND_E2_ENZYMES
+10:                 REACTOME_FACTORS_INVOLVED_IN_MEGAKARYOCYTE_DEVELOPMENT_AND_PLATELET_PRODUCTION
+           pval      padj   log2err        ES      NES size
+ 1: 0.009186469 0.2912448 0.3807304 0.7380909 1.531637   10
+ 2: 0.004694529 0.2912448 0.4070179 0.7038376 1.528473   14
+ 3: 0.014653827 0.2912448 0.3807304 0.7261588 1.527824   11
+ 4: 0.005920201 0.2912448 0.4070179 0.6982637 1.506275   13
+ 5: 0.007957910 0.2912448 0.3807304 0.6907372 1.490040   13
+ 6: 0.011502413 0.2912448 0.3807304 0.6983580 1.489427   12
+ 7: 0.008982531 0.2912448 0.3807304 0.6829121 1.483031   14
+ 8: 0.008654406 0.2912448 0.3807304 0.6743532 1.477942   15
+ 9: 0.007577983 0.2912448 0.4070179 0.6585178 1.460750   17
+10: 0.002127409 0.2912448 0.4317077 0.6300566 1.456049   27
+                                  leadingEdge
+ 1:           RAC1,PPP1R12A,MYL12B,CALM1,MYL6
+ 2:  KMT2C,KMT2A,EHMT1,ASH1L,SETD2,ATF7IP,...
+ 3:            HIPK1,AKAP9,ITPR2,ATP2B1,CALM1
+ 4: KMT2C,KMT2A,TNRC6B,EP300,TNRC6C,RUNX1,...
+ 5:      CCNT2,UBB,RPS27A,JUNB,UBA52,CCNK,...
+ 6:              IGLC2,IGLC3,ITPR2,CALM1,GRB2
+ 7:     CHD8,UBB,RPS27A,BCL9L,UBA52,HDAC1,...
+ 8:    RNF213,SFPQ,UBB,RPS27A,UBA52,KPNB1,...
+ 9:  USP9X,UBE2E3,UBB,RPS27A,UBE2Q2,UBA52,...
+10: RAC1,DOCK10,JMJD1C,DOCK11,HDAC1,KIF2A,...
+
+$KR_dca_direct_Was
+                                                            pathway
+ 1:                            REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 2: REACTOME_FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC
+ 3:                        REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 4:                REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 5:                            REACTOME_MRNA_SPLICING_MINOR_PATHWAY
+ 6:                          REACTOME_SIGNALING_BY_FGFR1_IN_DISEASE
+ 7:                           REACTOME_SIGNALING_BY_FGFR_IN_DISEASE
+ 8:                                            REACTOME_SUMOYLATION
+ 9:            REACTOME_ANTIVIRAL_MECHANISM_BY_IFN_STIMULATED_GENES
+10:                                    REACTOME_SIGNALING_BY_NOTCH3
+            pval       padj   log2err         ES       NES size
+ 1: 4.967149e-05 0.02260053 0.5573322  0.4863655  1.633604   64
+ 2: 1.583140e-04 0.03601643 0.5188481 -0.6157584 -2.135702   12
+ 3: 1.165886e-03 0.13261950 0.4550599  0.6460662  1.772306   14
+ 4: 1.059536e-03 0.13261950 0.4550599  0.5283099  1.667371   34
+ 5: 2.645375e-03 0.24072909 0.4317077  0.4765820  1.523820   39
+ 6: 3.545074e-03 0.26883481 0.4317077  0.6752477  1.735380   10
+ 7: 4.820429e-03 0.31332791 0.4070179  0.5317685  1.576545   22
+ 8: 5.614319e-03 0.31931437 0.4070179  0.4341808  1.429359   52
+ 9: 7.406379e-03 0.37443359 0.4070179  0.4874204  1.494286   28
+10: 1.038943e-02 0.42974469 0.3807304  0.5788333  1.587871   14
+                                       leadingEdge
+ 1: EHMT1,SMARCC1,KMT2A,SMARCC2,CREBBP,SMARCA2,...
+ 2:        CCT8,CCT4,TUBA1B,TUBA1A,TUBB4B,CCT5,...
+ 3:          EHMT1,KMT2A,ASH1L,NSD1,KMT2C,NSD3,...
+ 4:     WAPL,KIF2A,DYNC1H1,PPP2R5E,PDS5A,RAD21,...
+ 5:      SF3B1,POLR2L,RNPC3,POLR2E,DDX42,SF3B6,...
+ 6:       STAT5B,LRRFIP1,CNTRL,KRAS,STAT1,GRB2,...
+ 7:  POLR2L,STAT5B,POLR2E,LRRFIP1,CNTRL,POLR2J,...
+ 8:           PIAS1,CREBBP,RORA,TPR,RAD21,CHD3,...
+ 9:       EIF4E3,TPR,EIF4G2,EIF4A2,IRF3,RANBP2,...
+10:         CREBBP,IKZF1,ADAM10,UBB,MIB2,STAT1,...
+
+$KR_dca_direct_JSD
+                                                            pathway
+ 1:                            REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 2:                REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 3: REACTOME_FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC
+ 4:                        REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 5:                          REACTOME_SIGNALING_BY_FGFR1_IN_DISEASE
+ 6:                           REACTOME_SIGNALING_BY_FGFR_IN_DISEASE
+ 7:                     REACTOME_HIV_ELONGATION_ARREST_AND_RECOVERY
+ 8:       REACTOME_TP53_REGULATES_TRANSCRIPTION_OF_DNA_REPAIR_GENES
+ 9:        REACTOME_SEALING_OF_THE_NUCLEAR_ENVELOPE_NE_BY_ESCRT_III
+10:                         REACTOME_SIGNALING_BY_NUCLEAR_RECEPTORS
+            pval       padj   log2err         ES       NES size
+ 1: 3.900769e-05 0.01751445 0.5573322  0.4917988  1.611264   64
+ 2: 7.847902e-05 0.01761854 0.5384341  0.5600421  1.727135   34
+ 3: 1.435478e-04 0.02148431 0.5188481 -0.6157584 -2.155365   12
+ 4: 2.742534e-04 0.03078494 0.4984931  0.6962745  1.875695   14
+ 5: 2.270294e-03 0.20387243 0.4317077  0.6980842  1.765639   10
+ 6: 2.916011e-03 0.21821480 0.4317077  0.5660248  1.644750   22
+ 7: 4.073092e-03 0.25068036 0.4070179  0.5487199  1.601422   23
+ 8: 4.726713e-03 0.25068036 0.4070179  0.5179224  1.571430   30
+ 9: 5.024773e-03 0.25068036 0.4070179 -0.5341658 -1.720067   10
+10: 7.324619e-03 0.32887538 0.4070179  0.4227140  1.384924   64
+                                     leadingEdge
+ 1:   PBRM1,SMARCA2,KMT2C,ARID4A,CREBBP,REST,...
+ 2:        KIF2A,WAPL,CLIP1,RAD21,PDS5B,XPO1,...
+ 3:      CCT4,CCT8,TUBA1B,TUBA1A,TUBB4B,CCT5,...
+ 4:       KMT2C,EHMT1,KMT2A,NSD3,ASH1L,SETD2,...
+ 5: LRRFIP1,STAT5B,STAT1,KRAS,CNTRL,FGFR1OP2,...
+ 6:  LRRFIP1,STAT5B,POLR2L,POLR2A,STAT1,KRAS,...
+ 7:   CCNK,SUPT16H,CCNT1,POLR2L,TCEA1,POLR2A,...
+ 8:     CCNK,SUPT16H,CCNH,CDK12,CCNT1,POLR2L,...
+ 9: CHMP4B,TUBA1B,CHMP3,TUBA1A,TUBB4B,CHMP4A,...
+10:     MYLIP,FKBP5,CREBBP,UHMK1,RAD21,RUNX1,...
+
+$PS_dca_direct_Was
+                                                                                     pathway
+ 1:                                                     REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 2: REACTOME_NR1H3_NR1H2_REGULATE_GENE_EXPRESSION_LINKED_TO_CHOLESTEROL_TRANSPORT_AND_EFFLUX
+ 3:                                                 REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 4:                                         REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 5:                                     REACTOME_ANTIVIRAL_MECHANISM_BY_IFN_STIMULATED_GENES
+ 6:                                                                     REACTOME_SUMOYLATION
+ 7:                          REACTOME_FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC
+ 8:                                              REACTOME_NR1H2_AND_NR1H3_MEDIATED_SIGNALING
+ 9:                                                           REACTOME_DEADENYLATION_OF_MRNA
+10:                                             REACTOME_PRE_NOTCH_EXPRESSION_AND_PROCESSING
+            pval      padj   log2err         ES       NES size
+ 1: 0.0002620251 0.1221037 0.4984931  0.4834256  1.553256   64
+ 2: 0.0016831038 0.2208216 0.4550599  0.7105284  1.781353   10
+ 3: 0.0018954644 0.2208216 0.4550599  0.6434324  1.710826   14
+ 4: 0.0012241482 0.2208216 0.4550599  0.5306099  1.609391   34
+ 5: 0.0042801040 0.3324214 0.4070179  0.5182673  1.528709   28
+ 6: 0.0039783870 0.3324214 0.4070179  0.4591982  1.447718   52
+ 7: 0.0051217894 0.3409648 0.4070179 -0.5317598 -1.776712   12
+ 8: 0.0087127707 0.3869823 0.3807304  0.6326773  1.600732   11
+ 9: 0.0084987415 0.3869823 0.3807304  0.5992318  1.593301   14
+10: 0.0107956431 0.3869823 0.3807304  0.5890440  1.566212   14
+                                     leadingEdge
+ 1:   ASH1L,ARID4B,SETD2,TBL1XR1,NSD1,ARID1B,...
+ 2: TBL1XR1,TNRC6C,TNRC6B,NCOA1,TNRC6A,EP300,...
+ 3:      ASH1L,SETD2,NSD1,KMT2C,ATF7IP,EHMT1,...
+ 4:     TAOK1,RANBP2,STAG1,PDS5A,STAG2,CLIP1,...
+ 5:    ARIH1,PPM1B,RANBP2,EIF4G2,IRF3,EIF4G1,...
+ 6:         SP3,PHC3,PIAS1,CREBBP,CHD3,DDX17,...
+ 7:      CCT8,CCT4,TUBA1B,TUBA1A,TUBB4B,CCT5,...
+ 8: TBL1XR1,TNRC6C,TNRC6B,NCOA1,TNRC6A,EP300,...
+ 9:       CNOT4,TUT4,TUT7,PAN3,EIF4G1,EIF4A2,...
+10:  CREBBP,TNRC6C,TNRC6B,TNRC6A,EP300,RUNX1,...
+
+$PS_dca_direct_JSD
+                                                                                           pathway
+ 1:                                                           REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 2:                                               REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 3:                                                       REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 4: REACTOME_RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION
+ 5:                                                                   REACTOME_SIGNALING_BY_NOTCH3
+ 6:                                REACTOME_FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC
+ 7:                                                    REACTOME_CLASS_A_1_RHODOPSIN_LIKE_RECEPTORS
+ 8:                                     REACTOME_SIGNALING_BY_NOTCH1_PEST_DOMAIN_MUTANTS_IN_CANCER
+ 9:                                                                          REACTOME_REPRODUCTION
+10:                                                    REACTOME_NR1H2_AND_NR1H3_MEDIATED_SIGNALING
+            pval       padj   log2err         ES       NES size
+ 1: 4.013019e-05 0.01882106 0.5573322  0.4946368  1.591892   64
+ 2: 1.326360e-04 0.03110314 0.5188481  0.5692990  1.728227   34
+ 3: 7.671396e-04 0.10904475 0.4772708  0.6691790  1.779322   14
+ 4: 9.300191e-04 0.10904475 0.4772708  0.6765948  1.774514   13
+ 5: 1.749956e-03 0.16414591 0.4550599  0.6503396  1.729228   14
+ 6: 4.566749e-03 0.31638184 0.4070179 -0.5168344 -1.773396   12
+ 7: 4.722117e-03 0.31638184 0.4070179 -0.5125000 -1.863322   13
+ 8: 5.803625e-03 0.34023751 0.4070179  0.5836678  1.622952   18
+ 9: 1.250518e-02 0.35493235 0.3807304  0.5844107  1.583063   15
+10: 1.362214e-02 0.35493235 0.3807304  0.6223645  1.573306   11
+                                       leadingEdge
+ 1:        ASH1L,ARID4B,SETD2,NSD1,KMT2C,KAT6A,...
+ 2: STAG1,KIF2A,PDS5B,DYNC1LI2,PAFAH1B1,RANBP2,...
+ 3:         ASH1L,SETD2,NSD1,KMT2C,EHMT1,KMT2A,...
+ 4:      KMT2C,TNRC6B,RUNX1,KMT2A,TNRC6A,EP300,...
+ 5:        IKZF1,EP300,CREBBP,ADAM10,UBB,APH1A,...
+ 6:        CCT4,CCT8,TUBA1B,TUBA1A,TUBB4B,CCT5,...
+ 7:           S1PR5,CCL4,F2R,PTGDR,ANXA1,ADRB2,...
+ 8:      FBXW7,EP300,TBL1XR1,CREBBP,ADAM10,UBB,...
+ 9:          STAG1,SYNE2,ATM,STAG2,DIDO1,SYNE1,...
+10:   TNRC6B,TNRC6A,EP300,TBL1XR1,TNRC6C,NCOR1,...
+
+$MAST_glm
+                                                                 pathway
+ 1:                           REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION
+ 2:                                 REACTOME_SELENOAMINO_ACID_METABOLISM
+ 3:           REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY
+ 4:                                 REACTOME_NONSENSE_MEDIATED_DECAY_NMD
+ 5: REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE
+ 6:                                         REACTOME_INFLUENZA_INFECTION
+ 7:                                             REACTOME_RRNA_PROCESSING
+ 8:                           REACTOME_EUKARYOTIC_TRANSLATION_INITIATION
+ 9:                                                 REACTOME_TRANSLATION
+10:                 REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS
+            pval         padj   log2err        ES      NES size
+ 1: 1.000000e-10 5.300000e-09        NA 0.8291575 1.847075   87
+ 2: 1.000000e-10 5.300000e-09        NA 0.8141044 1.812264   85
+ 3: 1.000000e-10 5.300000e-09        NA 0.8115699 1.807896   87
+ 4: 1.000000e-10 5.300000e-09        NA 0.7966942 1.780404   97
+ 5: 1.000000e-10 5.300000e-09        NA 0.7935852 1.775479  103
+ 6: 1.000000e-10 5.300000e-09        NA 0.7736493 1.735445  113
+ 7: 1.000000e-10 5.300000e-09        NA 0.7728151 1.732144  109
+ 8: 1.000000e-10 5.300000e-09        NA 0.7712040 1.725521  106
+ 9: 1.000000e-10 5.300000e-09        NA 0.7185265 1.634967  168
+10: 3.485208e-10 1.662444e-08 0.8140358 0.7315164 1.651985  133
+                              leadingEdge
+ 1: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 2: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 3: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 4: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 5: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 6: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 7: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 8: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+ 9: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+10: RPL8,RPS3,RPL21,RPS5,RPS3A,RPL36A,...
+
+$MAST_glmer
+                                                                                           pathway
+ 1:                                                           REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 2:                                                       REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 3: REACTOME_RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION
+ 4:                                                    REACTOME_DEADENYLATION_DEPENDENT_MRNA_DECAY
+ 5:                                  REACTOME_BINDING_AND_UPTAKE_OF_LIGANDS_BY_SCAVENGER_RECEPTORS
+ 6:    REACTOME_RUNX1_INTERACTS_WITH_CO_FACTORS_WHOSE_PRECISE_EFFECT_ON_RUNX1_TARGETS_IS_NOT_KNOWN
+ 7:                                                           REACTOME_ONCOGENE_INDUCED_SENESCENCE
+ 8:                                                    REACTOME_NR1H2_AND_NR1H3_MEDIATED_SIGNALING
+ 9:                                                                               REACTOME_MEIOSIS
+10:                                                   REACTOME_TRANSCRIPTIONAL_REGULATION_BY_VENTX
+            pval        padj   log2err        ES      NES size
+ 1: 7.572261e-06 0.003611969 0.6105269 0.5374450 1.711770   64
+ 2: 1.249427e-03 0.297988240 0.4550599 0.6696874 1.784661   14
+ 3: 3.277956e-03 0.521195027 0.4317077 0.6630968 1.750235   13
+ 4: 4.516959e-03 0.538647376 0.4070179 0.5315624 1.574016   28
+ 5: 1.385549e-02 0.616609756 0.3807304 0.6572155 1.632003   10
+ 6: 6.491073e-03 0.616609756 0.4070179 0.5933342 1.627305   17
+ 7: 1.945482e-02 0.616609756 0.3524879 0.6066675 1.601291   13
+ 8: 2.484670e-02 0.616609756 0.3524879 0.6205146 1.574557   11
+ 9: 2.350134e-02 0.616609756 0.3524879 0.5854479 1.560170   14
+10: 2.864487e-02 0.616609756 0.3524879 0.6142126 1.558566   11
+                                  leadingEdge
+ 1:  AEBP2,KMT2C,ARID1B,ASH1L,ATF7IP,MSL3,...
+ 2:  AEBP2,KMT2C,ASH1L,ATF7IP,SETD2,KMT2A,...
+ 3: KMT2C,TNRC6B,TNRC6A,KMT2A,EP300,RUNX1,...
+ 4:        TUT4,DDX6,PAN3,CNOT4,XRN1,DIS3,...
+ 5:         FTH1,IGHA1,FTL,HBB,IGLC3,HBA2,...
+ 6:   ARID1B,PHC3,EP300,YAF2,ARID1A,RUNX1,...
+ 7:      TNRC6B,TNRC6A,MDM4,MAPK1,UBB,RB1,...
+ 8:         TNRC6B,TNRC6A,EP300,TBL1XR1,MYLIP
+ 9:      SYNE2,SYNE1,ATM,STAG2,STAG1,SUN2,...
+10: TNRC6B,TNRC6A,EHMT1,ANAPC16,TNRC6C,ANAPC5
+
+$rank_sum
+                                                                 pathway  pval
+ 1:                           REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION 1e-10
+ 2:           REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY 1e-10
+ 3:                                 REACTOME_SELENOAMINO_ACID_METABOLISM 1e-10
+ 4:                                 REACTOME_NONSENSE_MEDIATED_DECAY_NMD 1e-10
+ 5:                           REACTOME_EUKARYOTIC_TRANSLATION_INITIATION 1e-10
+ 6: REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE 1e-10
+ 7:                                         REACTOME_INFLUENZA_INFECTION 1e-10
+ 8:                 REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS 1e-10
+ 9:                                                 REACTOME_TRANSLATION 1e-10
+10:                                 REACTOME_SIGNALING_BY_ROBO_RECEPTORS 1e-10
+            padj log2err        ES      NES size
+ 1: 3.684615e-09      NA 0.8341486 1.613216   87
+ 2: 3.684615e-09      NA 0.8273859 1.600137   87
+ 3: 3.684615e-09      NA 0.8266574 1.597576   85
+ 4: 3.684615e-09      NA 0.8157867 1.581888   97
+ 5: 3.684615e-09      NA 0.8127864 1.577724  106
+ 6: 3.684615e-09      NA 0.8105736 1.573398  103
+ 7: 3.684615e-09      NA 0.7980954 1.552768  113
+ 8: 3.684615e-09      NA 0.7857853 1.537206  133
+ 9: 3.684615e-09      NA 0.7726736 1.521123  168
+10: 3.684615e-09      NA 0.7687119 1.508601  148
+                              leadingEdge
+ 1: RPL8,RPS3,RPS5,RPL21,EEF1A1,RPS3A,...
+ 2:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+ 3:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+ 4:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+ 5:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+ 6:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+ 7:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+ 8:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+ 9: RPL8,RPS3,RPS5,RPL21,EEF1A1,RPS3A,...
+10:   RPL8,RPS3,RPS5,RPL21,RPS3A,RPL7,...
+
+$KR_saver_direct_Was
+                                                   pathway         pval
+ 1:                   REACTOME_CHROMATIN_MODIFYING_ENZYMES 3.339517e-05
+ 2:               REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES 3.238244e-04
+ 3:      REACTOME_PROCESSING_OF_CAPPED_INTRONLESS_PRE_MRNA 5.952678e-04
+ 4:            REACTOME_CLASS_A_1_RHODOPSIN_LIKE_RECEPTORS 1.463084e-03
+ 5: REACTOME_DOWNREGULATION_OF_TGF_BETA_RECEPTOR_SIGNALING 6.372694e-03
+ 6:       REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION 6.878453e-03
+ 7:       REACTOME_APC_CDC20_MEDIATED_DEGRADATION_OF_NEK2A 1.695171e-02
+ 8:                                REACTOME_SNRNP_ASSEMBLY 2.103930e-02
+ 9:                     REACTOME_METABOLISM_OF_NUCLEOTIDES 2.239202e-02
+10:              REACTOME_RMTS_METHYLATE_HISTONE_ARGININES 2.935010e-02
+          padj   log2err         ES       NES size
+ 1: 0.01569573 0.5573322  0.5236273  1.627245   64
+ 2: 0.07609873 0.4984931  0.6988480  1.812925   14
+ 3: 0.09325862 0.4772708  0.7019825  1.798437   13
+ 4: 0.17191232 0.4550599 -0.5506944 -1.945896   13
+ 5: 0.53881215 0.4070179  0.6145313  1.620469   15
+ 6: 0.53881215 0.4070179  0.5031336  1.479447   34
+ 7: 0.55850329 0.3524879  0.6262124  1.533369   10
+ 8: 0.55850329 0.3524879  0.5847670  1.516981   14
+ 9: 0.55850329 0.3524879  0.5704047  1.504111   15
+10: 0.55850329 0.2712886  0.6008981  1.483085   11
+                                      leadingEdge
+ 1:    MSL2,SMARCC2,EHMT1,KANSL1,ARID4A,AEBP2,...
+ 2:        EHMT1,AEBP2,KMT2A,NSD1,KMT2C,ASH1L,...
+ 3:     PAPOLA,SNRPE,PCF11,SNRPF,WDR33,PABPN1,...
+ 4:        PTGER2,S1PR5,GPR65,CXCR4,ADRB2,F2R,...
+ 5:      USP15,XPO1,PPP1CB,TGFBR2,SMAD2,STUB1,...
+ 6:     DYNC1H1,XPO1,PPP2R5E,TAOK1,WAPL,PDS5A,...
+ 7: ANAPC15,ANAPC16,UBB,RPS27A,ANAPC5,ANAPC11,...
+ 8:    SNRPE,SNRPF,SNRPD1,NUP210,RANBP2,SNRPB,...
+ 9:          GUK1,DGUOK,SAMHD1,TXN,APRT,NUDT1,...
+10:   SMARCC2,PBRM1,SMARCA2,ARID1B,ARID1A,SMARCC1
+
+$KR_saver_direct_JSD
+                                                                   pathway
+ 1:                               REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 2:                                   REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 3:        REACTOME_FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC
+ 4: REACTOME_TRANSCRIPTIONAL_REGULATION_OF_WHITE_ADIPOCYTE_DIFFERENTIATION
+ 5:                     REACTOME_RNA_POLYMERASE_II_TRANSCRIBES_SNRNA_GENES
+ 6:                       REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 7:                                    REACTOME_MITOTIC_SPINDLE_CHECKPOINT
+ 8:                                           REACTOME_CELLULAR_SENESCENCE
+ 9:                                          REACTOME_INTERFERON_SIGNALING
+10:                      REACTOME_PROCESSING_OF_CAPPED_INTRONLESS_PRE_MRNA
+            pval       padj   log2err         ES       NES size
+ 1: 9.881869e-05 0.02903827 0.5384341  0.7383516  1.901498   14
+ 2: 1.235671e-04 0.02903827 0.5188481  0.5089714  1.568035   64
+ 3: 3.183687e-03 0.49877761 0.4317077 -0.5380076 -1.797154   12
+ 4: 9.369242e-03 0.51123092 0.3807304  0.5501683  1.519585   22
+ 5: 5.619933e-03 0.51123092 0.4070179  0.5173893  1.477375   29
+ 6: 7.324619e-03 0.51123092 0.4070179  0.5041133  1.469891   34
+ 7: 8.752084e-03 0.51123092 0.3807304  0.5122846  1.448210   27
+ 8: 9.789528e-03 0.51123092 0.3807304  0.4702202  1.390837   41
+ 9: 8.892796e-03 0.51123092 0.3807304  0.4407699  1.362291   67
+10: 1.588287e-02 0.59486362 0.3524879  0.6072766  1.544191   13
+                                       leadingEdge
+ 1:         EHMT1,KMT2C,KMT2E,KMT2B,NSD3,AEBP2,...
+ 2:   EHMT1,SMARCC2,ARID4B,PBRM1,ARID4A,KANSL1,...
+ 3:         TUBA4A,CCT5,CCT4,CCT8,TUBA1B,CCT6A,...
+ 4:        MED13,MED13L,NCOA1,CHD9,TGS1,CREBBP,...
+ 5:       CCNT1,RPAP2,ICE1,INTS6,GTF2A2,POLR2F,...
+ 6:   DYNC1H1,XPO1,PPP2R5E,WAPL,TAOK1,PAFAH1B1,...
+ 7: DYNC1H1,XPO1,PPP2R5E,TAOK1,PAFAH1B1,RANBP2,...
+ 8:         EHMT1,TNRC6B,RB1,SUZ12,TNIK,MAP4K4,...
+ 9:      TRIM38,IFITM1,EIF4A2,XAF1,SP100,PIAS1,...
+10:      PAPOLA,PCF11,WDR33,SNRPF,SNRPE,PABPN1,...
+
+$PS_saver_direct_Was
+                                                                                        pathway
+ 1:                                                                 REACTOME_CARDIAC_CONDUCTION
+ 2:                                      REACTOME_DOWNREGULATION_OF_TGF_BETA_RECEPTOR_SIGNALING
+ 3: REACTOME_RUNX1_INTERACTS_WITH_CO_FACTORS_WHOSE_PRECISE_EFFECT_ON_RUNX1_TARGETS_IS_NOT_KNOWN
+ 4:                                        REACTOME_TGF_BETA_RECEPTOR_SIGNALING_ACTIVATES_SMADS
+ 5:                                             REACTOME_SUMOYLATION_OF_TRANSCRIPTION_COFACTORS
+ 6:                                                              REACTOME_ION_CHANNEL_TRANSPORT
+ 7:                                                        REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 8:                                                 REACTOME_CLASS_A_1_RHODOPSIN_LIKE_RECEPTORS
+ 9:                                                        REACTOME_MRNA_SPLICING_MINOR_PATHWAY
+10:                                                    REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION
+            pval      padj   log2err         ES       NES size
+ 1: 0.0016760142 0.1893315 0.4550599  0.7205494  1.733313   11
+ 2: 0.0022983593 0.1893315 0.4317077  0.6447261  1.647968   15
+ 3: 0.0027330214 0.1893315 0.4317077  0.6173027  1.603958   17
+ 4: 0.0032503261 0.1893315 0.4317077  0.6105027  1.598490   18
+ 5: 0.0020595863 0.1893315 0.4317077  0.6034754  1.591047   19
+ 6: 0.0031665056 0.1893315 0.4317077  0.5510558  1.495756   25
+ 7: 0.0009021464 0.1893315 0.4772708  0.4794409  1.427723   64
+ 8: 0.0004077542 0.1893315 0.4984931 -0.6208333 -2.170400   13
+ 9: 0.0044245489 0.2165796 0.4070179  0.5016868  1.433964   39
+10: 0.0046476303 0.2165796 0.4070179  0.3716369  1.196343  319
+                                    leadingEdge
+ 1:     HIPK1,ATP1A1,SRI,ATP2B1,AKAP9,ITPR2,...
+ 2:      USP15,TGFBR2,UBB,PPP1CB,XPO1,STUB1,...
+ 3: PHC3,ARID1B,SMARCC2,ARID1A,YAF2,SMARCA2,...
+ 4:      USP15,TGFBR2,UBB,PPP1CB,XPO1,STUB1,...
+ 5:     SUMO1,PHC3,PIAS1,DDX17,ZNF131,UHRF2,...
+ 6:    ATP1A1,ATP11B,SRI,ATP2B1,TRPM7,CALM1,...
+ 7:    ASH1L,ARID1B,KMT2C,OGT,AEBP2,SMARCC2,...
+ 8:      PTGER2,S1PR5,GPR65,CXCR4,ADRB2,F2R,...
+ 9:    RNPC3,SF3B1,SF3B5,PRPF8,SRSF1,TXNL4A,...
+10:   SRSF11,RPAP2,HIPK1,TRIM33,CCNT2,SUMO1,...
+
+$PS_saver_direct_JSD
+                                                                                        pathway
+ 1:                                                        REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 2:                                                              REACTOME_ION_CHANNEL_TRANSPORT
+ 3:                                                    REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION
+ 4:                                                 REACTOME_CLASS_A_1_RHODOPSIN_LIKE_RECEPTORS
+ 5:                                                    REACTOME_PKMTS_METHYLATE_HISTONE_LYSINES
+ 6:                                                        REACTOME_MRNA_SPLICING_MINOR_PATHWAY
+ 7:                                                                 REACTOME_CARDIAC_CONDUCTION
+ 8:                                      REACTOME_DOWNREGULATION_OF_TGF_BETA_RECEPTOR_SIGNALING
+ 9:                                        REACTOME_TGF_BETA_RECEPTOR_SIGNALING_ACTIVATES_SMADS
+10: REACTOME_RUNX1_INTERACTS_WITH_CO_FACTORS_WHOSE_PRECISE_EFFECT_ON_RUNX1_TARGETS_IS_NOT_KNOWN
+            pval      padj   log2err         ES       NES size
+ 1: 0.0002756957 0.1287499 0.4984931  0.5050513  1.510795   64
+ 2: 0.0009122165 0.1880510 0.4772708  0.5871278  1.598189   25
+ 3: 0.0016107149 0.1880510 0.4550599  0.3770580  1.221165  319
+ 4: 0.0015511225 0.1880510 0.4550599 -0.5458333 -1.928101   13
+ 5: 0.0020910144 0.1886204 0.4317077  0.6730190  1.698818   14
+ 6: 0.0024233889 0.1886204 0.4317077  0.5146783  1.476579   39
+ 7: 0.0049134229 0.1990288 0.4070179  0.6815536  1.643033   11
+ 8: 0.0033481259 0.1990288 0.4317077  0.6322616  1.620098   15
+ 9: 0.0051142302 0.1990288 0.4070179  0.5961616  1.565151   18
+10: 0.0041478259 0.1990288 0.4070179  0.5995749  1.562115   17
+                                     leadingEdge
+ 1:    ARID1A,ARID1B,KMT2C,EHMT1,KMT2B,ASH1L,...
+ 2:     ATP1A1,SRI,TRPM7,ATP2B1,CALM1,ATP11B,...
+ 3:  ARID1A,SRSF11,HIPK1,TRIM33,CCNT2,ARID1B,...
+ 4:      PTGER2,CXCR4,GPR65,S1PR5,CCL4,ADRB2,...
+ 5:       KMT2C,EHMT1,KMT2B,ASH1L,AEBP2,NSD1,...
+ 6:     RNPC3,SF3B1,SF3B6,PRPF8,SRSF1,TXNL4A,...
+ 7:      HIPK1,ATP1A1,SRI,ATP2B1,CALM1,AKAP9,...
+ 8:       PPP1CB,USP15,XPO1,TGFBR2,UBB,UBA52,...
+ 9:       PPP1CB,USP15,XPO1,TGFBR2,NEDD8,UBB,...
+10: ARID1A,ARID1B,PHC3,SMARCC2,SMARCA2,RUNX1,...
+
+> lapply(gsea, dim)
+$DESeq2
+[1] 480   8
+
+$KR_nb_Was
+[1] 479   8
+
+$KR_nb_JSD
+[1] 479   8
+
+$PS_nb_Was
+[1] 479   8
+
+$PS_nb_JSD
+[1] 479   8
+
+$KR_dca_direct_Was
+[1] 480   8
+
+$KR_dca_direct_JSD
+[1] 480   8
+
+$PS_dca_direct_Was
+[1] 480   8
+
+$PS_dca_direct_JSD
+[1] 480   8
+
+$MAST_glm
+[1] 480   8
+
+$MAST_glmer
+[1] 479   8
+
+$rank_sum
+[1] 480   8
+
+$KR_saver_direct_Was
+[1] 480   8
+
+$KR_saver_direct_JSD
+[1] 480   8
+
+$PS_saver_direct_Was
+[1] 480   8
+
+$PS_saver_direct_JSD
+[1] 480   8
+
+> 
+> #lapply(gsea, function(x){x[which(x$pathway=="SFARI"),]})
+> 
+> saveRDS(gsea, file = sprintf("res/1f_gsea_%s.rds",grp))
+> 
+> 
+> # ------------------------------------------------------------------------
+> # compare GESA results across methods
+> # ------------------------------------------------------------------------
+> 
+> ps2 = merge(gsea$PS_nb_Was, gsea$PS_dca_direct_Was, by=c("pathway"), 
++             suffixes = c( "_PS_nb_Was", "_PS_dca_direct_Was"))
+> ps2 = merge(gsea$DESeq2, ps2, by=c("pathway"))
+> change_labels = names(ps2)[2:8]
+> change_labels = paste(change_labels, "_DESeq2", sep = "")
+> names(ps2)[2:8] = change_labels
+> 
+> dim(ps2)
+[1] 479  22
+> ps2[1:2,]
+                                           pathway pval_DESeq2 padj_DESeq2
+1: REACTOME_ABC_FAMILY_PROTEINS_MEDIATED_TRANSPORT 0.005019433  0.02932083
+2:              REACTOME_ABC_TRANSPORTER_DISORDERS 0.003274336  0.02209024
+   log2err_DESeq2 ES_DESeq2 NES_DESeq2 size_DESeq2
+1:      0.4070179 0.5598738   1.356443          46
+2:      0.4317077 0.5719074   1.382397          43
+                      leadingEdge_DESeq2 pval_PS_nb_Was padj_PS_nb_Was
+1: PSMA1,PSMB3,PSMB1,UBB,PSMB8,PSMC5,...      0.7942058      0.9427480
+2: PSMA1,PSMB3,PSMB1,UBB,PSMB8,PSMC5,...      0.6093906      0.8713487
+   log2err_PS_nb_Was ES_PS_nb_Was NES_PS_nb_Was size_PS_nb_Was
+1:        0.02322483    0.3614825     0.8822476             46
+2:        0.03653149    0.3934797     0.9568093             43
+                  leadingEdge_PS_nb_Was pval_PS_dca_direct_Was
+1: PSMB1,UBB,UBA52,RPS27A,PSMD7,UBC,...                     NA
+2: PSMB1,UBB,UBA52,RPS27A,PSMD7,UBC,...                      1
+   padj_PS_dca_direct_Was log2err_PS_dca_direct_Was ES_PS_dca_direct_Was
+1:                     NA                        NA           -0.1408500
+2:                      1                         0            0.1534103
+   NES_PS_dca_direct_Was size_PS_dca_direct_Was
+1:                    NA                     46
+2:             0.4750361                     43
+             leadingEdge_PS_dca_direct_Was
+1: PSME2,PSMA3,PSMA2,PSMD2,PSMA4,PSMB8,...
+2:   PSMC6,UBA52,UBB,PSMB6,PSMB1,PSMD7,...
+> 
+> pvals.df = ps2[,.(pval_DESeq2, pval_PS_nb_Was, pval_PS_dca_direct_Was)]
+> dim(pvals.df)
+[1] 479   3
+> pvals.df[1:2,]
+   pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+1: 0.005019433      0.7942058                     NA
+2: 0.003274336      0.6093906                      1
+> 
+> colSums(is.na(pvals.df))
+           pval_DESeq2         pval_PS_nb_Was pval_PS_dca_direct_Was 
+                     1                      3                     14 
+> 
+> cor(-log10(pvals.df))
+                       pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+pval_DESeq2                      1             NA                     NA
+pval_PS_nb_Was                  NA              1                     NA
+pval_PS_dca_direct_Was          NA             NA                      1
+> cor(-log10(pvals.df), method="spearman")
+                       pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+pval_DESeq2                      1             NA                     NA
+pval_PS_nb_Was                  NA              1                     NA
+pval_PS_dca_direct_Was          NA             NA                      1
+> 
+> pvals.df.nona = na.omit(pvals.df)
+> 
+> cor(-log10(pvals.df.nona))
+                        pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+pval_DESeq2             1.000000000    0.001124171             -0.2300337
+pval_PS_nb_Was          0.001124171    1.000000000              0.3891812
+pval_PS_dca_direct_Was -0.230033687    0.389181201              1.0000000
+> cor(-log10(pvals.df.nona), method="spearman")
+                       pval_DESeq2 pval_PS_nb_Was pval_PS_dca_direct_Was
+pval_DESeq2              1.0000000      0.1523387             -0.1887118
+pval_PS_nb_Was           0.1523387      1.0000000              0.4440443
+pval_PS_dca_direct_Was  -0.1887118      0.4440443              1.0000000
+> 
+> 
+> gc()
+          used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells 2093713 111.9    4192034 223.9         NA  2846783 152.1
+Vcells 6030282  46.1   12255594  93.6      65536 10146209  77.5
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+Random number generation:
+ RNG:     L'Ecuyer-CMRG 
+ Normal:  Inversion 
+ Sample:  Rejection 
+ 
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] stringr_1.4.0        fgsea_1.18.0         ggpointdensity_0.1.0
+ [4] ggpubr_0.4.0         ggplot2_3.3.5        qvalue_2.24.0       
+ [7] doRNG_1.8.2          rngtools_1.5         doParallel_1.0.16   
+[10] iterators_1.0.13     foreach_1.5.1        data.table_1.14.0   
+[13] MASS_7.3-54         
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.1.1    reshape2_1.4.4      purrr_0.3.4        
+ [4] lattice_0.20-44     splines_4.1.0       haven_2.4.1        
+ [7] carData_3.0-4       colorspace_2.0-2    vctrs_0.3.8        
+[10] generics_0.1.0      utf8_1.2.1          rlang_0.4.11       
+[13] pillar_1.6.1        foreign_0.8-81      glue_1.4.2         
+[16] withr_2.4.2         BiocParallel_1.26.2 readxl_1.3.1       
+[19] lifecycle_1.0.0     plyr_1.8.6          munsell_0.5.0      
+[22] ggsignif_0.6.2      gtable_0.3.0        cellranger_1.1.0   
+[25] zip_2.2.0           codetools_0.2-18    rio_0.5.27         
+[28] forcats_0.5.1       curl_4.3.2          fansi_0.5.0        
+[31] broom_0.7.8         Rcpp_1.0.7          scales_1.1.1       
+[34] backports_1.2.1     abind_1.4-5         gridExtra_2.3      
+[37] fastmatch_1.1-3     hms_1.1.0           digest_0.6.27      
+[40] stringi_1.6.2       openxlsx_4.2.4      rstatix_0.7.0      
+[43] dplyr_1.0.7         grid_4.1.0          tools_4.1.0        
+[46] magrittr_2.0.1      tibble_3.1.2        crayon_1.4.1       
+[49] tidyr_1.1.3         car_3.0-11          pkgconfig_2.0.3    
+[52] Matrix_1.3-3        ellipsis_0.3.2      R6_2.5.0           
+[55] compiler_4.1.0     
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 17.064   2.211  12.189 
