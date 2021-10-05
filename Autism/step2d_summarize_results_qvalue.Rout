@@ -164,7 +164,7 @@ null device
 > 
 > for(ct1 in cell_types){
 +   fp1 = fp_list[[ct1]]
-+   neg_log_fp1 = -log(fp1)
++   neg_log_fp1 = -log10(fp1)
 +   neg_log_fp1[which(neg_log_fp1 > 10)] = 10
 +   g1 = ggcorrplot(neg_log_fp1, tl.srt=90) + ggtitle(gsub("PFC_", "", ct1)) +
 +     scale_fill_gradient2(limit = c(0,10), low = "blue", 
@@ -228,8 +228,8 @@ null device
 > 
 > gc()
           used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-Ncells  936236 50.1    1908134  102         NA  1908134  102
-Vcells 1666506 12.8    8388608   64      65536  8387614   64
+Ncells  936235 50.1    1908100  102         NA  1908100  102
+Vcells 1666505 12.8    8388608   64      65536  8387614   64
 > 
 > sessionInfo()
 R version 4.1.0 (2021-05-18)
@@ -267,4 +267,4 @@ loaded via a namespace (and not attached):
 > q(save="no")
 > proc.time()
    user  system elapsed 
-  3.096   0.147   3.257 
+  3.181   0.203   3.942 
