@@ -92,7 +92,7 @@ par(mfrow=c(1,1), bty="n", mar=c(5,4,3,1))
 
 for(ct1 in cell_types){
   fp1 = fp_list[[ct1]]
-  neg_log_fp1 = -log(fp1)
+  neg_log_fp1 = -log10(fp1)
   neg_log_fp1[which(neg_log_fp1 > 10)] = 10
   g1 = ggcorrplot(neg_log_fp1, tl.srt=90) + ggtitle(gsub("PFC_", "", ct1)) +
     scale_fill_gradient2(limit = c(0,10), low = "blue", 
