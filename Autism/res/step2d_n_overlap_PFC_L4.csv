@@ -1,0 +1,8 @@
+"","DESeq2","rank_sum","MAST_glm","MAST_glmer","PS_nb_Was","PS_dca_direct_Was","PS_saver_direct_Was"
+"DESeq2",9,9,9,2,NA,NA,NA
+"rank_sum",9,5198,2667,11,NA,NA,NA
+"MAST_glm",9,2667,3511,11,NA,NA,NA
+"MAST_glmer",2,11,11,11,NA,NA,NA
+"PS_nb_Was",NA,NA,NA,NA,NA,NA,NA
+"PS_dca_direct_Was",NA,NA,NA,NA,NA,NA,NA
+"PS_saver_direct_Was",NA,NA,NA,NA,NA,NA,NA

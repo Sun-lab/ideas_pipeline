@@ -60,6 +60,7 @@ Read 17 items
 +             "PS_nb_Was", "PS_dca_direct_Was", "PS_saver_direct_Was")
 > 
 > or_list = fp_list = list()
+> n_overlap_list = prop_overlap_list = list()
 > 
 > 
 > for(i in 1:length(cell_types)){
@@ -68,9 +69,14 @@ Read 17 items
 + 
 +   odds_ratio = fisher_pvl = matrix(NA, nrow=length(methods), 
 +                                    ncol=length(methods))
++   n_overlap = prop_overlap = matrix(NA, nrow=length(methods), 
++                                     ncol=length(methods))
 +   
 +   colnames(odds_ratio) = rownames(odds_ratio) = methods
 +   colnames(fisher_pvl) = rownames(fisher_pvl) = methods
++   
++   colnames(n_overlap) = rownames(n_overlap) = methods
++   colnames(prop_overlap) = rownames(prop_overlap) = methods
 +   
 +   j = 0
 +   for(m1 in methods){
@@ -87,11 +93,15 @@ Read 17 items
 +       fjk = fisher.test(qj, qk, alternative = "greater")
 +       odds_ratio[m1, k1] = fjk$estimate
 +       fisher_pvl[m1, k1] = fjk$p.value
++       n_overlap[m1, k1] = sum(qj & qk, na.rm = TRUE)
++       prop_overlap[m1, k1] = sum(qj & qk, na.rm = TRUE)/sum(qj, na.rm = TRUE)
 +     }
 +   }
-+   plot(0:1,0:1, type="n", xaxt="n", yaxt="n", bty="n", xlab="", ylab="")
++   #plot(0:1,0:1, type="n", xaxt="n", yaxt="n", bty="n", xlab="", ylab="")
 +   or_list[[ct1]] = odds_ratio
 +   fp_list[[ct1]] = fisher_pvl
++   n_overlap_list[[ct1]] = n_overlap
++   prop_overlap_list[[ct1]] = round(prop_overlap, digits = 3)
 +   
 + }
 > 
@@ -144,8 +154,8 @@ will replace the existing scale.
 Scale for 'fill' is already present. Adding another scale for 'fill', which
 will replace the existing scale.
 > dev.off()
-pdf 
-  2 
+null device 
+          1 
 > 
 > 
 > 
@@ -197,8 +207,18 @@ will replace the existing scale.
 Scale for 'fill' is already present. Adding another scale for 'fill', which
 will replace the existing scale.
 > dev.off()
-pdf 
-  2 
+null device 
+          1 
+> 
+> 
+> for(ct1 in cell_types){
++   filename_n_overlap = sprintf("res/step2d_n_overlap_%s.csv", ct1)
++   write.csv(n_overlap_list[[ct1]], file = filename_n_overlap, 
++             row.names = TRUE)
++   filename_prop_overlap = sprintf("res/step2d_prop_overlap_%s.csv", ct1)
++   write.csv(prop_overlap_list[[ct1]], file = filename_prop_overlap,
++             row.names = TRUE)  
++ }
 > 
 > 
 > 
@@ -207,9 +227,9 @@ pdf
 > 
 > 
 > gc()
-          used (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
-Ncells  935849 50.0    1912240 102.2         NA  1912240 102.2
-Vcells 1668787 12.8    8388608  64.0      65536  8387719  64.0
+          used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
+Ncells  936236 50.1    1908134  102         NA  1908134  102
+Vcells 1666506 12.8    8388608   64      65536  8387614   64
 > 
 > sessionInfo()
 R version 4.1.0 (2021-05-18)
@@ -247,4 +267,4 @@ loaded via a namespace (and not attached):
 > q(save="no")
 > proc.time()
    user  system elapsed 
-  3.084   0.143   3.246 
+  3.096   0.147   3.257 

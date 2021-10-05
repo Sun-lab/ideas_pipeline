@@ -26,6 +26,7 @@ methods = c("DESeq2", "rank_sum", "MAST_glm", "MAST_glmer",
             "PS_nb_Was", "PS_dca_direct_Was", "PS_saver_direct_Was")
 
 or_list = fp_list = list()
+n_overlap_list = prop_overlap_list = list()
 
 
 for(i in 1:length(cell_types)){
@@ -34,9 +35,14 @@ for(i in 1:length(cell_types)){
 
   odds_ratio = fisher_pvl = matrix(NA, nrow=length(methods), 
                                    ncol=length(methods))
+  n_overlap = prop_overlap = matrix(NA, nrow=length(methods), 
+                                    ncol=length(methods))
   
   colnames(odds_ratio) = rownames(odds_ratio) = methods
   colnames(fisher_pvl) = rownames(fisher_pvl) = methods
+  
+  colnames(n_overlap) = rownames(n_overlap) = methods
+  colnames(prop_overlap) = rownames(prop_overlap) = methods
   
   j = 0
   for(m1 in methods){
@@ -53,11 +59,15 @@ for(i in 1:length(cell_types)){
       fjk = fisher.test(qj, qk, alternative = "greater")
       odds_ratio[m1, k1] = fjk$estimate
       fisher_pvl[m1, k1] = fjk$p.value
+      n_overlap[m1, k1] = sum(qj & qk, na.rm = TRUE)
+      prop_overlap[m1, k1] = sum(qj & qk, na.rm = TRUE)/sum(qj, na.rm = TRUE)
     }
   }
-  plot(0:1,0:1, type="n", xaxt="n", yaxt="n", bty="n", xlab="", ylab="")
+  #plot(0:1,0:1, type="n", xaxt="n", yaxt="n", bty="n", xlab="", ylab="")
   or_list[[ct1]] = odds_ratio
   fp_list[[ct1]] = fisher_pvl
+  n_overlap_list[[ct1]] = n_overlap
+  prop_overlap_list[[ct1]] = round(prop_overlap, digits = 3)
   
 }
 
@@ -93,6 +103,16 @@ for(ct1 in cell_types){
   print(g1)
 }
 dev.off()
+
+
+for(ct1 in cell_types){
+  filename_n_overlap = sprintf("res/step2d_n_overlap_%s.csv", ct1)
+  write.csv(n_overlap_list[[ct1]], file = filename_n_overlap, 
+            row.names = TRUE)
+  filename_prop_overlap = sprintf("res/step2d_prop_overlap_%s.csv", ct1)
+  write.csv(prop_overlap_list[[ct1]], file = filename_prop_overlap,
+            row.names = TRUE)  
+}
 
 
 
