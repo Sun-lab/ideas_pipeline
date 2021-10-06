@@ -57,6 +57,10 @@ Create permutated donor level labels:
 [1d_saver_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_saver_perm.R)
 
 
+**Summary steps:**
+
+[2e_summarize_results_qvalue.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/2e_summarize_results_qvalue.R) gets number of significant genes under qvalue cutoff 0.01 & 0.05 for different methods, the odds ratio (conditional MLE given my fisher.test in R) of overlap between significant genes given by different methods and the one-sided pvalue from fisher's exact test. 
+
 ## References
 <a id="1">[1]</a> 
 Schulte-Schrepping, Jonas, et al. "Severe COVID-19 is marked by a dysregulated myeloid cell compartment." Cell 182.6 (2020): 1419-1440.
