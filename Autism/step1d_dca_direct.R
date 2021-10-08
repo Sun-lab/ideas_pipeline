@@ -64,7 +64,7 @@ RNGkind("L'Ecuyer-CMRG")
  
 # The outpuf of DCA are too large to save at GitHub, e.g., 
 # -rw-rw---- 1  1383783222 Dec 21 02:00 L2_3_mean_norm.tsv
-# -rwxrwx--- 1   544297480 Dec 16 22:37 L2_3_mean.tsv.gz
+# -rw-rw---- 1   576171020 Oct  3 16:14 L2_3_dispersion.tsv.gz
 # -rwxrwx--- 1   486210994 Dec 16 22:38 L2_3_pi.tsv.gz
 # so we access them from this local folder:
 data.dca.dir = "data/dca_PFC_all/"
