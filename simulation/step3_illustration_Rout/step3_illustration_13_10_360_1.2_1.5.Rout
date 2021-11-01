@@ -259,7 +259,7 @@ Ncells  7783051 415.7   13973607 746.3         NA  9710537 518.6
 Vcells 79271086 604.8  116551748 889.3      32768 79333289 605.3
 > 
 > # ---------------------------------------------------------------
-> # find a few examples to illustrate
+> # read in p-values
 > # ---------------------------------------------------------------
 > 
 > pvals = fread(sprintf("results/pval_%s.txt", config))
@@ -296,6 +296,69 @@ Vcells 79271086 604.8  116551748 889.3      32768 79333289 605.3
 +                     pvals_rank_sum$PS_zinb_Was), na.rm=TRUE) < 1e-10)
 > pvals = pvals_rank_sum
 > 
+> # ---------------------------------------------------------------
+> # read in scDD p-values
+> # ---------------------------------------------------------------
+> 
+> pvals_scDD = fread(sprintf("results/res_scDD_%s.txt", config))
+> dim(pvals_scDD)
+[1] 8000   11
+> pvals_scDD[1:2,]
+    gene DDcategory Clusters.combined Clusters.c1 Clusters.c2 nonzero.pvalue
+1: gene1         NS                 2           2           2     0.04433325
+2: gene2         NS                 1           1           1     0.10796673
+   nonzero.pvalue.adj zero.pvalue zero.pvalue.adj combined.pvalue
+1:         0.06475552   0.5149700       0.6067394       0.1091212
+2:         0.13466384   0.5619882       0.6486662       0.2307028
+   combined.pvalue.adj
+1:           0.1288136
+2:           0.2519621
+> 
+> pvals$scDD = pvals_scDD$combined.pvalue
+> pvals$scDD_category = pvals_scDD$DDcategory
+> 
+> t1 = table(pvals$geneType, pvals$scDD_category)
+> t1
+        
+           DB   DE   DM   DP   DZ   NS
+  EE      583  870   55  358 1229 2905
+  meanDE  151  274   12  125  270  168
+  varDE   354  407   34    0  195   10
+> 
+> scDD_cat = melt(t1, varnames = c("gene_type", "scDD_category"))
+> 
+> g1 = ggplot(scDD_cat %>% group_by(gene_type) %>% 
++          mutate(rel_freq = round(value/sum(value),2)), 
++        aes(x = gene_type, y = rel_freq, 
++            fill = scDD_category, cumulative = TRUE)) +
++   geom_col() +
++   geom_text(aes(label = paste0(rel_freq*100,"%")), 
++             position = position_stack(vjust = 0.5))
+> 
+> pdf(sprintf("figures/scDD_cat_%s.pdf", config), width=4, height=4)
+> print(g1)
+> dev.off()
+null device 
+          1 
+> 
+> # ---------------------------------------------------------------
+> # read in ZINB-WaVE p-values
+> # ---------------------------------------------------------------
+> 
+> pvals_zw = fread(sprintf("results/res_ZINB-WaVE_%s.txt", config))
+> dim(pvals_zw)
+[1] 8000    7
+> pvals_zw[1:2,]
+    baseMean log2FoldChange      lfcSE      stat     pvalue       padj  gene
+1: 0.4183640     -0.1213729 0.05061693 -2.397872 0.01651766 0.02878355 gene1
+2: 0.3443545      0.1097512 0.05842476  1.878504 0.06035942 0.09219499 gene2
+> 
+> pvals$ZINB_WaVE = pvals_zw$pvalue
+> 
+> # ---------------------------------------------------------------
+> # find a few examples to illustrate
+> # ---------------------------------------------------------------
+> 
 > w2use = which(pvals$geneType == "varDE" & pvals$deseq2_pval > 0.1 & 
 +                 pvals$PS_zinb_Was <= 0.001)
 > length(w2use)
@@ -323,16 +386,16 @@ Vcells 79271086 604.8  116551748 889.3      32768 79333289 605.3
 7:       0.001      0.001      0.005   0.1612716  5.866946e-19    1.218055e-05
 8:       0.001      0.002      0.244   0.6631617  6.715558e-24    2.942265e-09
 9:       0.001      0.001      0.214   0.3756180  2.168168e-28    9.205016e-06
-   ranksum_pval
-1: 9.158369e-11
-2: 3.126900e-08
-3: 5.061576e-06
-4: 4.887202e-05
-5: 2.561464e-08
-6: 2.788707e-07
-7: 3.443145e-09
-8: 6.458836e-05
-9: 2.446641e-07
+   ranksum_pval         scDD scDD_category    ZINB_WaVE
+1: 9.158369e-11 1.162106e-16            DM 6.545516e-02
+2: 3.126900e-08 9.708905e-18            DZ 3.265686e-03
+3: 5.061576e-06 6.224011e-23            DE 2.053262e-04
+4: 4.887202e-05 1.690739e-13            DE 5.731741e-05
+5: 2.561464e-08 1.194080e-14            DB 4.491316e-01
+6: 2.788707e-07 3.149965e-26            DB 6.649050e-06
+7: 3.443145e-09 3.827963e-15            DB 2.785874e-01
+8: 6.458836e-05 9.314797e-19            DE 4.273809e-06
+9: 2.446641e-07 7.984789e-21            DB 3.131137e-04
 > 
 > if(length(w2use) >= 2){
 +   row_id = w2use[2]
@@ -441,7 +504,7 @@ Removed 46 row(s) containing missing values (geom_path).
 + }
 > 
 > ms = c("PS_zinb_Was", "PS_kde_Was", "deseq2_pval", "mast_pval_glm", 
-+        "mast_pval_glmer", "ranksum_pval")
++        "mast_pval_glmer", "ranksum_pval", "scDD", "ZINB_WaVE")
 > powers = apply(pvals[,..ms], 2, cal.power, geneType=pvals$geneType)
 > 
 > print(config)
@@ -451,10 +514,10 @@ Removed 46 row(s) containing missing values (geom_path).
 EE      0.04890303 0.04783333  0.06316667        0.5775      0.06416667
 meanDE  0.31024096 0.35400000  0.41500000        0.8830      0.35100000
 varDE   0.25832492 0.35000000  0.07100000        0.9970      0.80600000
-       ranksum_pval
-EE           0.5575
-meanDE       0.8580
-varDE        0.8080
+       ranksum_pval      scDD ZINB_WaVE
+EE           0.5575 0.7156667 0.5873333
+meanDE       0.8580 0.9230000 0.8560000
+varDE        0.8080 0.9990000 0.7540000
 > 
 > gg = melt(powers)
 > 
@@ -467,10 +530,13 @@ varDE        0.8080
 > gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
 > table(gg$method)
 
-    DEseq2  IDEAS_KDE IDEAS_ZINB       MAST MAST_glmer   Rank-sum 
-         3          3          3          3          3          3 
-> gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
-+                                          "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
+    DEseq2  IDEAS_KDE IDEAS_ZINB       MAST MAST_glmer   Rank-sum       scDD 
+         3          3          3          3          3          3          3 
+ ZINB_WaVE 
+         3 
+> gg$method = factor(gg$method, 
++                    levels = c("Rank-sum", "MAST", "scDD", "ZINB_WaVE",  
++                               "MAST_glmer", "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
 > 
 > g1 = ggplot(subset(gg, geneType %in% c("EE")), 
 +             aes(x=geneType, y=power, fill=method)) +
@@ -565,13 +631,13 @@ loaded via a namespace (and not attached):
 [100] tidyr_1.1.2            numDeriv_2016.8-1.1    munsell_0.5.0         
 > 
 > mem_used()
-1.09 GB
+1.1 GB
 > gc()
            used  (Mb) gc trigger   (Mb) limit (Mb) max used  (Mb)
-Ncells  8036781 429.3   13973607  746.3         NA 13219181 706.0
-Vcells 79932063 609.9  139942097 1067.7      32768 85673758 653.7
+Ncells  8075379 431.3   13973607  746.3         NA 13973607 746.3
+Vcells 80302109 612.7  139942097 1067.7      32768 87017873 663.9
 > 
 > q(save = "no")
 > proc.time()
    user  system elapsed 
- 17.357   1.230  19.472 
+ 11.950   0.760  12.786 

@@ -87,7 +87,7 @@ rm(sim_data)
 gc()
 
 # ---------------------------------------------------------------
-# find a few examples to illustrate
+# read in p-values
 # ---------------------------------------------------------------
 
 pvals = fread(sprintf("results/pval_%s.txt", config))
@@ -103,6 +103,48 @@ pvals_rank_sum[1:2,]
 stopifnot(max(abs(pvals$PS_zinb_Was - 
                     pvals_rank_sum$PS_zinb_Was), na.rm=TRUE) < 1e-10)
 pvals = pvals_rank_sum
+
+# ---------------------------------------------------------------
+# read in scDD p-values
+# ---------------------------------------------------------------
+
+pvals_scDD = fread(sprintf("results/res_scDD_%s.txt", config))
+dim(pvals_scDD)
+pvals_scDD[1:2,]
+
+pvals$scDD = pvals_scDD$combined.pvalue
+pvals$scDD_category = pvals_scDD$DDcategory
+
+t1 = table(pvals$geneType, pvals$scDD_category)
+t1
+
+scDD_cat = melt(t1, varnames = c("gene_type", "scDD_category"))
+
+g1 = ggplot(scDD_cat %>% group_by(gene_type) %>% 
+         mutate(rel_freq = round(value/sum(value),2)), 
+       aes(x = gene_type, y = rel_freq, 
+           fill = scDD_category, cumulative = TRUE)) +
+  geom_col() +
+  geom_text(aes(label = paste0(rel_freq*100,"%")), 
+            position = position_stack(vjust = 0.5))
+
+pdf(sprintf("figures/scDD_cat_%s.pdf", config), width=4, height=4)
+print(g1)
+dev.off()
+
+# ---------------------------------------------------------------
+# read in ZINB-WaVE p-values
+# ---------------------------------------------------------------
+
+pvals_zw = fread(sprintf("results/res_ZINB-WaVE_%s.txt", config))
+dim(pvals_zw)
+pvals_zw[1:2,]
+
+pvals$ZINB_WaVE = pvals_zw$pvalue
+
+# ---------------------------------------------------------------
+# find a few examples to illustrate
+# ---------------------------------------------------------------
 
 w2use = which(pvals$geneType == "varDE" & pvals$deseq2_pval > 0.1 & 
                 pvals$PS_zinb_Was <= 0.001)
@@ -180,7 +222,7 @@ cal.power <- function(x, geneType){
 }
 
 ms = c("PS_zinb_Was", "PS_kde_Was", "deseq2_pval", "mast_pval_glm", 
-       "mast_pval_glmer", "ranksum_pval")
+       "mast_pval_glmer", "ranksum_pval", "scDD", "ZINB_WaVE")
 powers = apply(pvals[,..ms], 2, cal.power, geneType=pvals$geneType)
 
 print(config)
@@ -196,8 +238,9 @@ gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
 gg$method = gsub("mast_pval_glm", "MAST", gg$method)
 gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
 table(gg$method)
-gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
-                                         "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
+gg$method = factor(gg$method, 
+                   levels = c("Rank-sum", "MAST", "scDD", "ZINB_WaVE",  
+                              "MAST_glmer", "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
 
 g1 = ggplot(subset(gg, geneType %in% c("EE")), 
             aes(x=geneType, y=power, fill=method)) +

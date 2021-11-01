@@ -16,9 +16,9 @@ if (length(args) < 5) {
   message("no enough arguments, using default values")
   r_mean   = 1.2     # The expected fold-changes in mean
   r_var    = 1.5     # The expected fold-changes in variances
-  ncase    = 13      # case individuals
+  ncase    = 10      # case individuals
   nctrl    = 10      # control individuals
-  ncell    = 360    # numbers of cells collected from each individuals.
+  ncell    = 120    # numbers of cells collected from each individuals.
 } else{
   for(i in 1:length(args)){
     eval(parse(text=args[[i]]))
@@ -212,7 +212,7 @@ for(k in 1:length(dist_list)){
       Ki = D2K(Di)
       m1 = MiRKAT(y = y, X = meta_ind$RIN, Ks = Ki, out_type = "D", 
                   method = "permutation")
-      pval = m1$indivP
+      pval = m1$p_values
     }
     pval
   }
@@ -348,7 +348,9 @@ mast_pval_glmer[1:4]
 # ---------------------------------------------------------------
  
 date()
-ranksum_pval=apply(count_matrix,1,function(x) wilcox.test(x[diagnosis=="Case"],x[diagnosis=="Control"])$p.value)
+ranksum_pval=apply(count_matrix,1,
+                   function(x) wilcox.test(x[diagnosis=="Case"], 
+                                           x[diagnosis=="Control"])$p.value)
 date()
 
 rm(count_matrix)

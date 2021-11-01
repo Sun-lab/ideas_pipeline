@@ -1,0 +1,467 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> #########################################################################
+> #                                                                       #
+> #                                                                       #
+> #             Part II: Defferential Expression Analysis                 #
+> #                                                                       #
+> #                                                                       #
+> #########################################################################
+> # once simulated genes, we will do the Differential Expression Analysis
+> # here we implement the zinbwave
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=13"   "nctrl=10"   "ncell=360"  "r_mean=1.2" "r_var=1.5" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 13      # case individuals
++   nctrl    = 10      # control individuals
++   ncell    = 360    # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> if(ncell == 0){
++   UNEQ_N_CELL = TRUE
++ }else{
++   UNEQ_N_CELL = FALSE
++ }
+> 
+> if(UNEQ_N_CELL){
++   config = sprintf("ncase_%d_nctrl_%d_unequal_n_cell", ncase, nctrl)
++ }else{
++   config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
++ }
+> 
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_13_nctrl_10_ncell_360_fold_mean_1.2_var_1.5"
+> 
+> # ---------------------------------------------------------------
+> # additional parameters
+> # ---------------------------------------------------------------
+> 
+> nCore = 6      # number of cores for multi-core computation
+> nall  = ncase + nctrl
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(zinbwave)
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+Loading required package: SingleCellExperiment
+> library(DESeq2)
+> 
+> library(data.table)
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    shift
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    shift
+
+The following object is masked from ‘package:IRanges’:
+
+    shift
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, second
+
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+
+Attaching package: ‘pryr’
+
+The following object is masked from ‘package:data.table’:
+
+    address
+
+> library(ggplot2)
+> library(ggpubr)
+> theme_set(theme_bw())
+> 
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> sim_data     = readRDS(sprintf("data/sim_data_%s.rds", config))
+> count_matrix = sim_data$count_matrix
+> meta_cell    = sim_data$meta_cell
+> meta_ind     = sim_data$meta_ind
+> gene_index   = sim_data$gene_index
+> 
+> ls()
+ [1] "args"         "config"       "count_matrix" "gene_index"   "i"           
+ [6] "meta_cell"    "meta_ind"     "nall"         "ncase"        "ncell"       
+[11] "nCore"        "nctrl"        "r_mean"       "r_var"        "sim_data"    
+[16] "UNEQ_N_CELL" 
+> EE_index   = gene_index$EE_index
+> mean_index = gene_index$mean_index
+> var_index  = gene_index$var_index
+> 
+> dim(count_matrix)
+[1] 8000 8280
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     2     0
+gene3     0     0     0     2     0     1
+> 
+> dim(meta_cell)
+[1] 8280    5
+> meta_cell[1:2,]
+      cell_id individual phenotype cell_rd      CDR
+cell1   cell1       ind1         1    9738 0.439125
+cell2   cell2       ind1         1    9605 0.444000
+> 
+> dim(meta_ind)
+[1] 23  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.2784552
+ind2       ind2         1 -0.7018300
+> 
+> rm(sim_data)
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  6777799 362.0   10342452 552.4         NA  9302201 496.8
+Vcells 77863933 594.1  114525132 873.8      32768 77925904 594.6
+> 
+> # ---------------------------------------------------------------
+> # 5. zinb_pval analysis 
+> # ---------------------------------------------------------------
+> # We use the zinbwave to estimate weights the dimension, then apply 
+> # DESeq2 given the weights
+> # ---------------------------------------------------------------
+> 
+> sca1 = SingleCellExperiment(list(counts=count_matrix), 
++                             colData = meta_cell)
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  6801957 363.3   10342452 552.4         NA  9302201 496.8
+Vcells 77921354 594.5  114525132 873.8      32768 78478440 598.8
+> date()
+[1] "Wed Sep 29 13:43:26 2021"
+> sca_zinb = zinbwave(sca1, K = 2, observationalWeights = TRUE)
+> date()
+[1] "Wed Sep 29 15:13:46 2021"
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used    (Mb)
+Ncells   6842379  365.5   10342452  552.4         NA    9302201   496.8
+Vcells 144252335 1100.6 1209551472 9228.2      32768 1511799083 11534.2
+> 
+> dds = DESeqDataSet(sca_zinb, design = ~ phenotype)
+converting counts to integer mode
+  the design formula contains one or more numeric variables with integer values,
+  specifying a model with increasing fold change for higher values.
+  did you mean for this to be a factor? if so, first convert
+  this variable to a factor using the factor() function
+> dds = DESeq(dds, sfType="poscounts", useT=TRUE, minmu=1e-6)
+estimating size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+> res = results(dds)
+> dim(res)
+[1] 8000    6
+> res[1:2,]
+log2 fold change (MLE): phenotype 
+Wald test p-value: phenotype 
+DataFrame with 2 rows and 6 columns
+       baseMean log2FoldChange     lfcSE      stat    pvalue      padj
+      <numeric>      <numeric> <numeric> <numeric> <numeric> <numeric>
+gene1  0.418364      -0.121373 0.0506169  -2.39787 0.0165177 0.0287835
+gene2  0.344354       0.109751 0.0584248   1.87850 0.0603594 0.0921950
+> 
+> summary(res$pvalue)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.0000000 0.0000001 0.0030087 0.1486534 0.1801029 0.9999951 
+> table(res$pvalue[EE_index] < 0.05)
+
+FALSE  TRUE 
+ 2476  3524 
+> table(res$pvalue[EE_index] < 0.05)/length(EE_index)
+
+    FALSE      TRUE 
+0.4126667 0.5873333 
+> 
+> # ---------------------------------------------------------------
+> # check p-value
+> # ---------------------------------------------------------------
+> 
+> idx_grp = list(meanDE=mean_index, varDE=var_index, EE=EE_index)
+> 
+> plot.hist <- function(pvals, idx_grp, label){
++   for(k in 1:length(idx_grp)){
++     idx  = idx_grp[[k]]
++     main = paste(label, names(idx_grp)[k], sep=", ")
++     hist(pvals[idx], main=main, xlab="p-value", breaks=50)
++   }
++ }
+> 
+> geneType = rep("EE", nrow(count_matrix))
+> geneType[mean_index] = "meanDE"
+> geneType[var_index]  = "varDE"
+> 
+> table(res$pvalue < 0.05, geneType)
+       geneType
+          EE meanDE varDE
+  FALSE 2476    144   246
+  TRUE  3524    856   754
+> 
+> pdf(sprintf("figures/pvalue_hist_zinbwave_%s.pdf", config), 
++     width = 9, height = 3)
+> par(mfrow = c(1,3), mar=c(5,4,2,1), pty = "s", bty="n")
+> plot.hist(res$pvalue,  idx_grp, "ZINB-WaVE")
+> dev.off()
+null device 
+          1 
+> 
+> # ---------------------------------------------------------------
+> # save results
+> # ---------------------------------------------------------------
+> 
+> fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
+> tapply(res$pvalue, geneType, fun1, alpha=0.05)
+$EE
+
+    FALSE      TRUE 
+0.4126667 0.5873333 
+
+$meanDE
+
+FALSE  TRUE 
+0.144 0.856 
+
+$varDE
+
+FALSE  TRUE 
+0.246 0.754 
+
+> tapply(res$pvalue, geneType, fun1, alpha=0.01)
+$EE
+
+    FALSE      TRUE 
+0.5141667 0.4858333 
+
+$meanDE
+
+FALSE  TRUE 
+0.196 0.804 
+
+$varDE
+
+FALSE  TRUE 
+0.328 0.672 
+
+> 
+> res$gene = rownames(res)
+> res
+log2 fold change (MLE): phenotype 
+Wald test p-value: phenotype 
+DataFrame with 8000 rows and 7 columns
+          baseMean log2FoldChange     lfcSE      stat      pvalue        padj
+         <numeric>      <numeric> <numeric> <numeric>   <numeric>   <numeric>
+gene1     0.418364     -0.1213729 0.0506169 -2.397872 1.65177e-02 2.87835e-02
+gene2     0.344354      0.1097512 0.0584248  1.878504 6.03594e-02 9.21950e-02
+gene3     0.250343      0.1891785 0.0652417  2.899655 3.75037e-03 7.38989e-03
+gene4     0.764600     -0.3066700 0.0372206 -8.239258 2.04328e-16 1.81625e-15
+gene5     0.259592     -0.0264594 0.0670417 -0.394671 6.93120e-01 7.48510e-01
+...            ...            ...       ...       ...         ...         ...
+gene7996  0.294209     -0.2929414 0.0603014  -4.85795 1.23157e-06 4.15193e-06
+gene7997  0.551920     -0.0746079 0.0463399  -1.61001 1.07451e-01 1.53119e-01
+gene7998  0.330948     -0.1074515 0.0565933  -1.89866 5.76649e-02 8.86300e-02
+gene7999  0.659312      0.4196431 0.0412499  10.17318 3.84033e-24 5.68937e-23
+gene8000  0.634100     -0.1228166 0.0416703  -2.94734 3.21922e-03 6.40481e-03
+                gene
+         <character>
+gene1          gene1
+gene2          gene2
+gene3          gene3
+gene4          gene4
+gene5          gene5
+...              ...
+gene7996    gene7996
+gene7997    gene7997
+gene7998    gene7998
+gene7999    gene7999
+gene8000    gene8000
+> 
+> write.table(res, file=sprintf("results/res_ZINB-WaVE_%s.txt", config), 
++             append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
++             col.names = TRUE)
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] ggpubr_0.4.0                ggplot2_3.3.3              
+ [3] pryr_0.1.4                  data.table_1.13.6          
+ [5] DESeq2_1.30.0               zinbwave_1.12.0            
+ [7] SingleCellExperiment_1.12.0 SummarizedExperiment_1.20.0
+ [9] Biobase_2.50.0              GenomicRanges_1.42.0       
+[11] GenomeInfoDb_1.26.2         IRanges_2.24.1             
+[13] S4Vectors_0.28.1            BiocGenerics_0.36.0        
+[15] MatrixGenerics_1.2.0        matrixStats_0.57.0         
+
+loaded via a namespace (and not attached):
+ [1] httr_1.4.2             edgeR_3.32.0           tidyr_1.1.2           
+ [4] bit64_4.0.5            splines_4.0.3          carData_3.0-4         
+ [7] blob_1.2.1             cellranger_1.1.0       GenomeInfoDbData_1.2.4
+[10] pillar_1.4.7           RSQLite_2.2.1          backports_1.2.1       
+[13] lattice_0.20-41        glue_1.4.2             limma_3.46.0          
+[16] digest_0.6.27          RColorBrewer_1.1-2     XVector_0.30.0        
+[19] ggsignif_0.6.0         colorspace_2.0-0       Matrix_1.3-0          
+[22] XML_3.99-0.5           pkgconfig_2.0.3        broom_0.7.3           
+[25] haven_2.3.1            genefilter_1.72.0      zlibbioc_1.36.0       
+[28] purrr_0.3.4            xtable_1.8-4           scales_1.1.1          
+[31] openxlsx_4.2.3         rio_0.5.16             BiocParallel_1.24.1   
+[34] tibble_3.0.4           annotate_1.68.0        generics_0.1.0        
+[37] car_3.0-10             ellipsis_0.3.1         withr_2.3.0           
+[40] readxl_1.3.1           survival_3.2-7         magrittr_2.0.1        
+[43] crayon_1.3.4           memoise_1.1.0          forcats_0.5.0         
+[46] rstatix_0.6.0          foreign_0.8-81         tools_4.0.3           
+[49] hms_0.5.3              softImpute_1.4-1       lifecycle_0.2.0       
+[52] stringr_1.4.0          munsell_0.5.0          locfit_1.5-9.4        
+[55] zip_2.1.1              DelayedArray_0.16.0    AnnotationDbi_1.52.0  
+[58] compiler_4.0.3         rlang_0.4.10           grid_4.0.3            
+[61] RCurl_1.98-1.2         bitops_1.0-6           gtable_0.3.0          
+[64] codetools_0.2-18       abind_1.4-5            DBI_1.1.0             
+[67] curl_4.3               R6_2.5.0               dplyr_1.0.2           
+[70] bit_4.0.4              stringi_1.5.3          Rcpp_1.0.5            
+[73] vctrs_0.3.6            geneplotter_1.68.0     tidyselect_1.1.0      
+> 
+> #mem_used()
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)   max used    (Mb)
+Ncells   6912884  369.2   10342452  552.4         NA   10342452   552.4
+Vcells 409706186 3125.9 1271079297 9697.6      32768 1588849121 12122.0
+> 
+> q(save = "no")
+> proc.time()
+     user    system   elapsed 
+33384.733  6852.222  7315.168 
