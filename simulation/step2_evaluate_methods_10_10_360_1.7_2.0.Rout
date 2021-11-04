@@ -1,0 +1,1304 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> #########################################################################
+> #                                                                       #
+> #                                                                       #
+> #             Part II: Defferential Expression Analysis                 #
+> #                                                                       #
+> #                                                                       #
+> #########################################################################
+> # once simulated genes, we will do the Differential Expression Analysis
+> # Here we will implement our method, plus the DESeq2 and the MAST analysis.
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "ncase=10"   "nctrl=10"   "ncell=360"  "r_mean=1.7" "r_var=2.0" 
+> 
+> if (length(args) < 5) {
++   message("no enough arguments, using default values")
++   r_mean   = 1.2     # The expected fold-changes in mean
++   r_var    = 1.5     # The expected fold-changes in variances
++   ncase    = 10      # case individuals
++   nctrl    = 10      # control individuals
++   ncell    = 120    # numbers of cells collected from each individuals.
++ } else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> if(ncell == 0){
++   UNEQ_N_CELL = TRUE
++ }else{
++   UNEQ_N_CELL = FALSE
++ }
+> 
+> if(UNEQ_N_CELL){
++   config = sprintf("ncase_%d_nctrl_%d_unequal_n_cell", ncase, nctrl)
++ }else{
++   config = sprintf("ncase_%d_nctrl_%d_ncell_%d", ncase, nctrl, ncell)
++ }
+> 
+> config = sprintf("%s_fold_mean_%.1f_var_%.1f", config, r_mean, r_var)
+> config
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.7_var_2.0"
+> 
+> # ---------------------------------------------------------------
+> # additional parameters
+> # ---------------------------------------------------------------
+> 
+> nCore = 6      # number of cores for multi-core computation
+> nall  = ncase + nctrl
+> 
+> # ---------------------------------------------------------------
+> # initial setup
+> # ---------------------------------------------------------------
+> 
+> library(MASS)
+> library(emdbook)
+> library(moments)
+> library(MAST)
+Loading required package: SingleCellExperiment
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: GenomicRanges
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+Loading required package: S4Vectors
+
+Attaching package: ‘S4Vectors’
+
+The following object is masked from ‘package:base’:
+
+    expand.grid
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+> library(lme4)
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following object is masked from ‘package:S4Vectors’:
+
+    expand
+
+> library(DESeq2)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> library(foreach)
+> library(doRNG)
+Loading required package: rngtools
+> library(MiRKAT)
+> library(reticulate)
+> library(transport)
+> 
+> library(data.table)
+
+Attaching package: ‘data.table’
+
+The following object is masked from ‘package:SummarizedExperiment’:
+
+    shift
+
+The following object is masked from ‘package:GenomicRanges’:
+
+    shift
+
+The following object is masked from ‘package:IRanges’:
+
+    shift
+
+The following objects are masked from ‘package:S4Vectors’:
+
+    first, second
+
+> library(pryr)
+Registered S3 method overwritten by 'pryr':
+  method      from
+  print.bytes Rcpp
+
+Attaching package: ‘pryr’
+
+The following object is masked from ‘package:data.table’:
+
+    address
+
+> library(ggplot2)
+> library(ggpubr)
+Registered S3 methods overwritten by 'car':
+  method                          from
+  influence.merMod                lme4
+  cooks.distance.influence.merMod lme4
+  dfbeta.influence.merMod         lme4
+  dfbetas.influence.merMod        lme4
+> theme_set(theme_bw())
+> 
+> library(ideas)
+> 
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> # ---------------------------------------------------------------
+> # load data
+> # ---------------------------------------------------------------
+> 
+> sim_data     = readRDS(sprintf("data/sim_data_%s.rds", config))
+> count_matrix = sim_data$count_matrix
+> meta_cell    = sim_data$meta_cell
+> meta_ind     = sim_data$meta_ind
+> gene_index   = sim_data$gene_index
+> 
+> ls()
+ [1] "args"         "config"       "count_matrix" "gene_index"   "i"           
+ [6] "meta_cell"    "meta_ind"     "nall"         "ncase"        "ncell"       
+[11] "nCore"        "nctrl"        "r_mean"       "r_var"        "sim_data"    
+[16] "UNEQ_N_CELL" 
+> EE_index   = gene_index$EE_index
+> mean_index = gene_index$mean_index
+> var_index  = gene_index$var_index
+> 
+> dim(count_matrix)
+[1] 8000 7200
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     3     0
+gene3     0     0     0     2     0     1
+> 
+> dim(meta_cell)
+[1] 7200    5
+> meta_cell[1:2,]
+      cell_id individual phenotype cell_rd    CDR
+cell1   cell1       ind1         1    9343 0.4365
+cell2   cell2       ind1         1    9669 0.4380
+> 
+> dim(meta_ind)
+[1] 20  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.2784552
+ind2       ind2         1  0.3460781
+> 
+> rm(sim_data)
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  7784567 415.8   13973637 746.3         NA  9710537 518.6
+Vcells 70625489 538.9  104119118 794.4      32768 70687621 539.4
+> 
+> # ---------------------------------------------------------------
+> # 1. DESeq2 analysis 
+> # ---------------------------------------------------------------
+> # We calculate count_matrix_bulk by adding up raw counts of
+> # all cells of an individual within a gene
+> # ---------------------------------------------------------------
+> 
+> # individual level info
+> u_ind = unique(meta_cell$individual)
+> length(u_ind)
+[1] 20
+> u_ind[1:2]
+[1] "ind1" "ind2"
+> 
+> count_matrix_bulk = matrix(nrow = nrow(count_matrix),
++                          ncol = length(u_ind))
+> rownames(count_matrix_bulk) = rownames(count_matrix)
+> colnames(count_matrix_bulk) = u_ind
+> 
+> for (i_ind in 1:length(u_ind)) {
++   cur_ind   = u_ind[i_ind]
++   cur_ind_m = count_matrix[, meta_cell$individual == cur_ind]
++   count_matrix_bulk[, i_ind] = rowSums(cur_ind_m, na.rm = TRUE)
++ }
+> 
+> dim(count_matrix_bulk)
+[1] 8000   20
+> count_matrix_bulk[1:3,1:5]
+      ind1 ind2 ind3 ind4 ind5
+gene1  128  194   98  137  105
+gene2  181   63  134   84   68
+gene3   79  124   95   86   78
+> 
+> meta_ind$phenotype = as.factor(meta_ind$phenotype)
+> dim(meta_ind)
+[1] 20  3
+> meta_ind[1:2,]
+     individual phenotype        RIN
+ind1       ind1         1 -0.2784552
+ind2       ind2         1  0.3460781
+> 
+> # DESeq2 for all the genes
+> dds = DESeqDataSetFromMatrix(countData = count_matrix_bulk,
++                              colData = meta_ind,
++                              design = ~ RIN + phenotype)
+converting counts to integer mode
+> 
+> dds = DESeq(dds)
+estimating size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+> nms = resultsNames(dds)
+> nms
+[1] "Intercept"        "RIN"              "phenotype_1_vs_0"
+> 
+> deseq2_pval = results(dds)$pvalue
+> 
+> rk = results(dds, name="RIN")
+> deseq2_pval_RIN = rk$pvalue
+> 
+> summary(deseq2_pval)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.1335  0.4215  0.4352  0.7179  0.9999 
+> summary(deseq2_pval_RIN)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+ 0.0000  0.1266  0.3847  0.4172  0.6836  1.0000 
+> table(deseq2_pval[EE_index] < 0.05)
+
+FALSE  TRUE 
+ 5618   382 
+> table(deseq2_pval[EE_index] < 0.05)/length(EE_index)
+
+     FALSE       TRUE 
+0.93633333 0.06366667 
+> 
+> # ---------------------------------------------------------------
+> # 2. IDEAS 
+> # ---------------------------------------------------------------
+> 
+> var2test      = "phenotype"
+> var2adjust    = "RIN"
+> var2test_type = "binary"
+> var_per_cell  = "cell_rd"
+> 
+> dist_list = list()
+> 
+> for(fit_method in c("zinb", "kde")){
++   for(d_metric in c("Was", "JSD")){
++     message(sprintf("fit_method: %s, d_metric: %s\n", fit_method, d_metric))
++     message(date())
++     
++     label = paste(fit_method, d_metric, sep="_")
++     fnm = sprintf("data/dist_%s_%s.rds", label, config)
++     if(file.exists(fnm)){
++       dist_list[[label]] = readRDS(fnm)
++     }else{
++       dist1 = ideas_dist(count_matrix, meta_cell, meta_ind, 
++                          var_per_cell, var2test, var2adjust, 
++                          var2test_type, d_metric = d_metric, 
++                          fit_method = fit_method)
++       dist_list[[label]] = dist1
++       saveRDS(dist1, fnm)
++     }
++   }
++ }
+fit_method: zinb, d_metric: Was
+
+Wed Nov  3 23:05:09 2021
+the count_matrix includes 8000 genes in 7200 cells
+
+estimating distribution for each gene and each individaul by zinb
+
+fit_method: zinb, d_metric: JSD
+
+Thu Nov  4 01:52:54 2021
+the count_matrix includes 8000 genes in 7200 cells
+
+estimating distribution for each gene and each individaul by zinb
+
+fit_method: kde, d_metric: Was
+
+Thu Nov  4 04:31:39 2021
+the count_matrix includes 8000 genes in 7200 cells
+
+estimating distribution for each gene and each individual by kde
+
+fit_method: kde, d_metric: JSD
+
+Thu Nov  4 04:34:14 2021
+the count_matrix includes 8000 genes in 7200 cells
+
+estimating distribution for each gene and each individual by kde
+
+> 
+> date()
+[1] "Thu Nov  4 04:44:25 2021"
+> 
+> lapply(dist_list, dim)
+$zinb_Was
+[1] 8000   20   20
+
+$zinb_JSD
+[1] 8000   20   20
+
+$kde_Was
+[1] 8000   20   20
+
+$kde_JSD
+[1] 8000   20   20
+
+> 
+> dist_list$zinb_Was[1,1:3,1:3]
+          ind1      ind2      ind3
+ind1 0.0000000 0.1562666 0.1792994
+ind2 0.1562666 0.0000000 0.3355660
+ind3 0.1792994 0.3355660 0.0000000
+> dist_list$zinb_JSD[1,1:3,1:3]
+            ind1        ind2       ind3
+ind1 0.000000000 0.008151534 0.01765871
+ind2 0.008151534 0.000000000 0.04786688
+ind3 0.017658713 0.047866882 0.00000000
+> 
+> # ---------------------------------------------------------------
+> # STEP 2: pval calculation 
+> # ---------------------------------------------------------------
+> 
+> n_gene = nrow(count_matrix)
+> y = as.numeric(meta_ind$phenotype==1)
+> 
+> pval_KR = matrix(NA, nrow=n_gene, ncol=length(dist_list))
+> rownames(pval_KR) = rownames(count_matrix)
+> colnames(pval_KR) = paste("KR", names(dist_list), sep="_")
+> 
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   pval_KR[,k] = foreach(i_g = 1:dim(dist_k)[1], .combine = "c") %dopar% {
++     Di = dist_k[i_g,,]
++     if(any(is.na(Di))){
++       pval = NA 
++     }else{
++       Ki = D2K(Di)
++       m1 = MiRKAT(y = y, X = meta_ind$RIN, Ks = Ki, out_type = "D", 
++                   method = "permutation")
++       pval = m1$p_values
++     }
++     pval
++   }
++ }
+zinb_Was
+Thu Nov  4 04:44:25 2021
+zinb_JSD
+Thu Nov  4 04:45:22 2021
+kde_Was
+Thu Nov  4 04:46:19 2021
+kde_JSD
+Thu Nov  4 04:47:13 2021
+> date()
+[1] "Thu Nov  4 04:48:13 2021"
+> 
+> dim(pval_KR)
+[1] 8000    4
+> pval_KR[1:2,]
+      KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD
+gene1       0.670       0.523      0.479      0.227
+gene2       0.392       0.378      0.342      0.877
+> 
+> 
+> n_perm = 999
+> r.seed = 903
+> 
+> pval_PS = matrix(NA, nrow=n_gene, ncol=length(dist_list))
+> rownames(pval_PS) = rownames(count_matrix)
+> colnames(pval_PS) = names(dist_list)
+> colnames(pval_PS) = paste("PS", names(dist_list), sep="_")
+> 
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   pval_PS[,k] = permanova(dist_k, meta_ind, var2test, var2adjust, 
++                           var2test_type, n_perm=n_perm, 
++                           r.seed=r.seed, residulize.x = FALSE)
++ }
+zinb_Was
+Thu Nov  4 04:48:13 2021
+skip 25 gene(s) with NA in the dist_array
+
+testing for 'phenotype', a binary variable
+
+zinb_JSD
+Thu Nov  4 04:51:18 2021
+skip 25 gene(s) with NA in the dist_array
+
+testing for 'phenotype', a binary variable
+
+kde_Was
+Thu Nov  4 04:53:56 2021
+testing for 'phenotype', a binary variable
+
+kde_JSD
+Thu Nov  4 04:56:42 2021
+testing for 'phenotype', a binary variable
+
+Warning messages:
+1: In foreach(i = 1:ncol(Rs), .combine = "cbind") %dorng% { :
+  Foreach loop (doParallelMC) had changed the current RNG type: RNG was restored to same type, next state
+2: In foreach(i = 1:ncol(Rs), .combine = "cbind") %dorng% { :
+  Foreach loop (doParallelMC) had changed the current RNG type: RNG was restored to same type, next state
+3: In foreach(i = 1:ncol(Rs), .combine = "cbind") %dorng% { :
+  Foreach loop (doParallelMC) had changed the current RNG type: RNG was restored to same type, next state
+4: In foreach(i = 1:ncol(Rs), .combine = "cbind") %dorng% { :
+  Foreach loop (doParallelMC) had changed the current RNG type: RNG was restored to same type, next state
+> date()
+[1] "Thu Nov  4 04:59:28 2021"
+> 
+> summary(pval_KR)
+  KR_zinb_Was      KR_zinb_JSD       KR_kde_Was       KR_kde_JSD    
+ Min.   :0.0010   Min.   :0.0010   Min.   :0.0010   Min.   :0.0010  
+ 1st Qu.:0.0980   1st Qu.:0.0890   1st Qu.:0.0910   1st Qu.:0.1610  
+ Median :0.3780   Median :0.3840   Median :0.3850   Median :0.4390  
+ Mean   :0.4116   Mean   :0.4102   Mean   :0.4175   Mean   :0.4472  
+ 3rd Qu.:0.6940   3rd Qu.:0.6980   3rd Qu.:0.7150   3rd Qu.:0.7180  
+ Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+ NA's   :25       NA's   :25                                        
+> summary(pval_PS)
+  PS_zinb_Was      PS_zinb_JSD       PS_kde_Was       PS_kde_JSD    
+ Min.   :0.0010   Min.   :0.0010   Min.   :0.0010   Min.   :0.0010  
+ 1st Qu.:0.0910   1st Qu.:0.0820   1st Qu.:0.0810   1st Qu.:0.1520  
+ Median :0.3700   Median :0.3780   Median :0.3780   Median :0.4380  
+ Mean   :0.4066   Mean   :0.4061   Mean   :0.4116   Mean   :0.4455  
+ 3rd Qu.:0.6900   3rd Qu.:0.6970   3rd Qu.:0.7113   3rd Qu.:0.7230  
+ Max.   :1.0000   Max.   :1.0000   Max.   :1.0000   Max.   :1.0000  
+ NA's   :25       NA's   :25                                        
+> 
+> round(cor(-log10(pval_KR), use="pair"),2)
+            KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD
+KR_zinb_Was        1.00        0.94       0.96       0.73
+KR_zinb_JSD        0.94        1.00       0.92       0.73
+KR_kde_Was         0.96        0.92       1.00       0.75
+KR_kde_JSD         0.73        0.73       0.75       1.00
+> round(cor(-log10(pval_PS), use="pair"),2)
+            PS_zinb_Was PS_zinb_JSD PS_kde_Was PS_kde_JSD
+PS_zinb_Was        1.00        0.95       0.96       0.73
+PS_zinb_JSD        0.95        1.00       0.92       0.73
+PS_kde_Was         0.96        0.92       1.00       0.75
+PS_kde_JSD         0.73        0.73       0.75       1.00
+> 
+> round(cor(-log10(pval_KR), -log10(pval_PS), use="pair"),2)
+            PS_zinb_Was PS_zinb_JSD PS_kde_Was PS_kde_JSD
+KR_zinb_Was        0.99        0.94       0.95       0.73
+KR_zinb_JSD        0.94        0.99       0.91       0.73
+KR_kde_Was         0.95        0.91       0.99       0.75
+KR_kde_JSD         0.73        0.73       0.75       0.99
+> 
+> # ---------------------------------------------------------------
+> # 3. MAST analysis 
+> # ---------------------------------------------------------------
+> #
+> # the input of MAST analysis can be matrix or SingleCellAssay.
+> #
+> # input:
+> # (1) the log-transformed expression count matrix,
+> #     with each column represents a cell and each row represents a gene.
+> # (2) the meta data, including cell and individual information.
+> 
+> # we get the p-values based on the Hurdle model ("H" model)
+> # ---------------------------------------------------------------
+> 
+> rds = colSums(count_matrix)
+> med_rds = median(rds)
+> summary(rds)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   8717    9461    9714    9980   10121   16229 
+> med_rds
+[1] 9714
+> 
+> dim(count_matrix)
+[1] 8000 7200
+> count_matrix[1:3,1:6]
+      cell1 cell2 cell3 cell4 cell5 cell6
+gene1     1     1     0     0     0     0
+gene2     1     1     0     0     3     0
+gene3     0     0     0     2     0     1
+> count_matrix = t(t(count_matrix)/rds)*med_rds
+> dim(count_matrix)
+[1] 8000 7200
+> count_matrix[1:3,1:6]
+         cell1    cell2 cell3   cell4    cell5    cell6
+gene1 1.039709 1.004654     0 0.00000 0.000000 0.000000
+gene2 1.039709 1.004654     0 0.00000 3.029944 0.000000
+gene3 0.000000 0.000000     0 2.06571 0.000000 1.020807
+> summary(colSums(count_matrix))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   9714    9714    9714    9714    9714    9714 
+> 
+> count_matrix_log = log2(1 + count_matrix) #log transformed data
+> 
+> dim(count_matrix_log)
+[1] 8000 7200
+> count_matrix_log[1:3, 1:4]
+         cell1    cell2 cell3    cell4
+gene1 1.028363 1.003353     0 0.000000
+gene2 1.028363 1.003353     0 0.000000
+gene3 0.000000 0.000000     0 1.616221
+> cell_id = colnames(count_matrix_log)   # get the cell id from the data
+> gene_id = rownames(count_matrix_log)   # get the gene id from the data
+> 
+> diagnosis = as.character(meta_cell$phenotype) #
+> diagnosis[diagnosis == 1] = "Case"
+> diagnosis[diagnosis == 0] = "Control"
+> 
+> fData = data.frame(primerid = gene_id)
+> cData = data.frame(wellKey  = cell_id)
+> 
+> sca = FromMatrix(count_matrix_log, cData, fData)
+Assuming data assay in position 1, with name et is log-transformed.
+> colData(sca)$cngeneson = as.numeric(meta_cell$CDR)
+> colData(sca)$diagnosis = as.factor(diagnosis)
+> colData(sca)$ind = as.factor(meta_cell$individual)
+> colData(sca)$RIN = meta_ind$RIN[match(meta_cell$individual, 
++                                       meta_ind$individual)]
+> 
+> colData(sca)
+DataFrame with 7200 rows and 5 columns
+             wellKey cngeneson diagnosis      ind       RIN
+         <character> <numeric>  <factor> <factor> <numeric>
+cell1          cell1  0.436500      Case     ind1 -0.278455
+cell2          cell2  0.438000      Case     ind1 -0.278455
+cell3          cell3  0.430375      Case     ind1 -0.278455
+cell4          cell4  0.433000      Case     ind1 -0.278455
+cell5          cell5  0.437000      Case     ind1 -0.278455
+...              ...       ...       ...      ...       ...
+cell7196    cell7196  0.439625   Control    ind20 -0.711802
+cell7197    cell7197  0.434625   Control    ind20 -0.711802
+cell7198    cell7198  0.429250   Control    ind20 -0.711802
+cell7199    cell7199  0.435375   Control    ind20 -0.711802
+cell7200    cell7200  0.435125   Control    ind20 -0.711802
+> 
+> rm(count_matrix_log)
+> gc()
+            used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells   7930325  423.6   13973637  746.3         NA  13973637  746.3
+Vcells 145427315 1109.6  417115490 3182.4      32768 347529575 2651.5
+> 
+> getOption("mc.cores")
+[1] 6
+> 
+> date()
+[1] "Thu Nov  4 04:59:37 2021"
+> b0 = zlm(formula = ~ diagnosis + cngeneson + RIN, sca = sca, 
++          parallel = TRUE)
+
+Done!
+> date()
+[1] "Thu Nov  4 05:01:07 2021"
+> b1 = zlm(formula = ~ diagnosis + (1 | ind) + cngeneson + RIN, sca = sca, 
++          method = 'glmer', ebayes = FALSE, parallel = TRUE)
+
+Done!
+> date()
+[1] "Thu Nov  4 05:44:59 2021"
+> 
+> b0
+Fitted zlm on 8000 genes and 7200 cells.
+ Using BayesGLMlike ~ diagnosis + cngeneson + RIN 
+> b1
+Fitted zlm on 8000 genes and 7200 cells.
+ Using LMERlike ~ diagnosis + (1 | ind) + cngeneson + RIN 
+> 
+> date()
+[1] "Thu Nov  4 05:44:59 2021"
+> lrt0 = lrTest(b0, "diagnosis")
+Refitting on reduced model...
+
+Done!
+> date()
+[1] "Thu Nov  4 05:46:21 2021"
+> lrt1 = lrTest(b1, "diagnosis")
+Refitting on reduced model...
+
+Done!
+> date()
+[1] "Thu Nov  4 06:14:43 2021"
+> 
+> dim(lrt0)
+[1] 8000    3    3
+> lrt0[1,,]
+         metric
+test.type      lambda df Pr(>Chisq)
+   cont   1.338680208  1  0.2472669
+   disc   0.001458522  1  0.9695357
+   hurdle 1.340138730  2  0.5116731
+> 
+> dim(lrt1)
+[1] 8000    3    3
+> lrt1[1,,]
+         metric
+test.type      lambda df Pr(>Chisq)
+   cont   0.006536861  1  0.9355606
+   disc   0.014768204  1  0.9032756
+   hurdle 0.021305066  2  0.9894040
+> 
+> mast_pval_glm = apply(lrt0, 1, function(x){x[3,3]})
+> length(mast_pval_glm)
+[1] 8000
+> mast_pval_glm[1:4]
+       gene1        gene2        gene3        gene4 
+5.116731e-01 8.958640e-09 3.041409e-01 8.218934e-55 
+> 
+> mast_pval_glmer = apply(lrt1, 1, function(x){x[3,3]})
+> length(mast_pval_glmer)
+[1] 8000
+> mast_pval_glmer[1:4]
+       gene1        gene2        gene3        gene4 
+9.894040e-01 3.276944e-01 3.768611e-01 3.455721e-09 
+> 
+> # ---------------------------------------------------------------
+> # 4. ranksum analysis 
+> # ---------------------------------------------------------------
+> #
+> # the input of ranksum analysis can be matrix.
+> #
+> # input:
+> # (1) the expression count matrix,
+> #     with each column represents a cell and each row represents a gene.
+> # (2) the meta data, including cell individual information.
+> 
+> # ---------------------------------------------------------------
+>  
+> date()
+[1] "Thu Nov  4 06:14:43 2021"
+> ranksum_pval=apply(count_matrix,1,
++                    function(x) wilcox.test(x[diagnosis=="Case"], 
++                                            x[diagnosis=="Control"])$p.value)
+> date()
+[1] "Thu Nov  4 06:15:32 2021"
+> 
+> rm(count_matrix)
+> 
+> length(ranksum_pval)
+[1] 8000
+> ranksum_pval[1:4]
+       gene1        gene2        gene3        gene4 
+4.849424e-01 9.922910e-10 2.097767e-01 6.564708e-69 
+> 
+> # ---------------------------------------------------------------
+> # check p-value
+> # ---------------------------------------------------------------
+> 
+> idx_grp = list(meanDE=mean_index, varDE=var_index, EE=EE_index)
+> 
+> plot.hist <- function(pvals, idx_grp, label){
++   for(k in 1:length(idx_grp)){
++     idx  = idx_grp[[k]]
++     main = paste(label, names(idx_grp)[k], sep=", ")
++     hist(pvals[idx], main=main, xlab="p-value", breaks=50)
++   }
++ }
+> 
+> geneType = rep("EE", n_gene)
+> geneType[mean_index] = "meanDE"
+> geneType[var_index]  = "varDE"
+> 
+> df1 = data.frame(geneType, pval_KR, pval_PS, deseq2_pval, 
++                  mast_pval_glm, mast_pval_glmer,ranksum_pval)
+> dim(df1)
+[1] 8000   13
+> df1[1:2,]
+      geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+gene1       EE       0.670       0.523      0.479      0.227       0.609
+gene2       EE       0.392       0.378      0.342      0.877       0.396
+      PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm
+gene1       0.462      0.505      0.255   0.9959575  5.116731e-01
+gene2       0.378      0.340      0.842   0.1717443  8.958640e-09
+      mast_pval_glmer ranksum_pval
+gene1       0.9894040 4.849424e-01
+gene2       0.3276944 9.922910e-10
+> 
+> 
+> pdf(sprintf("figures/pvalue_hist_%s.pdf", config), 
++     width = 9, height = 9)
+> par(mfrow = c(3, 3), mar=c(5,4,2,1), pty = "s", bty="n")
+> for(k in 2:ncol(df1)){
++   plot.hist(df1[,k], idx_grp, names(df1)[k])
++ }
+> dev.off()
+null device 
+          1 
+> 
+> # ---------------------------------------------------------------
+> # save results
+> # ---------------------------------------------------------------
+> 
+> 
+> fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.05)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+    FALSE      TRUE 
+0.9516667 0.0450000 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.233 0.763 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.505 0.494 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+    FALSE      TRUE 
+0.9561667 0.0405000 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.264 0.732 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.323 0.676 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+FALSE  TRUE 
+0.955 0.045 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+0.197 0.803 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+0.417 0.583 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+FALSE  TRUE 
+0.967 0.033 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.433 0.567 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+0.624 0.376 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+     FALSE       TRUE 
+0.94750000 0.04916667 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.197 0.799 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.468 0.531 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+    FALSE      TRUE 
+0.9506667 0.0460000 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.246 0.750 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.297 0.702 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+     FALSE       TRUE 
+0.94916667 0.05083333 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+0.171 0.829 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.402 0.598 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+     FALSE       TRUE 
+0.95983333 0.04016667 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.415 0.585 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.605 0.395 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+     FALSE       TRUE 
+0.93633333 0.06366667 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.118 0.882 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.928 0.072 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+ FALSE   TRUE 
+0.4235 0.5765 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.009 0.991 
+
+$mast_pval_glm$varDE
+
+TRUE 
+   1 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+    FALSE      TRUE 
+0.9386667 0.0610000 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.175 0.825 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.072 0.928 
+
+
+$ranksum_pval
+$ranksum_pval$EE
+
+    FALSE      TRUE 
+0.4221667 0.5778333 
+
+$ranksum_pval$meanDE
+
+FALSE  TRUE 
+0.011 0.989 
+
+$ranksum_pval$varDE
+
+FALSE  TRUE 
+0.074 0.926 
+
+
+> apply(df1[,-1], 2, function(v){tapply(v, df1$geneType, fun1, alpha=0.01)})
+$KR_zinb_Was
+$KR_zinb_Was$EE
+
+      FALSE        TRUE 
+0.987833333 0.008833333 
+
+$KR_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.414 0.582 
+
+$KR_zinb_Was$varDE
+
+FALSE  TRUE 
+0.719 0.280 
+
+
+$KR_zinb_JSD
+$KR_zinb_JSD$EE
+
+    FALSE      TRUE 
+0.9896667 0.0070000 
+
+$KR_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.475 0.521 
+
+$KR_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.506 0.493 
+
+
+$KR_kde_Was
+$KR_kde_Was$EE
+
+      FALSE        TRUE 
+0.991166667 0.008833333 
+
+$KR_kde_Was$meanDE
+
+FALSE  TRUE 
+0.347 0.653 
+
+$KR_kde_Was$varDE
+
+FALSE  TRUE 
+0.631 0.369 
+
+
+$KR_kde_JSD
+$KR_kde_JSD$EE
+
+      FALSE        TRUE 
+0.995166667 0.004833333 
+
+$KR_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.604 0.396 
+
+$KR_kde_JSD$varDE
+
+FALSE  TRUE 
+0.748 0.252 
+
+
+$PS_zinb_Was
+$PS_zinb_Was$EE
+
+    FALSE      TRUE 
+0.9856667 0.0110000 
+
+$PS_zinb_Was$meanDE
+
+FALSE  TRUE 
+0.385 0.611 
+
+$PS_zinb_Was$varDE
+
+FALSE  TRUE 
+0.706 0.293 
+
+
+$PS_zinb_JSD
+$PS_zinb_JSD$EE
+
+      FALSE        TRUE 
+0.986833333 0.009833333 
+
+$PS_zinb_JSD$meanDE
+
+FALSE  TRUE 
+0.414 0.582 
+
+$PS_zinb_JSD$varDE
+
+FALSE  TRUE 
+0.472 0.527 
+
+
+$PS_kde_Was
+$PS_kde_Was$EE
+
+FALSE  TRUE 
+0.989 0.011 
+
+$PS_kde_Was$meanDE
+
+FALSE  TRUE 
+0.317 0.683 
+
+$PS_kde_Was$varDE
+
+FALSE  TRUE 
+0.582 0.418 
+
+
+$PS_kde_JSD
+$PS_kde_JSD$EE
+
+FALSE  TRUE 
+0.992 0.008 
+
+$PS_kde_JSD$meanDE
+
+FALSE  TRUE 
+0.569 0.431 
+
+$PS_kde_JSD$varDE
+
+FALSE  TRUE 
+0.716 0.284 
+
+
+$deseq2_pval
+$deseq2_pval$EE
+
+ FALSE   TRUE 
+0.9785 0.0215 
+
+$deseq2_pval$meanDE
+
+FALSE  TRUE 
+0.205 0.795 
+
+$deseq2_pval$varDE
+
+FALSE  TRUE 
+0.983 0.017 
+
+
+$mast_pval_glm
+$mast_pval_glm$EE
+
+    FALSE      TRUE 
+0.5293333 0.4706667 
+
+$mast_pval_glm$meanDE
+
+FALSE  TRUE 
+0.015 0.985 
+
+$mast_pval_glm$varDE
+
+TRUE 
+   1 
+
+
+$mast_pval_glmer
+$mast_pval_glmer$EE
+
+     FALSE       TRUE 
+0.97900000 0.02066667 
+
+$mast_pval_glmer$meanDE
+
+FALSE  TRUE 
+0.272 0.728 
+
+$mast_pval_glmer$varDE
+
+FALSE  TRUE 
+0.123 0.877 
+
+
+$ranksum_pval
+$ranksum_pval$EE
+
+ FALSE   TRUE 
+0.5245 0.4755 
+
+$ranksum_pval$meanDE
+
+FALSE  TRUE 
+0.015 0.985 
+
+$ranksum_pval$varDE
+
+FALSE  TRUE 
+0.114 0.886 
+
+
+> 
+> write.table(df1, file=sprintf("results/pval_%s.txt", config), append=FALSE, 
++             quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] ideas_0.0.9000              ggpubr_0.4.0               
+ [3] ggplot2_3.3.3               pryr_0.1.4                 
+ [5] data.table_1.13.6           transport_0.12-2           
+ [7] reticulate_1.18             MiRKAT_1.1.4               
+ [9] doRNG_1.8.2                 rngtools_1.5               
+[11] doParallel_1.0.16           iterators_1.0.13           
+[13] foreach_1.5.1               DESeq2_1.30.0              
+[15] lme4_1.1-26                 Matrix_1.3-0               
+[17] MAST_1.16.0                 SingleCellExperiment_1.12.0
+[19] SummarizedExperiment_1.20.0 Biobase_2.50.0             
+[21] GenomicRanges_1.42.0        GenomeInfoDb_1.26.2        
+[23] IRanges_2.24.1              S4Vectors_0.28.1           
+[25] BiocGenerics_0.36.0         MatrixGenerics_1.2.0       
+[27] matrixStats_0.57.0          moments_0.14               
+[29] emdbook_1.3.12              MASS_7.3-53                
+
+loaded via a namespace (and not attached):
+  [1] minqa_1.2.4            colorspace_2.0-0       ggsignif_0.6.0        
+  [4] rio_0.5.16             ellipsis_0.3.1         XVector_0.30.0        
+  [7] MatrixModels_0.4-1     bit64_4.0.5            AnnotationDbi_1.52.0  
+ [10] mvtnorm_1.1-1          codetools_0.2-18       splines_4.0.3         
+ [13] pscl_1.5.5             geneplotter_1.68.0     jsonlite_1.7.2        
+ [16] nloptr_1.2.2.2         broom_0.7.3            annotate_1.68.0       
+ [19] cluster_2.1.0          kernlab_0.9-29         compiler_4.0.3        
+ [22] httr_1.4.2             backports_1.2.1        prettyunits_1.1.1     
+ [25] quantreg_5.75          tools_4.0.3            coda_0.19-4           
+ [28] gtable_0.3.0           glue_1.4.2             GenomeInfoDbData_1.2.4
+ [31] reshape2_1.4.4         dplyr_1.0.2            Rcpp_1.0.5            
+ [34] carData_3.0-4          bbmle_1.0.23.1         cellranger_1.1.0      
+ [37] vctrs_0.3.6            ape_5.4-1              nlme_3.1-151          
+ [40] conquer_1.0.2          stringr_1.4.0          openxlsx_4.2.3        
+ [43] CompQuadForm_1.4.3     lifecycle_0.2.0        GUniFrac_1.1          
+ [46] rstatix_0.6.0          statmod_1.4.35         XML_3.99-0.5          
+ [49] PearsonDS_1.1          zlibbioc_1.36.0        scales_1.1.1          
+ [52] hms_0.5.3              SparseM_1.78           RColorBrewer_1.1-2    
+ [55] curl_4.3               memoise_1.1.0          bdsmatrix_1.3-4       
+ [58] segmented_1.3-3        stringi_1.5.3          RSQLite_2.2.1         
+ [61] genefilter_1.72.0      permute_0.9-5          zip_2.1.1             
+ [64] boot_1.3-25            BiocParallel_1.24.1    rlang_0.4.10          
+ [67] pkgconfig_2.0.3        bitops_1.0-6           lattice_0.20-41       
+ [70] purrr_0.3.4            bit_4.0.4              tidyselect_1.1.0      
+ [73] plyr_1.8.6             magrittr_2.0.1         R6_2.5.0              
+ [76] generics_0.1.0         DelayedArray_0.16.0    DBI_1.1.0             
+ [79] haven_2.3.1            foreign_0.8-81         withr_2.3.0           
+ [82] pillar_1.4.7           mgcv_1.8-33            mixtools_1.2.0        
+ [85] survival_3.2-7         abind_1.4-5            RCurl_1.98-1.2        
+ [88] tibble_3.0.4           car_3.0-10             crayon_1.3.4          
+ [91] progress_1.2.2         readxl_1.3.1           locfit_1.5-9.4        
+ [94] grid_4.0.3             blob_1.2.1             vegan_2.5-7           
+ [97] forcats_0.5.0          digest_0.6.27          xtable_1.8-4          
+[100] tidyr_1.1.2            numDeriv_2016.8-1.1    munsell_0.5.0         
+> 
+> mem_used()
+1.18 GB
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  8083237 431.7   13973637  746.3         NA  13973637  746.3
+Vcells 90543343 690.8  266953914 2036.7      32768 417115436 3182.4
+> 
+> q(save = "no")
+> proc.time()
+      user     system    elapsed 
+139519.818   9203.612  25839.848 

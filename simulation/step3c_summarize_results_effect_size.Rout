@@ -1,0 +1,306 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> # --------------------------------------------------------------------------
+> # similar to step3, but summarize results for 360 cells per subject
+> # and with different effect sizes
+> # --------------------------------------------------------------------------
+> 
+> library(ggplot2)
+> library(reshape2)
+> library(stringr)
+> library(RColorBrewer)
+> library(ggpubr)
+> 
+> theme_set(theme_classic())
+> 
+> # --------------------------------------------------------------------------
+> # check all the result files
+> # --------------------------------------------------------------------------
+> 
+> res.files = list.files(path="results", 
++                        pattern="_10_nctrl_10_ncell_360_\\S+.txt", 
++                        full.names=TRUE)
+> res.files
+[1] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.1_var_1.4.txt"
+[2] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.2_var_1.5.txt"
+[3] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.3_var_1.6.txt"
+[4] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.4_var_1.7.txt"
+[5] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.5_var_1.8.txt"
+[6] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.6_var_1.9.txt"
+[7] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.7_var_2.0.txt"
+> 
+> gg_all = NULL
+> 
+> for(i in 1:length(res.files)){
++   file.i = basename(res.files[i])
++   ncase  = str_extract(file.i, '(?<=ncase_)\\d+')
++   nctrl  = str_extract(file.i, '(?<=nctrl_)\\d+')
++   r_mean = str_extract(file.i, '(?<=mean_)(\\d|\\.)+(?=(_|\\.txt))')
++   r_var  = str_extract(file.i, '(?<=var_)(\\d|\\.)+(?=(_|\\.txt))')
++ 
++   config = gsub("pval_", "", file.i)
++   config = gsub(".txt", "", config)
++   
++   pval2 = read.table(res.files[i], header=TRUE, as.is=TRUE)
++   dim(pval2)
++   pval2[1:2,]
++ 
++   cal.power <- function(x, geneType){
++     tapply(x, geneType, function(x){sum(x < 0.05, na.rm=TRUE)/sum(!is.na(x))})
++   }
++   
++   powers = apply(pval2[,-1], 2, cal.power, geneType=pval2$geneType)
++   
++   print(config)
++   print(powers)
++   
++   cols2kp = c("ranksum_pval", "mast_pval_glm", "mast_pval_glmer", 
++               "deseq2_pval", "PS_zinb_Was", "PS_kde_Was")
++   
++   powers  = powers[,match(cols2kp, colnames(powers))]
++   gg = melt(powers)
++   
++   names(gg) = c("geneType", "method", "power")
++   gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
++   gg$method = gsub("PS_zinb_Was", "IDEAS_ZINB",  gg$method)
++   gg$method = gsub("PS_kde_Was",  "IDEAS_KDE", gg$method)
++   gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
++   gg$method = gsub("mast_pval_glm", "MAST", gg$method)
++   gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
++   table(gg$method)
++   gg$method = factor(gg$method, 
++                      levels = c("Rank-sum", "MAST", "MAST_glmer", 
++                                 "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
++   
++   g1 = ggplot(subset(gg, geneType %in% c("EE")), 
++               aes(x=geneType, y=power, fill=method)) +
++     geom_bar(stat="identity", position=position_dodge()) + 
++     scale_fill_brewer(palette="Paired") + 
++     geom_hline(yintercept=0.05, col="red") + 
++     ylab("Type I error")
++   
++   g2 = ggplot(subset(gg, geneType %in% c("meanDE", "varDE")), 
++               aes(x=geneType, y=power, fill=method)) +
++     geom_bar(stat="identity", position=position_dodge()) + 
++     scale_fill_brewer(palette="Paired") + 
++     geom_hline(yintercept=0.05, col="red")
++   
++   gg1 = ggarrange(g1, g2, ncol = 2, nrow = 1, widths=c(1.25,2), 
++                   common.legend = TRUE, legend = "top")
++   
++   ggsave(sprintf("figures/power_fold_change_%s.pdf", config), 
++          gg1, width=6, height=3)
++   
++   gg$mean_fold = rep(r_mean, nrow(gg))
++   gg$var_fold  = rep(r_var, nrow(gg))
++   
++   gg_all = rbind(gg_all, gg)
++ }
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.1_var_1.4"
+       KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was PS_zinb_JSD
+EE      0.03961223  0.03743941 0.04583333 0.03516667   0.0427879  0.03944509
+meanDE  0.09428285  0.08625878 0.10900000 0.06400000   0.1063190  0.09528586
+varDE   0.11178248  0.24572004 0.16200000 0.13500000   0.1208459  0.26384693
+       PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+EE         0.0485      0.042      0.0675        0.5685      0.06217703
+meanDE     0.1110      0.074      0.1450        0.6820      0.12000000
+varDE      0.1650      0.151      0.0670        0.9930      0.65700000
+       ranksum_pval
+EE        0.5801667
+meanDE    0.6970000
+varDE     0.7030000
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.2_var_1.5"
+       KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was PS_zinb_JSD
+EE      0.04415454  0.03896973      0.042 0.03433333  0.04699783  0.04432179
+meanDE  0.22244489  0.19639279      0.272 0.15100000  0.23647295  0.21142285
+varDE   0.16028226  0.31653226      0.233 0.20000000  0.16834677  0.34576613
+       PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+EE     0.04716667      0.041  0.06583333     0.5756667      0.06233333
+meanDE 0.28500000      0.169  0.36000000     0.8460000      0.30200000
+varDE  0.24000000      0.221  0.06800000     0.9960000      0.77200000
+       ranksum_pval
+EE           0.5745
+meanDE       0.8370
+varDE        0.7650
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.3_var_1.6"
+       KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was PS_zinb_JSD
+EE      0.04259228  0.04159011     0.0415 0.03516667  0.04543177   0.0444296
+meanDE  0.39253280  0.35317861     0.4530 0.26300000  0.41069627   0.3794147
+varDE   0.22367101  0.43831494     0.3190 0.25600000  0.24272818   0.4663992
+       PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+EE     0.04566667      0.041  0.06633333        0.5695      0.05934322
+meanDE 0.47000000      0.282  0.55200000        0.9190      0.46400000
+varDE  0.33400000      0.282  0.06700000        0.9970      0.83300000
+       ranksum_pval
+EE            0.576
+meanDE        0.925
+varDE         0.803
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.4_var_1.7"
+       KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was PS_zinb_JSD
+EE      0.04094936  0.03727227 0.04233333      0.038  0.04262076  0.04245362
+meanDE  0.52769386  0.48338369 0.59500000      0.387  0.54179255  0.50855992
+varDE   0.29929930  0.51151151 0.39400000      0.297  0.30030030  0.53353353
+       PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+EE     0.04483333 0.04516667  0.06666667         0.571      0.05917653
+meanDE 0.61600000 0.41200000  0.69200000         0.952      0.60700000
+varDE  0.40500000 0.30700000  0.06700000         0.999      0.87800000
+       ranksum_pval
+EE        0.5776667
+meanDE    0.9510000
+varDE     0.8530000
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.5_var_1.8"
+       KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was PS_zinb_JSD
+EE      0.04275217  0.03841015     0.0465 0.03633333  0.04676019  0.04308617
+meanDE  0.63709677  0.58669355     0.6960 0.46700000  0.65221774  0.61391129
+varDE   0.38244198  0.60343088     0.4760 0.34100000  0.39656912  0.61553986
+       PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+EE     0.04783333 0.04416667  0.06866667     0.5806667      0.06201034
+meanDE 0.71800000 0.49100000  0.78900000     0.9670000      0.71800000
+varDE  0.48500000 0.35400000  0.06900000     1.0000000      0.90400000
+       ranksum_pval
+EE        0.5803333
+meanDE    0.9760000
+varDE     0.8880000
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.6_var_1.9"
+       KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was PS_zinb_JSD
+EE      0.03969849  0.03567839 0.04116667 0.03533333   0.0440536  0.04221106
+meanDE  0.71629779  0.66398390 0.76000000 0.51500000   0.7374245  0.69416499
+varDE   0.44321608  0.62713568 0.52600000 0.36000000   0.4623116  0.64824121
+       PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+EE          0.046 0.04283333  0.06716667     0.5738333      0.06268756
+meanDE      0.780 0.54100000  0.83900000     0.9850000      0.78200000
+varDE       0.548 0.38100000  0.07200000     1.0000000      0.92400000
+       ranksum_pval
+EE        0.5766667
+meanDE    0.9850000
+varDE     0.8970000
+[1] "ncase_10_nctrl_10_ncell_360_fold_mean_1.7_var_2.0"
+       KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was PS_zinb_JSD
+EE       0.0451505  0.04063545      0.045      0.033  0.04799331  0.04481605
+meanDE   0.7660643  0.73493976      0.803      0.567  0.80020080  0.75200803
+varDE    0.4944945  0.67667668      0.583      0.376  0.52952953  0.70170170
+       PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+EE     0.04966667 0.03916667  0.06366667        0.5765      0.06102034
+meanDE 0.82700000 0.58000000  0.88200000        0.9910      0.82500000
+varDE  0.59400000 0.39300000  0.07200000        1.0000      0.92800000
+       ranksum_pval
+EE        0.5778333
+meanDE    0.9890000
+varDE     0.9260000
+> 
+> 
+> # --------------------------------------------------------------------------
+> # check all the result files
+> # --------------------------------------------------------------------------
+> 
+> dim(gg_all)
+[1] 126   5
+> gg_all[1:3,]
+  geneType   method     power mean_fold var_fold
+1       EE Rank-sum 0.5801667       1.1      1.4
+2   meanDE Rank-sum 0.6970000       1.1      1.4
+3    varDE Rank-sum 0.7030000       1.1      1.4
+> 
+> 
+> p0 = ggplot(subset(gg_all, geneType %in% c("EE")), 
++            aes(x=mean_fold, y=power, group=method)) +
++   geom_line(aes(color=method)) + ylab("Type I error") + 
++   geom_point(aes(color=method, shape=method)) + 
++   scale_color_brewer(palette="Dark2")
+> 
+> table(gg_all$method)
+
+  Rank-sum       MAST MAST_glmer     DEseq2 IDEAS_ZINB  IDEAS_KDE 
+        21         21         21         21         21         21 
+> gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST"))
+> 
+> p0_sub = p0 + ylim(0,0.1)
+> p0_sub
+Warning messages:
+1: Removed 14 row(s) containing missing values (geom_path). 
+2: Removed 14 rows containing missing values (geom_point). 
+> 
+> p_mean = ggplot(subset(gg_sub, geneType %in% c("meanDE")), 
++                 aes(x=mean_fold, y=power, group=method)) +
++   geom_line(aes(color=method)) + 
++   geom_point(aes(color=method, shape=method)) + 
++   scale_color_brewer(palette="Dark2")
+> p_mean
+> 
+> p_var = ggplot(subset(gg_sub, geneType %in% c("varDE")), 
++                 aes(x=var_fold, y=power, group=method)) +
++   geom_line(aes(color=method)) + 
++   geom_point(aes(color=method, shape=method)) + 
++   scale_color_brewer(palette="Dark2")
+> p_var
+> 
+> g0 = ggarrange(p0, p0_sub, labels = c("A", "B"), legend = "top", 
++                ncol = 2, nrow = 1, common.legend = TRUE)
+Warning messages:
+1: Removed 14 row(s) containing missing values (geom_path). 
+2: Removed 14 rows containing missing values (geom_point). 
+> 
+> gp = ggarrange(p_mean, p_var, labels = c("A", "B"), legend = "top", 
++           ncol = 2, nrow = 1, common.legend = TRUE)
+> 
+> ggsave(sprintf("figures/effect_size_10_10_360_type_I_error.pdf", config), 
++        g0, width=6, height=3)
+> 
+> ggsave(sprintf("figures/effect_size_power_10_10_360.pdf", config), 
++        gp, width=6, height=3)
+> 
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ggpubr_0.4.0       RColorBrewer_1.1-2 stringr_1.4.0      reshape2_1.4.4    
+[5] ggplot2_3.3.3     
+
+loaded via a namespace (and not attached):
+ [1] zip_2.1.1         Rcpp_1.0.5        cellranger_1.1.0  pillar_1.4.7     
+ [5] compiler_4.0.3    plyr_1.8.6        forcats_0.5.0     tools_4.0.3      
+ [9] digest_0.6.27     lifecycle_0.2.0   tibble_3.0.4      gtable_0.3.0     
+[13] pkgconfig_2.0.3   rlang_0.4.10      openxlsx_4.2.3    curl_4.3         
+[17] haven_2.3.1       rio_0.5.16        gridExtra_2.3     withr_2.3.0      
+[21] dplyr_1.0.2       generics_0.1.0    vctrs_0.3.6       hms_0.5.3        
+[25] cowplot_1.1.1     grid_4.0.3        tidyselect_1.1.0  glue_1.4.2       
+[29] data.table_1.13.6 R6_2.5.0          rstatix_0.6.0     readxl_1.3.1     
+[33] foreign_0.8-81    carData_3.0-4     farver_2.0.3      purrr_0.3.4      
+[37] tidyr_1.1.2       car_3.0-10        magrittr_2.0.1    scales_1.1.1     
+[41] backports_1.2.1   ellipsis_0.3.1    abind_1.4-5       colorspace_2.0-0 
+[45] ggsignif_0.6.0    labeling_0.4.2    stringi_1.5.3     munsell_0.5.0    
+[49] broom_0.7.3       crayon_1.3.4     
+> q(save = "no")
+> proc.time()
+   user  system elapsed 
+  4.347   0.230   4.636 

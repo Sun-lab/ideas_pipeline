@@ -35,4 +35,6 @@ R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.
 R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.3 r_var=1.6' step1_simulate_data.R step1_simulate_data_10_10_360_1.3_1.6.Rout &
 R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.4 r_var=1.7' step1_simulate_data.R step1_simulate_data_10_10_360_1.4_1.7.Rout &
 R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.5 r_var=1.8' step1_simulate_data.R step1_simulate_data_10_10_360_1.5_1.8.Rout &
+R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.6 r_var=1.9' step1_simulate_data.R step1_simulate_data_10_10_360_1.6_1.9.Rout &
+R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.7 r_var=2.0' step1_simulate_data.R step1_simulate_data_10_10_360_1.7_2.0.Rout &
 

@@ -10,7 +10,7 @@ library(stringr)
 library(RColorBrewer)
 library(ggpubr)
 
-theme_set(theme_bw())
+theme_set(theme_classic())
 
 # --------------------------------------------------------------------------
 # check all the result files
@@ -94,6 +94,47 @@ for(i in 1:length(res.files)){
 # check all the result files
 # --------------------------------------------------------------------------
 
+dim(gg_all)
+gg_all[1:3,]
+
+
+p0 = ggplot(subset(gg_all, geneType %in% c("EE")), 
+           aes(x=mean_fold, y=power, group=method)) +
+  geom_line(aes(color=method)) + ylab("Type I error") + 
+  geom_point(aes(color=method, shape=method)) + 
+  scale_color_brewer(palette="Dark2")
+
+table(gg_all$method)
+gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST"))
+
+p0_sub = p0 + ylim(0,0.1)
+p0_sub
+
+p_mean = ggplot(subset(gg_sub, geneType %in% c("meanDE")), 
+                aes(x=mean_fold, y=power, group=method)) +
+  geom_line(aes(color=method)) + 
+  geom_point(aes(color=method, shape=method)) + 
+  scale_color_brewer(palette="Dark2")
+p_mean
+
+p_var = ggplot(subset(gg_sub, geneType %in% c("varDE")), 
+                aes(x=var_fold, y=power, group=method)) +
+  geom_line(aes(color=method)) + 
+  geom_point(aes(color=method, shape=method)) + 
+  scale_color_brewer(palette="Dark2")
+p_var
+
+g0 = ggarrange(p0, p0_sub, labels = c("A", "B"), legend = "top", 
+               ncol = 2, nrow = 1, common.legend = TRUE)
+
+gp = ggarrange(p_mean, p_var, labels = c("A", "B"), legend = "top", 
+          ncol = 2, nrow = 1, common.legend = TRUE)
+
+ggsave(sprintf("figures/effect_size_10_10_360_type_I_error.pdf", config), 
+       g0, width=6, height=3)
+
+ggsave(sprintf("figures/effect_size_power_10_10_360.pdf", config), 
+       gp, width=6, height=3)
 
 sessionInfo()
 q(save = "no")
