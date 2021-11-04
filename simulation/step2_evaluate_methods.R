@@ -18,7 +18,8 @@ if (length(args) < 5) {
   r_var    = 1.5     # The expected fold-changes in variances
   ncase    = 10      # case individuals
   nctrl    = 10      # control individuals
-  ncell    = 120    # numbers of cells collected from each individuals.
+  ncell    = 120     # numbers of cells collected from each individuals.
+  useNB    = TRUE    # use NB instead of ZINB when estimating distribution per subject
 } else{
   for(i in 1:length(args)){
     eval(parse(text=args[[i]]))
@@ -102,6 +103,10 @@ meta_ind[1:2,]
 rm(sim_data)
 gc()
 
+if(useNB){
+  config = sprintf("%s_NB", config)
+}
+
 # ---------------------------------------------------------------
 # 1. DESeq2 analysis 
 # ---------------------------------------------------------------
@@ -162,7 +167,12 @@ var_per_cell  = "cell_rd"
 
 dist_list = list()
 
-for(fit_method in c("zinb", "kde")){
+fit_methods = c("zinb", "kde")
+if(useNB){
+  fit_methods = c("nb", "kde")
+}
+
+for(fit_method in fit_methods){
   for(d_metric in c("Was", "JSD")){
     message(sprintf("fit_method: %s, d_metric: %s\n", fit_method, d_metric))
     message(date())
