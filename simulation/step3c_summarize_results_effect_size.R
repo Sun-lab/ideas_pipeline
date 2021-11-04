@@ -129,25 +129,23 @@ p0 = ggplot(subset(gg_all, geneType %in% c("EE")),
   geom_point(aes(color=method, shape=method)) + 
   scale_color_brewer(palette="Dark2")
 
-table(gg_all$method)
-gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST"))
 
 p0_sub = p0 + ylim(0,0.1)
-p0_sub
+
+table(gg_all$method)
+gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST", "MAST_glmer"))
 
 p_mean = ggplot(subset(gg_sub, geneType %in% c("meanDE")), 
                 aes(x=mean_fold, y=power, group=method)) +
   geom_line(aes(color=method)) + 
   geom_point(aes(color=method, shape=method)) + 
   scale_color_brewer(palette="Dark2")
-p_mean
 
 p_var = ggplot(subset(gg_sub, geneType %in% c("varDE")), 
                 aes(x=var_fold, y=power, group=method)) +
   geom_line(aes(color=method)) + 
   geom_point(aes(color=method, shape=method)) + 
   scale_color_brewer(palette="Dark2")
-p_var
 
 g0 = ggarrange(p0, p0_sub, labels = c("A", "B"), legend = "top", 
                ncol = 2, nrow = 1, common.legend = TRUE)

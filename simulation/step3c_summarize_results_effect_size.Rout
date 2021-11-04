@@ -32,12 +32,64 @@ Type 'q()' to quit R.
 > theme_set(theme_classic())
 > 
 > # --------------------------------------------------------------------------
-> # check all the result files
+> # compare results using NB vs. ZINB
 > # --------------------------------------------------------------------------
 > 
 > res.files = list.files(path="results", 
 +                        pattern="_10_nctrl_10_ncell_360_\\S+.txt", 
 +                        full.names=TRUE)
+> res.files
+[1] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.1_var_1.4.txt"   
+[2] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.2_var_1.5.txt"   
+[3] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.3_var_1.6.txt"   
+[4] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.4_var_1.7.txt"   
+[5] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.5_var_1.8.txt"   
+[6] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.6_var_1.9.txt"   
+[7] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.7_var_2.0_NB.txt"
+[8] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.7_var_2.0.txt"   
+> 
+> pval_zinb = read.table(res.files[7], header=TRUE, as.is=TRUE)
+> dim(pval_zinb)
+[1] 8000   13
+> pval_zinb[1:2,]
+  geneType KR_nb_Was KR_nb_JSD KR_kde_Was KR_kde_JSD PS_nb_Was PS_nb_JSD
+1       EE     0.715     0.625      0.512      0.251     0.657     0.589
+2       EE     0.412     0.435      0.357      0.858     0.390     0.411
+  PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer ranksum_pval
+1      0.505      0.255   0.9959575  5.116731e-01       0.9894040 4.849424e-01
+2      0.340      0.842   0.1717443  8.958640e-09       0.3276944 9.922910e-10
+> 
+> pval_nb = read.table(res.files[8], header=TRUE, as.is=TRUE)
+> dim(pval_nb)
+[1] 8000   13
+> pval_nb[1:2,]
+  geneType KR_zinb_Was KR_zinb_JSD KR_kde_Was KR_kde_JSD PS_zinb_Was
+1       EE       0.670       0.523      0.479      0.227       0.609
+2       EE       0.392       0.378      0.342      0.877       0.396
+  PS_zinb_JSD PS_kde_Was PS_kde_JSD deseq2_pval mast_pval_glm mast_pval_glmer
+1       0.462      0.505      0.255   0.9959575  5.116731e-01       0.9894040
+2       0.378      0.340      0.842   0.1717443  8.958640e-09       0.3276944
+  ranksum_pval
+1 4.849424e-01
+2 9.922910e-10
+> 
+> crs = rep(NA, ncol(pval_nb) - 1)
+> 
+> for(k in 2:ncol(pval_nb)){
++   crs[k-1] = cor(pval_zinb[[k]], pval_nb[[k]], method="spearman", use="pair")
++ }
+> crs
+ [1] 0.9600986 0.9299809 0.9983006 0.9983833 0.9601641 0.9298122 1.0000000
+ [8] 1.0000000 1.0000000 1.0000000 1.0000000 1.0000000
+> 
+> # plot(-log10(pval_zinb[["PS_nb_Was"]]), -log10(pval_nb[["PS_zinb_Was"]]))
+> # plot(-log10(pval_zinb[["PS_nb_JSD"]]), -log10(pval_nb[["PS_zinb_JSD"]]))
+> 
+> # --------------------------------------------------------------------------
+> # check all the result files
+> # --------------------------------------------------------------------------
+> 
+> res.files = res.files[-7]
 > res.files
 [1] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.1_var_1.4.txt"
 [2] "results/pval_ncase_10_nctrl_10_ncell_360_fold_mean_1.2_var_1.5.txt"
@@ -226,31 +278,26 @@ varDE     0.9260000
 +   geom_point(aes(color=method, shape=method)) + 
 +   scale_color_brewer(palette="Dark2")
 > 
+> 
+> p0_sub = p0 + ylim(0,0.1)
+> 
 > table(gg_all$method)
 
   Rank-sum       MAST MAST_glmer     DEseq2 IDEAS_ZINB  IDEAS_KDE 
         21         21         21         21         21         21 
-> gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST"))
-> 
-> p0_sub = p0 + ylim(0,0.1)
-> p0_sub
-Warning messages:
-1: Removed 14 row(s) containing missing values (geom_path). 
-2: Removed 14 rows containing missing values (geom_point). 
+> gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST", "MAST_glmer"))
 > 
 > p_mean = ggplot(subset(gg_sub, geneType %in% c("meanDE")), 
 +                 aes(x=mean_fold, y=power, group=method)) +
 +   geom_line(aes(color=method)) + 
 +   geom_point(aes(color=method, shape=method)) + 
 +   scale_color_brewer(palette="Dark2")
-> p_mean
 > 
 > p_var = ggplot(subset(gg_sub, geneType %in% c("varDE")), 
 +                 aes(x=var_fold, y=power, group=method)) +
 +   geom_line(aes(color=method)) + 
 +   geom_point(aes(color=method, shape=method)) + 
 +   scale_color_brewer(palette="Dark2")
-> p_var
 > 
 > g0 = ggarrange(p0, p0_sub, labels = c("A", "B"), legend = "top", 
 +                ncol = 2, nrow = 1, common.legend = TRUE)
@@ -303,4 +350,4 @@ loaded via a namespace (and not attached):
 > q(save = "no")
 > proc.time()
    user  system elapsed 
-  4.347   0.230   4.636 
+  4.184   0.185   4.390 
