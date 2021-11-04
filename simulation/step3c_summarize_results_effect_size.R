@@ -13,12 +13,37 @@ library(ggpubr)
 theme_set(theme_classic())
 
 # --------------------------------------------------------------------------
-# check all the result files
+# compare results using NB vs. ZINB
 # --------------------------------------------------------------------------
 
 res.files = list.files(path="results", 
                        pattern="_10_nctrl_10_ncell_360_\\S+.txt", 
                        full.names=TRUE)
+res.files
+
+pval_zinb = read.table(res.files[7], header=TRUE, as.is=TRUE)
+dim(pval_zinb)
+pval_zinb[1:2,]
+
+pval_nb = read.table(res.files[8], header=TRUE, as.is=TRUE)
+dim(pval_nb)
+pval_nb[1:2,]
+
+crs = rep(NA, ncol(pval_nb) - 1)
+
+for(k in 2:ncol(pval_nb)){
+  crs[k-1] = cor(pval_zinb[[k]], pval_nb[[k]], method="spearman", use="pair")
+}
+crs
+
+# plot(-log10(pval_zinb[["PS_nb_Was"]]), -log10(pval_nb[["PS_zinb_Was"]]))
+# plot(-log10(pval_zinb[["PS_nb_JSD"]]), -log10(pval_nb[["PS_zinb_JSD"]]))
+
+# --------------------------------------------------------------------------
+# check all the result files
+# --------------------------------------------------------------------------
+
+res.files = res.files[-7]
 res.files
 
 gg_all = NULL

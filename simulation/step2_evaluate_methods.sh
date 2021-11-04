@@ -43,5 +43,6 @@ R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.
 
 R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.7 r_var=2.0' step2_evaluate_methods.R step2_evaluate_methods_10_10_360_1.7_2.0.Rout &
 
+R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.7 r_var=2.0 useNB=TRUE' step2_evaluate_methods.R step2_evaluate_methods_10_10_360_1.7_2.0_useNB.Rout &
 
 
