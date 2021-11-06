@@ -39,10 +39,6 @@ Note that here when using `fit_method = "dca_direct"` in function `ideas_dist`, 
 
 [step1d_saver.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1d_saver.R) uses SAVER as denosing method instead of DCA, for computing the distance matrix. 
 
-### cell_types.txt
-
-List all the 17 cell types for looping through using .sh files when needed.
-
 ### combine results, do GSEA and get q values
 
 [step1e_combine_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1e_combine_results.R) combines p value results from step1b (results only from approach with covariates), step1c and step1e.
