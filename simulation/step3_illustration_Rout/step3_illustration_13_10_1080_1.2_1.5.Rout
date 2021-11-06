@@ -28,9 +28,9 @@ Type 'q()' to quit R.
 +   message("no enough arguments, using default values")
 +   r_mean   = 1.2     # The expected fold-changes in mean
 +   r_var    = 1.5     # The expected fold-changes in variances
-+   ncase    = 5       # case individuals
-+   nctrl    = 5       # control individuals
-+   ncell    = 360     # numbers of cells collected from each individuals.
++   ncase    = 13       # case individuals
++   nctrl    = 10       # control individuals
++   ncell    = 1080     # numbers of cells collected from each individuals.
 + } else{
 +   for(i in 1:length(args)){
 +     eval(parse(text=args[[i]]))
@@ -259,7 +259,7 @@ Ncells   7799611  416.6   13973607  746.3         NA   9710537  518.6
 Vcells 211933246 1617.0  307322948 2344.7      32768 211995449 1617.4
 > 
 > # ---------------------------------------------------------------
-> # find a few examples to illustrate
+> # read in p-values
 > # ---------------------------------------------------------------
 > 
 > pvals = fread(sprintf("results/pval_%s.txt", config))
@@ -295,6 +295,56 @@ Vcells 211933246 1617.0  307322948 2344.7      32768 211995449 1617.4
 > stopifnot(max(abs(pvals$PS_zinb_Was - 
 +                     pvals_rank_sum$PS_zinb_Was), na.rm=TRUE) < 1e-10)
 > pvals = pvals_rank_sum
+> 
+> # ---------------------------------------------------------------
+> # read in scDD p-values
+> # ---------------------------------------------------------------
+> 
+> fnm_scDD = sprintf("results/res_scDD_%s.txt", config)
+> 
+> if(file.exists(fnm_scDD)){
++   pvals_scDD = fread()
++   dim(pvals_scDD)
++   pvals_scDD[1:2,]
++   
++   pvals$scDD = pvals_scDD$combined.pvalue
++   pvals$scDD_category = pvals_scDD$DDcategory
++   
++   t1 = table(pvals$geneType, pvals$scDD_category)
++   t1
++   
++   scDD_cat = melt(t1, varnames = c("gene_type", "scDD_category"))
++   
++   g1 = ggplot(scDD_cat %>% group_by(gene_type) %>% 
++                 mutate(rel_freq = round(value/sum(value),2)), 
++               aes(x = gene_type, y = rel_freq, 
++                   fill = scDD_category, cumulative = TRUE)) +
++     geom_col() +
++     geom_text(aes(label = paste0(rel_freq*100,"%")), 
++               position = position_stack(vjust = 0.5))
++   
++   pdf(sprintf("figures/scDD_cat_%s.pdf", config), width=4, height=4)
++   print(g1)
++   dev.off()
++ }
+> 
+> # ---------------------------------------------------------------
+> # read in ZINB-WaVE p-values
+> # ---------------------------------------------------------------
+> 
+> fnm_zinb_wave = sprintf("results/res_ZINB-WaVE_%s.txt", config)
+> 
+> if(file.exists(fnm_zinb_wave)){
++   pvals_zw = fread(sprintf("results/res_ZINB-WaVE_%s.txt", config))
++   dim(pvals_zw)
++   pvals_zw[1:2,]
++   
++   pvals$ZINB_WaVE = pvals_zw$pvalue
++ }
+> 
+> # ---------------------------------------------------------------
+> # find a few examples to illustrate
+> # ---------------------------------------------------------------
 > 
 > w2use = which(pvals$geneType == "varDE" & pvals$deseq2_pval > 0.1 & 
 +                 pvals$PS_zinb_Was <= 0.001)
@@ -459,8 +509,10 @@ Vcells 211933246 1617.0  307322948 2344.7      32768 211995449 1617.4
 +     geom_freqpoly(binwidth=1, closed="left") + guides(color = FALSE) + 
 +     xlim(0, 7) + ylab("frequency")
 +   
++   gg0 = ggarrange(p1, p3, ncol=2, nrow=1, widths = c(1.5, 2))
++   
 +   pdf(sprintf("figures/ex1_%s.pdf", config), width=6.5, height=2.5)
-+   ggarrange(p1, p3, ncol=2, nrow=1, widths = c(1.5, 2))
++   print(gg0)
 +   dev.off()
 + }
 ct_cell
@@ -510,7 +562,8 @@ Removed 46 row(s) containing missing values (geom_path).
 + }
 > 
 > ms = c("PS_zinb_Was", "PS_kde_Was", "deseq2_pval", "mast_pval_glm", 
-+        "mast_pval_glmer", "ranksum_pval")
++        "mast_pval_glmer", "ranksum_pval", "scDD", "ZINB_WaVE")
+> ms = ms[which(ms %in% names(pvals))]
 > powers = apply(pvals[,..ms], 2, cal.power, geneType=pvals$geneType)
 > 
 > print(config)
@@ -529,17 +582,21 @@ varDE     0.8930000
 > 
 > names(gg) = c("geneType", "method", "power")
 > gg$method = gsub("deseq2_pval", "DEseq2", gg$method)
-> gg$method = gsub("PS_zinb_Was", "IDEAS_NB",  gg$method)
+> gg$method = gsub("PS_zinb_Was", "IDEAS_ZINB",  gg$method)
 > gg$method = gsub("PS_kde_Was",  "IDEAS_KDE", gg$method)
 > gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
 > gg$method = gsub("mast_pval_glm", "MAST", gg$method)
 > gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
 > table(gg$method)
 
-    DEseq2  IDEAS_KDE   IDEAS_NB       MAST MAST_glmer   Rank-sum 
+    DEseq2  IDEAS_KDE IDEAS_ZINB       MAST MAST_glmer   Rank-sum 
          3          3          3          3          3          3 
-> gg$method = factor(gg$method, levels = c("Rank-sum", "MAST", "MAST_glmer", 
-+                                          "DEseq2", "IDEAS_NB", "IDEAS_KDE"))
+> 
+> lvs = c("Rank-sum", "MAST", "scDD", "ZINB_WaVE",  
++         "MAST_glmer", "DEseq2", "IDEAS_ZINB", "IDEAS_KDE")
+> lvs = lvs[which(lvs %in% unique(gg$method))]
+> 
+> gg$method = factor(gg$method, levels = lvs)
 > 
 > g1 = ggplot(subset(gg, geneType %in% c("EE")), 
 +             aes(x=geneType, y=power, fill=method)) +
@@ -557,7 +614,7 @@ varDE     0.8930000
 > gg1 = ggarrange(g1, g2, ncol = 2, nrow = 1, widths=c(1.25,2), 
 +                 common.legend = TRUE, legend = "top")
 > 
-> pdf(sprintf("figures/power_ex_%s.pdf", config), width=5.2, height=2.5)
+> pdf(sprintf("figures/power_%s.pdf", config), width=5.2, height=2.5)
 > print(gg1)
 > dev.off()
 pdf 
@@ -637,10 +694,10 @@ loaded via a namespace (and not attached):
 2.15 GB
 > gc()
             used   (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells   8048159  429.9   13973607  746.3         NA  12574546  671.6
-Vcells 212648118 1622.4  307322948 2344.7      32768 220063430 1679.0
+Ncells   8053429  430.1   13973607  746.3         NA  13247627  707.5
+Vcells 212660336 1622.5  307322948 2344.7      32768 220333273 1681.1
 > 
 > q(save = "no")
 > proc.time()
    user  system elapsed 
- 12.412   0.984  13.896 
+ 31.382   2.509  34.817 

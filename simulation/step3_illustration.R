@@ -8,8 +8,8 @@ if (length(args) < 5) {
   message("no enough arguments, using default values")
   r_mean   = 1.2     # The expected fold-changes in mean
   r_var    = 1.5     # The expected fold-changes in variances
-  ncase    = 5       # case individuals
-  nctrl    = 5       # control individuals
+  ncase    = 10       # case individuals
+  nctrl    = 10       # control individuals
   ncell    = 360     # numbers of cells collected from each individuals.
 } else{
   for(i in 1:length(args)){
@@ -96,51 +96,63 @@ pvals[1:2,]
 
 table(pvals$geneType)
 
-pvals_rank_sum = fread(sprintf("results/pval_ranksum_%s.txt", config))
-dim(pvals_rank_sum)
-pvals_rank_sum[1:2,]
+fnm_rank_sum = sprintf("results/pval_ranksum_%s.txt", config)
 
-stopifnot(max(abs(pvals$PS_zinb_Was - 
+if(file.exists(fnm_rank_sum)){
+  pvals_rank_sum = fread(sprintf("results/pval_ranksum_%s.txt", config))
+  dim(pvals_rank_sum)
+  pvals_rank_sum[1:2,]
+
+  stopifnot(max(abs(pvals$PS_zinb_Was - 
                     pvals_rank_sum$PS_zinb_Was), na.rm=TRUE) < 1e-10)
-pvals = pvals_rank_sum
+  pvals = pvals_rank_sum
+}
 
 # ---------------------------------------------------------------
 # read in scDD p-values
 # ---------------------------------------------------------------
 
-pvals_scDD = fread(sprintf("results/res_scDD_%s.txt", config))
-dim(pvals_scDD)
-pvals_scDD[1:2,]
+fnm_scDD = sprintf("results/res_scDD_%s.txt", config)
 
-pvals$scDD = pvals_scDD$combined.pvalue
-pvals$scDD_category = pvals_scDD$DDcategory
-
-t1 = table(pvals$geneType, pvals$scDD_category)
-t1
-
-scDD_cat = melt(t1, varnames = c("gene_type", "scDD_category"))
-
-g1 = ggplot(scDD_cat %>% group_by(gene_type) %>% 
-         mutate(rel_freq = round(value/sum(value),2)), 
-       aes(x = gene_type, y = rel_freq, 
-           fill = scDD_category, cumulative = TRUE)) +
-  geom_col() +
-  geom_text(aes(label = paste0(rel_freq*100,"%")), 
-            position = position_stack(vjust = 0.5))
-
-pdf(sprintf("figures/scDD_cat_%s.pdf", config), width=4, height=4)
-print(g1)
-dev.off()
+if(file.exists(fnm_scDD)){
+  pvals_scDD = fread(fnm_scDD)
+  dim(pvals_scDD)
+  pvals_scDD[1:2,]
+  
+  pvals$scDD = pvals_scDD$combined.pvalue
+  pvals$scDD_category = pvals_scDD$DDcategory
+  
+  t1 = table(pvals$geneType, pvals$scDD_category)
+  t1
+  
+  scDD_cat = melt(t1, varnames = c("gene_type", "scDD_category"))
+  
+  g1 = ggplot(scDD_cat %>% group_by(gene_type) %>% 
+                mutate(rel_freq = round(value/sum(value),2)), 
+              aes(x = gene_type, y = rel_freq, 
+                  fill = scDD_category, cumulative = TRUE)) +
+    geom_col() +
+    geom_text(aes(label = paste0(rel_freq*100,"%")), 
+              position = position_stack(vjust = 0.5))
+  
+  pdf(sprintf("figures/scDD_cat_%s.pdf", config), width=4, height=4)
+  print(g1)
+  dev.off()
+}
 
 # ---------------------------------------------------------------
 # read in ZINB-WaVE p-values
 # ---------------------------------------------------------------
 
-pvals_zw = fread(sprintf("results/res_ZINB-WaVE_%s.txt", config))
-dim(pvals_zw)
-pvals_zw[1:2,]
+fnm_zinb_wave = sprintf("results/res_ZINB-WaVE_%s.txt", config)
 
-pvals$ZINB_WaVE = pvals_zw$pvalue
+if(file.exists(fnm_zinb_wave)){
+  pvals_zw = fread(fnm_zinb_wave)
+  dim(pvals_zw)
+  pvals_zw[1:2,]
+  
+  pvals$ZINB_WaVE = pvals_zw$pvalue
+}
 
 # ---------------------------------------------------------------
 # find a few examples to illustrate
@@ -223,6 +235,7 @@ cal.power <- function(x, geneType){
 
 ms = c("PS_zinb_Was", "PS_kde_Was", "deseq2_pval", "mast_pval_glm", 
        "mast_pval_glmer", "ranksum_pval", "scDD", "ZINB_WaVE")
+ms = ms[which(ms %in% names(pvals))]
 powers = apply(pvals[,..ms], 2, cal.power, geneType=pvals$geneType)
 
 print(config)
@@ -238,9 +251,12 @@ gg$method = gsub("mast_pval_glmer", "MAST_glmer", gg$method)
 gg$method = gsub("mast_pval_glm", "MAST", gg$method)
 gg$method = gsub("ranksum_pval", "Rank-sum", gg$method)
 table(gg$method)
-gg$method = factor(gg$method, 
-                   levels = c("Rank-sum", "MAST", "scDD", "ZINB_WaVE",  
-                              "MAST_glmer", "DEseq2", "IDEAS_ZINB", "IDEAS_KDE"))
+
+lvs = c("Rank-sum", "MAST", "scDD", "ZINB_WaVE",  
+        "MAST_glmer", "DEseq2", "IDEAS_ZINB", "IDEAS_KDE")
+lvs = lvs[which(lvs %in% unique(gg$method))]
+
+gg$method = factor(gg$method, levels = lvs)
 
 g1 = ggplot(subset(gg, geneType %in% c("EE")), 
             aes(x=geneType, y=power, fill=method)) +

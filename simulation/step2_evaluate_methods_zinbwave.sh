@@ -22,3 +22,4 @@ R CMD BATCH --no-save --no-restore '--args ncase=20 nctrl=20 ncell=360 r_mean=1.
 
 R CMD BATCH --no-save --no-restore '--args ncase=20 nctrl=20 ncell=120 r_mean=1.2 r_var=1.5' step2_evaluate_methods_zinbwave.R step2_evaluate_methods_zinbwave_20_20_120_1.2_1.5.Rout &
 
+R CMD BATCH --no-save --no-restore '--args ncase=10 nctrl=10 ncell=360 r_mean=1.2 r_var=1.5' step2_evaluate_methods_zinbwave.R step2_evaluate_methods_zinbwave_10_10_360_1.2_1.5.Rout &

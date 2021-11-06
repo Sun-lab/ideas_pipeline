@@ -18,7 +18,7 @@ if (length(args) < 5) {
   r_var    = 1.5     # The expected fold-changes in variances
   ncase    = 13      # case individuals
   nctrl    = 10      # control individuals
-  ncell    = 360    # numbers of cells collected from each individuals.
+  ncell    = 1080    # numbers of cells collected from each individuals.
 } else{
   for(i in 1:length(args)){
     eval(parse(text=args[[i]]))
@@ -120,7 +120,7 @@ table(sca3$condition)
 #sca3=sca3[1:100,50*(1:160)]
 colData(sca3)
 date()
-sca_dd = scDD(sca3)
+sca_dd = scDD(sca3, param=BiocParallel::MulticoreParam(workers=nCore))
 date()
 
 res = results(sca_dd)

@@ -16,7 +16,7 @@ if (length(args) < 5) {
   message("no enough arguments, using default values")
   r_mean   = 1.2     # The expected fold-changes in mean
   r_var    = 1.5     # The expected fold-changes in variances
-  ncase    = 13      # case individuals
+  ncase    = 10      # case individuals
   nctrl    = 10      # control individuals
   ncell    = 360    # numbers of cells collected from each individuals.
 } else{
@@ -113,6 +113,25 @@ table(res$pvalue[EE_index] < 0.05)
 table(res$pvalue[EE_index] < 0.05)/length(EE_index)
 
 # ---------------------------------------------------------------
+# save results
+# ---------------------------------------------------------------
+
+geneType = rep("EE", nrow(count_matrix))
+geneType[mean_index] = "meanDE"
+geneType[var_index]  = "varDE"
+
+fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
+tapply(res$pvalue, geneType, fun1, alpha=0.05)
+tapply(res$pvalue, geneType, fun1, alpha=0.01)
+
+res$gene = rownames(res)
+res
+
+write.table(res, file=sprintf("results/res_ZINB-WaVE_%s.txt", config), 
+            append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
+            col.names = TRUE)
+
+# ---------------------------------------------------------------
 # check p-value
 # ---------------------------------------------------------------
 
@@ -126,10 +145,6 @@ plot.hist <- function(pvals, idx_grp, label){
   }
 }
 
-geneType = rep("EE", nrow(count_matrix))
-geneType[mean_index] = "meanDE"
-geneType[var_index]  = "varDE"
-
 table(res$pvalue < 0.05, geneType)
 
 pdf(sprintf("figures/pvalue_hist_zinbwave_%s.pdf", config), 
@@ -138,20 +153,6 @@ par(mfrow = c(1,3), mar=c(5,4,2,1), pty = "s", bty="n")
 plot.hist(res$pvalue,  idx_grp, "ZINB-WaVE")
 dev.off()
 
-# ---------------------------------------------------------------
-# save results
-# ---------------------------------------------------------------
-
-fun1 <- function(x, alpha){table(x<=alpha)/length(x)}
-tapply(res$pvalue, geneType, fun1, alpha=0.05)
-tapply(res$pvalue, geneType, fun1, alpha=0.01)
-
-res$gene = rownames(res)
-res
-
-write.table(res, file=sprintf("results/res_ZINB-WaVE_%s.txt", config), 
-            append=FALSE, quote=FALSE, sep="\t", row.names = FALSE, 
-            col.names = TRUE)
 
 sessionInfo()
 

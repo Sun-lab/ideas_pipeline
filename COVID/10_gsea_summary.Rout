@@ -1,0 +1,163 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # check the overlap of singifcant pathways 
+> 
+> library(readxl)
+> 
+> fnm = "res/COVID_GSEA_sign_pathways_CD8+Tcells_1.xlsx"
+> excel_sheets(fnm)
+[1] "DESeq2"              "rank_sum"            "MAST_glm"           
+[4] "PS_nb_Was"           "PS_dca_direct_Was"   "PS_saver_direct_Was"
+[7] "mean_expression"    
+> 
+> DESeq2 = read_excel(fnm, sheet="DESeq2")
+> dim(DESeq2)
+[1] 108   8
+> 
+> ideas = read_excel(fnm, sheet="PS_nb_Was")
+> dim(ideas)
+[1] 7 8
+> 
+> dca = read_excel(fnm, sheet="PS_dca_direct_Was")
+> dim(dca)
+[1] 20  8
+> 
+> saver = read_excel(fnm, sheet="PS_saver_direct_Was")
+> dim(saver)
+[1] 12  8
+> 
+> meanE = read_excel(fnm, sheet="mean_expression")
+> dim(meanE)
+[1] 235   8
+> 
+> meanE[1:2,]
+# A tibble: 2 x 8
+  pathway           pval    padj log2err    ES   NES  size leadingEdge          
+  <chr>            <dbl>   <dbl> <chr>   <dbl> <dbl> <dbl> <chr>                
+1 EUKARYOTIC_…  1.00e-10 2.88e-9 NA      0.927  6.96    88 RPL41, EEF1A1, RPS27…
+2 SELENOAMINO…  1.00e-10 2.88e-9 NA      0.897  6.75    90 RPL41, RPS27, RPL10,…
+> summary(meanE$padj)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.000e+00 4.519e-05 1.134e-03 8.970e-03 1.469e-02 4.947e-02 
+> 
+> table(DESeq2$pathway %in% meanE$pathway)
+
+FALSE  TRUE 
+    7   101 
+> table(ideas$pathway %in% meanE$pathway)
+
+FALSE  TRUE 
+    1     6 
+> table(dca$pathway   %in% meanE$pathway)
+
+FALSE  TRUE 
+   17     3 
+> table(saver$pathway %in% meanE$pathway)
+
+FALSE  TRUE 
+   11     1 
+> 
+> options(width = 300)
+> 
+> 
+> ideas_E = merge(ideas[,c("pathway", "padj", "pval")], meanE[,c("pathway", "padj")], 
++                 by=c("pathway"), all.x = TRUE)
+> ideas_E[order(ideas_E$pval),]
+                                                                           pathway     padj.x         pval       padj.y
+3                                                EUKARYOTIC_TRANSLATION_INITIATION 0.01969198 0.0000412527 2.882609e-09
+2                                                EUKARYOTIC_TRANSLATION_ELONGATION 0.01969198 0.0001303688 2.882609e-09
+7                                                                      TRANSLATION 0.01969198 0.0001303688 2.882609e-09
+6                      SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE 0.01969198 0.0001371705 2.882609e-09
+4                                                              INFLUENZA_INFECTION 0.01969198 0.0001485066 2.882609e-09
+1 ANTIGEN_ACTIVATES_B_CELL_RECEPTOR_BCR_LEADING_TO_GENERATION_OF_SECOND_MESSENGERS 0.03372138 0.0003051709           NA
+5                                RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY 0.04901269 0.0005174794 2.882609e-09
+> 
+> 
+> dca_E = merge(dca[,c("pathway", "padj", "pval")], meanE[,c("pathway", "padj")], 
++                 by=c("pathway"), all.x = TRUE)
+> dca_E[order(dca_E$pval),]
+                                                                                 pathway      padj.x         pval      padj.y
+9                                                              HDMS_DEMETHYLATE_HISTONES 0.007059563 2.067884e-05          NA
+12       NR1H3_NR1H2_REGULATE_GENE_EXPRESSION_LINKED_TO_CHOLESTEROL_TRANSPORT_AND_EFFLUX 0.007059563 2.162194e-05          NA
+17                                                       RNA_POLYMERASE_II_TRANSCRIPTION 0.011789159 5.416153e-05          NA
+16                                               RESOLUTION_OF_SISTER_CHROMATID_COHESION 0.016850291 1.032177e-04          NA
+4                                                            CHROMATIN_MODIFYING_ENZYMES 0.018210563 1.394377e-04          NA
+3                                                                    CELLULAR_SENESCENCE 0.019616983 1.802479e-04          NA
+8                                                                  GENE_SILENCING_BY_RNA 0.036345726 3.896173e-04          NA
+14                                                   PRE_NOTCH_EXPRESSION_AND_PROCESSING 0.038607581 5.735776e-04          NA
+13                                                   OXIDATIVE_STRESS_INDUCED_SENESCENCE 0.038607581 6.457014e-04          NA
+18 RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION 0.038607581 6.489428e-04          NA
+20                                              TRANSCRIPTIONAL_REGULATION_BY_SMALL_RNAS 0.038607581 6.921865e-04          NA
+19                                                                           SUMOYLATION 0.038607581 7.098125e-04          NA
+11                                                    NR1H2_AND_NR1H3_MEDIATED_SIGNALING 0.038607581 7.686042e-04          NA
+15                                           REGULATION_OF_RUNX1_EXPRESSION_AND_ACTIVITY 0.038814282 8.321592e-04          NA
+7                                 FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC 0.040870717 9.388373e-04 0.014694599
+1                                            ANTIVIRAL_MECHANISM_BY_IFN_STIMULATED_GENES 0.042447839 1.040070e-03          NA
+2                                                                             CELL_CYCLE 0.044900455 1.168925e-03 0.004521348
+5                                                                 ESR_MEDIATED_SIGNALING 0.047748368 1.316188e-03 0.043544605
+6                                                     ESTROGEN_DEPENDENT_GENE_EXPRESSION 0.049031205 1.426635e-03          NA
+10                                                             MICRORNA_MIRNA_BIOGENESIS 0.049578065 1.518471e-03          NA
+> 
+> saver_E = merge(saver[,c("pathway", "padj", "pval")], meanE[,c("pathway", "padj")], 
++               by=c("pathway"), all.x = TRUE)
+> saver_E[order(saver_E$pval),]
+                                                                                 pathway      padj.x         pval     padj.y
+8                                                        RNA_POLYMERASE_II_TRANSCRIPTION 0.001414978 2.390413e-06         NA
+2                                                            CHROMATIN_MODIFYING_ENZYMES 0.001414978 4.320543e-06         NA
+7                                                RESOLUTION_OF_SISTER_CHROMATID_COHESION 0.004786135 2.192123e-05         NA
+5                                                                   MITOTIC_PROMETAPHASE 0.008501329 5.191651e-05         NA
+4                                                                                M_PHASE 0.040294768 3.075937e-04 0.03642739
+1                                                 CELL_EXTRACELLULAR_MATRIX_INTERACTIONS 0.040774925 3.735108e-04         NA
+12                                              SUMOYLATION_OF_UBIQUITINYLATION_PROTEINS 0.045742749 6.476424e-04         NA
+6                                                             MITOTIC_SPINDLE_CHECKPOINT 0.045742749 6.548601e-04         NA
+11                                                   SUMOYLATION_OF_SUMOYLATION_PROTEINS 0.045742749 7.070105e-04         NA
+3                                                        ION_TRANSPORT_BY_P_TYPE_ATPASES 0.045742749 7.407095e-04         NA
+9  RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION 0.045742749 8.221816e-04         NA
+10                                                        SIGNALING_BY_NUCLEAR_RECEPTORS 0.045742749 8.380351e-04         NA
+> 
+> gc()
+         used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
+Ncells 506462 27.1    1117892 59.8         NA   658282 35.2
+Vcells 869031  6.7    8388608 64.0      32768  1802618 13.8
+> sessionInfo()
+R version 4.0.3 (2020-10-10)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] readxl_1.3.1
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.5       fansi_0.4.1      utf8_1.1.4       crayon_1.3.4     assertthat_0.2.1 cellranger_1.1.0 lifecycle_0.2.0  magrittr_2.0.1   pillar_1.4.7     rlang_0.4.10     cli_2.2.0        vctrs_0.3.6      ellipsis_0.3.1   tools_4.0.3      glue_1.4.2       compiler_4.0.3   pkgconfig_2.0.3 
+[18] tibble_3.0.4    
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+  0.560   0.116   0.678 
