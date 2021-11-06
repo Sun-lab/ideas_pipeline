@@ -41,3 +41,26 @@ Compute corresponding q values.
 ### cell_types.txt
 
 List all the 17 cell types for looping through using .sh files when needed.
+
+**summary steps:**
+
+[step2a_summarize_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step2a_summarize_results.R) summarizes GSEA results and comparison between results from different methods.
+
+[step2b_summarize_results_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step2b_summarize_results_perm.R) type-I error through permutation. 
+
+[step2d_summarize_results_qvalue.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step2d_summarize_results_qvalue.R) overlap between significant genes from different methods under q-value cutoff. 
+
+**DCA mean and pseudo dispersion exploration:**
+
+[step3a_DCA_formula_helper.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step3a_DCA_formula_helper.R) helper file getting indivdual level mean and variance for each gene, based on cell-level parameter estimates given by DCA.
+
+[step3b_DCA_formula_covariates_all.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step3b_DCA_formula_covariates_all.R) gets p-values for association between log(mean) and mild/severe status, given covariates, by linear regression.
+
+[step10b_DCA_pseudo_over_dispersion_covariates_all.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step10b_DCA_pseudo_over_dispersion_covariates_all.R) computes pseudo dispersion parameters and does regression.
+
+[step10k_DCA_formula_four_groups_covariates_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step10k_DCA_formula_four_groups_covariates_ranksum.R) ranksum tests on log(mean) (and log(pseudo theta)) regression p-values among groups separated by DESeq2 and DCA_direct q-value cutoffs.
+
+
+
+
+
