@@ -1,0 +1,692 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(Matrix)
+> library(data.table)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(DESeq2)
+Loading required package: S4Vectors
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: ‘BiocGenerics’
+
+The following objects are masked from ‘package:parallel’:
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following objects are masked from ‘package:dplyr’:
+
+    combine, intersect, setdiff, union
+
+The following objects are masked from ‘package:stats’:
+
+    IQR, mad, sd, var, xtabs
+
+The following objects are masked from ‘package:base’:
+
+    anyDuplicated, append, as.data.frame, basename, cbind, colnames,
+    dirname, do.call, duplicated, eval, evalq, Filter, Find, get, grep,
+    grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
+    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank,
+    rbind, Reduce, rownames, sapply, setdiff, sort, table, tapply,
+    union, unique, unsplit, which.max, which.min
+
+
+Attaching package: ‘S4Vectors’
+
+The following objects are masked from ‘package:dplyr’:
+
+    first, rename
+
+The following objects are masked from ‘package:data.table’:
+
+    first, second
+
+The following objects are masked from ‘package:Matrix’:
+
+    expand, unname
+
+The following objects are masked from ‘package:base’:
+
+    expand.grid, I, unname
+
+Loading required package: IRanges
+
+Attaching package: ‘IRanges’
+
+The following objects are masked from ‘package:dplyr’:
+
+    collapse, desc, slice
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+Loading required package: GenomicRanges
+Loading required package: GenomeInfoDb
+Loading required package: SummarizedExperiment
+Loading required package: MatrixGenerics
+Loading required package: matrixStats
+
+Attaching package: ‘matrixStats’
+
+The following object is masked from ‘package:dplyr’:
+
+    count
+
+
+Attaching package: ‘MatrixGenerics’
+
+The following objects are masked from ‘package:matrixStats’:
+
+    colAlls, colAnyNAs, colAnys, colAvgsPerRowSet, colCollapse,
+    colCounts, colCummaxs, colCummins, colCumprods, colCumsums,
+    colDiffs, colIQRDiffs, colIQRs, colLogSumExps, colMadDiffs,
+    colMads, colMaxs, colMeans2, colMedians, colMins, colOrderStats,
+    colProds, colQuantiles, colRanges, colRanks, colSdDiffs, colSds,
+    colSums2, colTabulates, colVarDiffs, colVars, colWeightedMads,
+    colWeightedMeans, colWeightedMedians, colWeightedSds,
+    colWeightedVars, rowAlls, rowAnyNAs, rowAnys, rowAvgsPerColSet,
+    rowCollapse, rowCounts, rowCummaxs, rowCummins, rowCumprods,
+    rowCumsums, rowDiffs, rowIQRDiffs, rowIQRs, rowLogSumExps,
+    rowMadDiffs, rowMads, rowMaxs, rowMeans2, rowMedians, rowMins,
+    rowOrderStats, rowProds, rowQuantiles, rowRanges, rowRanks,
+    rowSdDiffs, rowSds, rowSums2, rowTabulates, rowVarDiffs, rowVars,
+    rowWeightedMads, rowWeightedMeans, rowWeightedMedians,
+    rowWeightedSds, rowWeightedVars
+
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+
+Attaching package: ‘Biobase’
+
+The following object is masked from ‘package:MatrixGenerics’:
+
+    rowMedians
+
+The following objects are masked from ‘package:matrixStats’:
+
+    anyMissing, rowMedians
+
+Warning messages:
+1: package ‘GenomeInfoDb’ was built under R version 4.1.1 
+2: package ‘MatrixGenerics’ was built under R version 4.1.1 
+> 
+> 
+> data.dir = "data"
+> 
+> args=(commandArgs(TRUE))
+> args
+[1] "grp='PFC_IN-SV2C'"
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'PFC_L2_3' as default.\n")
++   grp = "PFC_L2_3"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+> 
+> grp
+[1] "PFC_IN-SV2C"
+> 
+> # ------------------------------------------------------------------------
+> # read in cell information
+> # ------------------------------------------------------------------------
+> 
+> cell_info = fread(file.path(data.dir, "meta.tsv"))
+> dim(cell_info)
+[1] 104559     16
+> cell_info[1:2,]
+                           cell     cluster    sample individual region age sex
+1: AAACCTGGTACGCACC-1_1823_BA24 Neu-NRGN-II 1823_BA24       1823    ACC  15   M
+2: AAACGGGCACCAGATT-1_1823_BA24        L5/6 1823_BA24       1823    ACC  15   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB8      SB3                           18
+2:   Control      CB8      SB3                           18
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                    7   622   774               2.4547804
+2:                    7  6926 24042               0.4450545
+   RNA ribosomal percent
+1:             1.4211886
+2:             0.4284169
+> 
+> table(cell_info$region)
+
+  ACC   PFC 
+42393 62166 
+> 
+> cell_info = cell_info[which(cell_info$region=="PFC"),]
+> 
+> sort(table(paste(cell_info$diagnosis, cell_info$sample, sep=":")))
+
+         ASD:5978_BA9      Control:5976_BA9          ASD:5403_PFC 
+                  926                  1054                  1112 
+Control:5879_PFC_Nova          ASD:6033_BA9          ASD:5419_PFC 
+                 1850                  1970                  1972 
+Control:5936_PFC_Nova          ASD:5144_PFC      Control:5958_BA9 
+                 2033                  2047                  2083 
+         ASD:5864_BA9 Control:5408_PFC_Nova          ASD:5565_BA9 
+                 2148                  2255                  2319 
+         ASD:5945_PFC          ASD:5294_BA9          ASD:5278_PFC 
+                 2522                  2568                  2819 
+Control:5538_PFC_Nova          ASD:5531_BA9          ASD:5939_BA9 
+                 3034                  3054                  3085 
+     Control:5893_PFC     Control:4341_BA46      Control:5577_BA9 
+                 3317                  3849                  4131 
+         ASD:5841_BA9      Control:5387_BA9 
+                 5477                  6541 
+> 
+> # ------------------------------------------------------------------------
+> # read in count data of one region and one cluster
+> # ------------------------------------------------------------------------
+> 
+> dat1 = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+> dim(dat1)
+[1] 18041  1054
+> class(dat1)
+[1] "dgCMatrix"
+attr(,"package")
+[1] "Matrix"
+> dat1[1:5,1:4]
+5 x 4 sparse Matrix of class "dgCMatrix"
+         AACACGTCAGTGGAGT-1_4341_BA46 ACAGCTAAGATGTGGC-1_4341_BA46
+DNAJC11                             .                            .
+NADK                                .                            .
+MASP2                               .                            .
+CLCN6                               .                            .
+TNFRSF1B                            .                            .
+         ACGGGCTGTGGAAAGA-1_4341_BA46 ACTTTCAAGACGCAAC-1_4341_BA46
+DNAJC11                             .                            .
+NADK                                .                            .
+MASP2                               .                            .
+CLCN6                               .                            .
+TNFRSF1B                            .                            .
+> 
+> # ------------------------------------------------------------------------
+> # subset cell information
+> # ------------------------------------------------------------------------
+> 
+> table(colnames(dat1) %in% cell_info$cell)
+
+TRUE 
+1054 
+> meta = cell_info[match(colnames(dat1), cell_info$cell),]
+> dim(meta)
+[1] 1054   16
+> meta[1:2,]
+                           cell cluster    sample individual region age sex
+1: AACACGTCAGTGGAGT-1_4341_BA46 IN-SV2C 4341_BA46       4341    PFC  13   M
+2: ACAGCTAAGATGTGGC-1_4341_BA46 IN-SV2C 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB6      SB2                           16
+2:   Control      CB6      SB2                           16
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                  7.2  4994 11604                1.197863
+2:                  7.2  2064  3637                1.237283
+   RNA ribosomal percent
+1:             1.0513616
+2:             0.6598845
+> 
+> summary(meta$UMIs/meta$genes)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.349   1.886   2.090   2.096   2.285   3.549 
+> 
+> # check each individual has a unique sample
+> table(tapply(meta$sample, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> # check each individual has a unique Capbatch
+> table(tapply(meta$Capbatch, meta$individual, function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> table(meta$cluster)
+
+IN-SV2C 
+   1054 
+> table(meta$region)
+
+ PFC 
+1054 
+> 
+> sort(table(paste(meta$diagnosis, meta$sample, sep=":")))
+
+         ASD:5403_PFC Control:5936_PFC_Nova      Control:5577_BA9 
+                   10                    24                    26 
+         ASD:5978_BA9 Control:5879_PFC_Nova      Control:5976_BA9 
+                   29                    31                    33 
+         ASD:5419_PFC Control:5408_PFC_Nova      Control:5958_BA9 
+                   35                    36                    39 
+         ASD:5294_BA9          ASD:6033_BA9      Control:5893_PFC 
+                   43                    43                    44 
+         ASD:5945_PFC          ASD:5144_PFC     Control:4341_BA46 
+                   49                    50                    50 
+         ASD:5278_PFC          ASD:5864_BA9          ASD:5531_BA9 
+                   51                    56                    57 
+         ASD:5565_BA9          ASD:5841_BA9 Control:5538_PFC_Nova 
+                   57                    58                    64 
+         ASD:5939_BA9      Control:5387_BA9 
+                   74                    95 
+> 
+> # ------------------------------------------------------------------------
+> # generate individual level information
+> # ------------------------------------------------------------------------
+> 
+> meta_ind = distinct(meta[,3:12])
+> dim(meta_ind)
+[1] 23 10
+> meta_ind[1:2,]
+      sample individual region age sex diagnosis Capbatch Seqbatch
+1: 4341_BA46       4341    PFC  13   M   Control      CB6      SB2
+2:  5144_PFC       5144    PFC   7   M       ASD      CB1      SB1
+   post-mortem interval (hours) RNA Integrity Number
+1:                           16                  7.2
+2:                            3                  8.0
+> names(meta_ind)[9:10] = c("PMI", "RIN")
+> 
+> length(unique(meta$individual))
+[1] 23
+> 
+> if(nrow(meta_ind) != length(unique(meta$individual))){
++   stop("there is non-unique information\n")
++ }
+> 
+> table(meta_ind$Seqbatch, meta_ind$Capbatch)
+     
+      CB1 CB2 CB6 CB7
+  SB1   6   4   0   0
+  SB2   0   0   7   6
+> 
+> # ------------------------------------------------------------------------
+> # collect count data
+> # ------------------------------------------------------------------------
+> 
+> trec1 = matrix(NA, nrow=nrow(dat1), ncol=nrow(meta_ind))
+> colnames(trec1) = meta_ind$sample
+> rownames(trec1) = rownames(dat1)
+> dim(trec1)
+[1] 18041    23
+> trec1[1:2,1:3]
+        4341_BA46 5144_PFC 5278_PFC
+DNAJC11        NA       NA       NA
+NADK           NA       NA       NA
+> 
+> for(i in 1:ncol(trec1)){
++   wi = which(meta$sample == meta_ind$sample[i])
++   trec1[,i] = rowSums(dat1[,wi])
++ }
+> 
+> dim(trec1)
+[1] 18041    23
+> trec1[1:2,1:3]
+        4341_BA46 5144_PFC 5278_PFC
+DNAJC11        15        5        8
+NADK            3        0        0
+> 
+> # ------------------------------------------------------------------------
+> # run DESeq2
+> # ------------------------------------------------------------------------
+> 
+> colData = meta_ind
+> for(i in 1:ncol(colData)){
++   if(is.character(colData[[i]])){
++     colData[[i]] = as.factor(colData[[i]])
++   }
++ }
+> dim(colData)
+[1] 23 10
+> colData[1:2,]
+      sample individual region age sex diagnosis Capbatch Seqbatch PMI RIN
+1: 4341_BA46       4341    PFC  13   M   Control      CB6      SB2  16 7.2
+2:  5144_PFC       5144    PFC   7   M       ASD      CB1      SB1   3 8.0
+> summary(colData)
+       sample     individual   region        age        sex      diagnosis 
+ 4341_BA46: 1   Min.   :4341   PFC:23   Min.   : 4.00   F: 6   ASD    :13  
+ 5144_PFC : 1   1st Qu.:5406            1st Qu.:12.00   M:17   Control:10  
+ 5278_PFC : 1   Median :5577            Median :15.00                      
+ 5294_BA9 : 1   Mean   :5614            Mean   :15.04                      
+ 5387_BA9 : 1   3rd Qu.:5938            3rd Qu.:19.00                      
+ 5403_PFC : 1   Max.   :6033            Max.   :22.00                      
+ (Other)  :17                                                              
+ Capbatch Seqbatch      PMI             RIN       
+ CB1:6    SB1:10   Min.   : 3.00   Min.   :6.500  
+ CB2:4    SB2:13   1st Qu.:16.00   1st Qu.:7.350  
+ CB6:7             Median :21.00   Median :7.600  
+ CB7:6             Mean   :20.74   Mean   :7.713  
+                   3rd Qu.:24.00   3rd Qu.:8.150  
+                   Max.   :42.00   Max.   :9.000  
+                                                  
+> 
+> colData$diagnosis = factor(colData$diagnosis, levels=c("Control", "ASD"))
+> 
+> dd0 = DESeqDataSetFromMatrix(countData = trec1, 
++                              colData = colData,
++                              design = ~ diagnosis)
+converting counts to integer mode
+> dd0  = DESeq(dd0)
+estimating size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+-- replacing outliers and refitting for 26 genes
+-- DESeq argument 'minReplicatesForReplace' = 7 
+-- original counts are preserved in counts(dds)
+estimating dispersions
+fitting model and testing
+> res0 = results(dd0)
+> dim(res0)
+[1] 18041     6
+> head(res0)
+log2 fold change (MLE): diagnosis ASD vs Control 
+Wald test p-value: diagnosis ASD vs Control 
+DataFrame with 6 rows and 6 columns
+          baseMean log2FoldChange     lfcSE         stat    pvalue      padj
+         <numeric>      <numeric> <numeric>    <numeric> <numeric> <numeric>
+DNAJC11  10.149005   -0.363407823  0.249903 -1.454194300  0.145892  0.833792
+NADK      1.434817   -0.370299857  0.601002 -0.616137551  0.537804  0.951792
+MASP2     1.583307   -0.000425521  0.572257 -0.000743583  0.999407  0.999926
+CLCN6     4.242961   -0.356033494  0.400425 -0.889138201  0.373929  0.919880
+TNFRSF1B  0.759378   -0.127701614  0.909392 -0.140425245  0.888324  0.994096
+THAP3     2.673478   -0.364810435  0.450977 -0.808932760  0.418554  0.931439
+> summary(res0)
+
+out of 18031 with nonzero total read count
+adjusted p-value < 0.1
+LFC > 0 (up)       : 0, 0%
+LFC < 0 (down)     : 0, 0%
+outliers [1]       : 0, 0%
+low counts [2]     : 1, 0.0055%
+(mean count < 0)
+[1] see 'cooksCutoff' argument of ?results
+[2] see 'independentFiltering' argument of ?results
+
+> 
+> 
+> table(meta_ind$Seqbatch, meta_ind$Capbatch)
+     
+      CB1 CB2 CB6 CB7
+  SB1   6   4   0   0
+  SB2   0   0   7   6
+> table(meta_ind$Seqbatch, meta_ind$diagnosis)
+     
+      ASD Control
+  SB1   5       5
+  SB2   8       5
+> 
+> date()
+[1] "Fri Nov  5 14:11:07 2021"
+> dds = DESeqDataSetFromMatrix(countData = trec1, 
++                              colData = colData,
++                              design = ~ age + sex + Seqbatch + RIN + diagnosis)
+converting counts to integer mode
+  the design formula contains one or more numeric variables with integer values,
+  specifying a model with increasing fold change for higher values.
+  did you mean for this to be a factor? if so, first convert
+  this variable to a factor using the factor() function
+  the design formula contains one or more numeric variables that have mean or
+  standard deviation larger than 5 (an arbitrary threshold to trigger this message).
+  Including numeric variables with large mean can induce collinearity with the intercept.
+  Users should center and scale numeric variables in the design to improve GLM convergence.
+> dds = DESeq(dds)
+estimating size factors
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+5 rows did not converge in beta, labelled in mcols(object)$betaConv. Use larger maxit argument with nbinomWaldTest
+> 
+> date()
+[1] "Fri Nov  5 14:11:18 2021"
+> res = results(dds)
+> dim(res)
+[1] 18041     6
+> head(res)
+log2 fold change (MLE): diagnosis ASD vs Control 
+Wald test p-value: diagnosis ASD vs Control 
+DataFrame with 6 rows and 6 columns
+          baseMean log2FoldChange     lfcSE      stat    pvalue      padj
+         <numeric>      <numeric> <numeric> <numeric> <numeric> <numeric>
+DNAJC11  10.149005      -0.291327  0.261006 -1.116169  0.264350  0.967449
+NADK      1.434817      -0.508900  0.643978 -0.790244  0.429385  0.991223
+MASP2     1.583307      -0.090855  0.611030 -0.148692  0.881797  0.999810
+CLCN6     4.242961      -0.313963  0.413011 -0.760180  0.447147  0.992592
+TNFRSF1B  0.759378      -0.183419  0.933172 -0.196554  0.844177  0.999810
+THAP3     2.673478      -0.346646  0.482117 -0.719009  0.472136  0.994625
+> summary(res)
+
+out of 18032 with nonzero total read count
+adjusted p-value < 0.1
+LFC > 0 (up)       : 1, 0.0055%
+LFC < 0 (down)     : 1, 0.0055%
+outliers [1]       : 0, 0%
+low counts [2]     : 0, 0%
+(mean count < 0)
+[1] see 'cooksCutoff' argument of ?results
+[2] see 'independentFiltering' argument of ?results
+
+> 
+> date()
+[1] "Fri Nov  5 14:11:18 2021"
+> nms = resultsNames(dds)
+> nms
+[1] "Intercept"                "age"                     
+[3] "sex_M_vs_F"               "Seqbatch_SB2_vs_SB1"     
+[5] "RIN"                      "diagnosis_ASD_vs_Control"
+> nms = nms[-1]
+> 
+> pvals2 = matrix(NA, nrow=nrow(trec1), ncol=length(nms))
+> 
+> for(k in 1:length(nms)){
++   rk = results(dds, name=nms[k])
++   pvals2[,k] = rk$pvalue
++ }
+> 
+> date()
+[1] "Fri Nov  5 14:11:19 2021"
+> 
+> colnames(pvals2) = nms
+> dim(pvals2)
+[1] 18041     5
+> head(pvals2)
+           age sex_M_vs_F Seqbatch_SB2_vs_SB1       RIN
+[1,] 0.3732210  0.6479776           0.5566015 0.7853234
+[2,] 0.7255152  0.3924015           0.9755882 0.1763516
+[3,] 0.5061900  0.7110160           0.7108071 0.5825272
+[4,] 0.9465331  0.9156106           0.1160359 0.4757980
+[5,] 0.7016182  0.3216544           0.2699531 0.8677900
+[6,] 0.4732533  0.6203082           0.7177131 0.5247113
+     diagnosis_ASD_vs_Control
+[1,]                0.2643496
+[2,]                0.4293852
+[3,]                0.8817969
+[4,]                0.4471472
+[5,]                0.8441767
+[6,]                0.4721356
+> summary(pvals2)
+      age           sex_M_vs_F     Seqbatch_SB2_vs_SB1      RIN        
+ Min.   :0.0000   Min.   :0.0000   Min.   :0.00000     Min.   :0.0000  
+ 1st Qu.:0.3331   1st Qu.:0.2481   1st Qu.:0.08279     1st Qu.:0.2289  
+ Median :0.5815   Median :0.5100   Median :0.32025     Median :0.4996  
+ Mean   :0.5599   Mean   :0.5046   Mean   :0.38230     Mean   :0.4947  
+ 3rd Qu.:0.8010   3rd Qu.:0.7674   3rd Qu.:0.65435     3rd Qu.:0.7589  
+ Max.   :1.0000   Max.   :0.9999   Max.   :0.99993     Max.   :0.9999  
+ NA's   :9        NA's   :9        NA's   :9           NA's   :9       
+ diagnosis_ASD_vs_Control
+ Min.   :0.000001        
+ 1st Qu.:0.241493        
+ Median :0.499912        
+ Mean   :0.497515        
+ 3rd Qu.:0.753496        
+ Max.   :0.999962        
+ NA's   :9               
+> 
+> pdf(sprintf("figures/step1b_DESeq2_%s_pval_hist_final.pdf", grp), 
++     width=9, height=6)
+> par(mfrow=c(2,3), bty="n", mar=c(5,4,2,1))
+> for(k in 1:length(nms)){
++   hist(pvals2[,k], main=nms[k], xlab="p-value", breaks=50)
++ }
+> 
+> dev.off()
+null device 
+          1 
+> 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # summarize p-value distribution
+> # ------------------------------------------------------------------------
+> 
+> pdf(sprintf("figures/step1b_DESeq2_%s_compare_pval_Seq.pdf", grp), 
++     width=9, height=3)
+> par(mfrow=c(1,3), bty="n", mar=c(5,4,1,1))
+> hist(res0$pvalue, main="without covariates", xlab="p-value")
+> hist(res$pvalue, main="with covariates (Seq)", xlab="p-value")
+> plot(-log10(res0$pvalue), -log10(res$pvalue), main="-log10(p-value)", 
++      xlab="without covariates", ylab="with covariates (Seq)", 
++      pch=20, cex=0.2, col=rgb(0.8, 0.1, 0.1, 0.5))
+> abline(0, 1, col="darkblue")
+> dev.off()
+null device 
+          1 
+> 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # save the results
+> # ------------------------------------------------------------------------
+> 
+> dim(res0)
+[1] 18041     6
+> res0[1:2,]
+log2 fold change (MLE): diagnosis ASD vs Control 
+Wald test p-value: diagnosis ASD vs Control 
+DataFrame with 2 rows and 6 columns
+         baseMean log2FoldChange     lfcSE      stat    pvalue      padj
+        <numeric>      <numeric> <numeric> <numeric> <numeric> <numeric>
+DNAJC11  10.14901      -0.363408  0.249903 -1.454194  0.145892  0.833792
+NADK      1.43482      -0.370300  0.601002 -0.616138  0.537804  0.951792
+> 
+> dim(res)
+[1] 18041     6
+> res[1:2,]
+log2 fold change (MLE): diagnosis ASD vs Control 
+Wald test p-value: diagnosis ASD vs Control 
+DataFrame with 2 rows and 6 columns
+         baseMean log2FoldChange     lfcSE      stat    pvalue      padj
+        <numeric>      <numeric> <numeric> <numeric> <numeric> <numeric>
+DNAJC11  10.14901      -0.291327  0.261006 -1.116169  0.264350  0.967449
+NADK      1.43482      -0.508900  0.643978 -0.790244  0.429385  0.991223
+> 
+> res0 = as.data.frame(res0)
+> res  = as.data.frame(res)
+> 
+> 
+> fwrite(res0, file=sprintf("res/step1b_DESeq2_%s_no_covariates.tsv", grp), 
++        sep = "\t")
+> 
+> fwrite(res, file=sprintf("res/step1b_DESeq2_%s_adj_covariates.tsv", grp), 
++             sep = "\t")
+> 
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells  6800454 363.2   10196408 544.6         NA 10196408 544.6
+Vcells 23312771 177.9   40805213 311.4      65536 40805210 311.4
+> 
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+[8] methods   base     
+
+other attached packages:
+ [1] DESeq2_1.32.0               SummarizedExperiment_1.22.0
+ [3] Biobase_2.52.0              MatrixGenerics_1.4.3       
+ [5] matrixStats_0.61.0          GenomicRanges_1.44.0       
+ [7] GenomeInfoDb_1.28.4         IRanges_2.26.0             
+ [9] S4Vectors_0.30.0            BiocGenerics_0.38.0        
+[11] dplyr_1.0.7                 data.table_1.14.0          
+[13] Matrix_1.3-3               
+
+loaded via a namespace (and not attached):
+ [1] locfit_1.5-9.4         Rcpp_1.0.7             lattice_0.20-44       
+ [4] png_0.1-7              Biostrings_2.60.2      assertthat_0.2.1      
+ [7] utf8_1.2.1             R6_2.5.0               RSQLite_2.2.8         
+[10] httr_1.4.2             ggplot2_3.3.5          pillar_1.6.1          
+[13] zlibbioc_1.38.0        rlang_0.4.11           rstudioapi_0.13       
+[16] annotate_1.70.0        blob_1.2.2             splines_4.1.0         
+[19] BiocParallel_1.26.2    geneplotter_1.70.0     RCurl_1.98-1.5        
+[22] bit_4.0.4              munsell_0.5.0          DelayedArray_0.18.0   
+[25] compiler_4.1.0         pkgconfig_2.0.3        tidyselect_1.1.1      
+[28] KEGGREST_1.32.0        tibble_3.1.2           GenomeInfoDbData_1.2.6
+[31] XML_3.99-0.8           fansi_0.5.0            crayon_1.4.1          
+[34] bitops_1.0-7           grid_4.1.0             xtable_1.8-4          
+[37] gtable_0.3.0           lifecycle_1.0.0        DBI_1.1.1             
+[40] magrittr_2.0.1         scales_1.1.1           cachem_1.0.5          
+[43] XVector_0.32.0         genefilter_1.74.0      ellipsis_0.3.2        
+[46] generics_0.1.0         vctrs_0.3.8            RColorBrewer_1.1-2    
+[49] tools_4.1.0            bit64_4.0.5            glue_1.4.2            
+[52] purrr_0.3.4            fastmap_1.1.0          survival_3.2-11       
+[55] colorspace_2.0-2       AnnotationDbi_1.54.1   memoise_2.0.0         
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 28.796   0.493  29.287 
