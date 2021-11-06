@@ -1,46 +1,56 @@
-# ideas methods on Autism data
+# ideas and other methods on Autism data
 
-### step1a_dca_prepare_data.R
+DCA related preparation steps (this is needed for DCA\_direct):
 
-Prepare input data for DCA. Only needed if want to try dca_direct in step1d.
+[step1a_dca_prepare_data.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_dca_prepare_data.R)
 
-### step1a_dca.sh
+[step1a_dca.sh](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_dca.sh)
 
-Command line for running DCA. Only needed if want to try dca_direct in step1d.
+[step1a_split_dca_outputs.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_split_dca_outputs.R)
 
-### step1a_split_dca_outputs.R
+SAVER related preparation steps (this is need if want to try saver\_direct):
 
-Splitting the outputs of dca according to difference cell types, to prepare part of inputs for step1d. Only needed if want to try dca_direct in step1d. 
+[step1a_saver_prepare_data.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_saver_prepare_data.R)
 
-### step1b_DESeq2.R
+### DESeq2
 
-DESeq2 without covariates and with covariates.
+[step1b_DESeq2.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1b_DESeq2.R) DESeq2 without covariates and with covariates.
 
-### step1c_ideas.R
+### Rank sum
 
-Run MiRKAT and permanovas on distance matrix calculated based on nb(negative binominal) approach.
+[step1b_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1b_ranksum.R).
 
-### step1d_dca_direct.R
+### MAST
 
-Run MiRKAT and permanovas on distance matrix calculated based on dca_direct(based on outputs from DCA) approach.
+[step1b_MAST.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1b_MAST.R) MAST glm and glmer.
+
+
+### Ideas\_nb
+
+[step1c_ideas.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1c_ideas.R) runs MiRKAT and permanovas on distance matrix calculated based on nb(negative binominal) approach.
+
+### DCA\_direct
+
+[step1d_dca_direct.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1d_dca_direct.R)runs MiRKAT and permanovas on distance matrix calculated based on dca_direct(based on outputs from DCA) approach.
 
 Note that here when using `fit_method = "dca_direct"` in function `ideas_dist`, the variable `"rd"` in `var_per_cell` is actually not involved in the distance matrix computing, unlike when using `fit_method = "nb"`. This input item is included here only to keep the code format consistent for different `fit_method` options. 
  
-### step1e_combine_results.R
+### SAVER\_direct
 
-Combine p value results from step1b (results only from approach with covariates), step1c and step1e.
-
-### step1f_gsea.R
-
-Gene set enrichment analysis of results from step1e. 
-
-### step1l_qvalues.R
-
-Compute corresponding q values. 
+[step1d_saver.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1d_saver.R) uses SAVER as denosing method instead of DCA, for computing the distance matrix. 
 
 ### cell_types.txt
 
 List all the 17 cell types for looping through using .sh files when needed.
+
+### combine results, do GSEA and get q values
+
+[step1e_combine_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1e_combine_results.R) combines p value results from step1b (results only from approach with covariates), step1c and step1e.
+
+[step1f_gsea.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1f_gsea.R) Gene set enrichment analysis of results from step1e. 
+
+[step1l_qvalues.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1l_qvalues.R) Computes corresponding q values. 
+
 
 ### summary steps:
 
