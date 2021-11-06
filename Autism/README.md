@@ -1,5 +1,10 @@
 # ideas and other methods on Autism data
 
+Run analysis using Autism data from paper Velmeshev et al.2019[[1]](#1). 
+
+The goal is to do gene differential analysis in terms of case v.s. control.
+
+
 DCA related preparation steps (this is needed for DCA\_direct):
 
 [step1a_dca_prepare_data.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_dca_prepare_data.R)
@@ -31,13 +36,13 @@ SAVER related preparation steps (this is need if want to try saver\_direct):
 
 ### DCA\_direct
 
-[step1d_dca_direct.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1d_dca_direct.R)runs MiRKAT and permanovas on distance matrix calculated based on dca_direct(based on outputs from DCA) approach.
+[step1d_dca_direct.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1d_dca_direct.R)runs MiRKAT and permanovas on distance matrix calculated based on dca_direct(based on outputs from DCA[[2]](#2)) approach.
 
 Note that here when using `fit_method = "dca_direct"` in function `ideas_dist`, the variable `"rd"` in `var_per_cell` is actually not involved in the distance matrix computing, unlike when using `fit_method = "nb"`. This input item is included here only to keep the code format consistent for different `fit_method` options. 
  
 ### SAVER\_direct
 
-[step1d_saver.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1d_saver.R) uses SAVER as denosing method instead of DCA, for computing the distance matrix. 
+[step1d_saver.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1d_saver.R) uses SAVER[[3]](#3) as denosing method instead of DCA, for computing the distance matrix. 
 
 ### combine results, do GSEA and get q values
 
@@ -68,5 +73,12 @@ Note that here when using `fit_method = "dca_direct"` in function `ideas_dist`, 
 
 
 
+## References
+<a id="1">[1]</a> 
+Velmeshev, Dmitry, et al. "Single-cell genomics identifies cell type–specific molecular changes in autism." Science 364.6441 (2019): 685-689.
 
+<a id="2">[2]</a> 
+Eraslan, Gökcen, et al. "Single-cell RNA-seq denoising using a deep count autoencoder." Nature communications 10.1 (2019): 1-14.
 
+<a id="3">[3]</a> 
+Huang, Mo, et al. "SAVER: gene expression recovery for single-cell RNA sequencing." Nature methods 15.7 (2018): 539-542.
