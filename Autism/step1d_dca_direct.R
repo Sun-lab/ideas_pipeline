@@ -54,7 +54,7 @@ library(ideas)
 
 
 # number of cores for multi-core computation
-nCore = 12
+nCore = 4
 #nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
 
 registerDoParallel(cores=nCore)
@@ -67,7 +67,7 @@ RNGkind("L'Ecuyer-CMRG")
 # -rw-rw---- 1   576171020 Oct  3 16:14 L2_3_dispersion.tsv.gz
 # -rwxrwx--- 1   486210994 Dec 16 22:38 L2_3_pi.tsv.gz
 # so we access them from this local folder:
-data.dca.dir = "data/dca_PFC_all/"
+data.dca.dir = "../../ideas_data/Autism/dca_PFC_all/"
   
 data.dir  = "data/"
 

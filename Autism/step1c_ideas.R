@@ -49,7 +49,7 @@ library(ideas)
 
 
 # number of cores for multi-core computation
-nCore = 12
+nCore = 4
 #nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
 
 registerDoParallel(cores=nCore)

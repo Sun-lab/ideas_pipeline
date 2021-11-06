@@ -1,0 +1,5 @@
+"setting","prop_less_than0.001_mean","prop_less_than0.001_theta","prop_less_than0.01_mean","prop_less_than0.01_theta","ngenes_in_group"
+"DESeq2 sign, dca sign","0.130","0.100","0.530","0.340",100
+"DESeq2 nosign, dca sign","0.024","0.052","0.234","0.308",1684
+"DESeq2 sign, dca nosign","0.000","0.000","0.065","0.387",31
+"DESeq2 nosign, dca nosign","0.000","0.005","0.001","0.102",6445

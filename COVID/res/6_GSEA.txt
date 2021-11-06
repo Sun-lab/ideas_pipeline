@@ -1,0 +1,242 @@
+
+---------------------------------------------------
+CD8+Tcells_1
+---------------------------------------------------
+$DESeq2
+                                                                                                                       pathway
+  1: REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS
+  2:                                                     REACTOME_THE_CITRIC_ACID_TCA_CYCLE_AND_RESPIRATORY_ELECTRON_TRANSPORT
+  3:                                                                                   REACTOME_RESPIRATORY_ELECTRON_TRANSPORT
+  4:                                                                        REACTOME_METABOLISM_OF_AMINO_ACIDS_AND_DERIVATIVES
+  5:                                                                                       REACTOME_NERVOUS_SYSTEM_DEVELOPMENT
+ ---                                                                                                                          
+104:                                                         REACTOME_DEACTIVATION_OF_THE_BETA_CATENIN_TRANSACTIVATING_COMPLEX
+105:                                                                                  REACTOME_SEPARATION_OF_SISTER_CHROMATIDS
+106:                                                                                    REACTOME_TRANSLESION_SYNTHESIS_BY_POLH
+107:                                                                                     REACTOME_C_TYPE_LECTIN_RECEPTORS_CLRS
+108:                                                             REACTOME_ACTIVATION_OF_IRF3_IRF7_MEDIATED_BY_TBK1_IKK_EPSILON
+             pval         padj      NES
+  1: 1.000000e-10 3.320000e-08 1.728361
+  2: 1.000000e-10 3.320000e-08 1.663866
+  3: 2.797702e-09 6.192248e-07 1.627851
+  4: 8.847573e-09 1.468697e-06 1.451456
+  5: 2.562930e-07 3.403571e-05 1.357037
+ ---                                   
+104: 6.906050e-03 4.409247e-02 1.453606
+105: 7.697156e-03 4.867535e-02 1.257855
+106: 7.845534e-03 4.914561e-02 1.523169
+107: 7.996066e-03 4.962044e-02 1.266679
+108: 8.076366e-03 4.965470e-02 1.523757
+
+$rank_sum
+                                                                                                           pathway
+ 1:                                                                     REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION
+ 2:                                                     REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY
+ 3:                                                                           REACTOME_SELENOAMINO_ACID_METABOLISM
+ 4:                                                                     REACTOME_EUKARYOTIC_TRANSLATION_INITIATION
+ 5:                                                                           REACTOME_NONSENSE_MEDIATED_DECAY_NMD
+ 6:                                           REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE
+ 7:                                                           REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS
+ 8:                                                                                   REACTOME_INFLUENZA_INFECTION
+ 9:                                                                                       REACTOME_RRNA_PROCESSING
+10:                                                                           REACTOME_SIGNALING_BY_ROBO_RECEPTORS
+11:                                                                                           REACTOME_TRANSLATION
+12:                                                             REACTOME_METABOLISM_OF_AMINO_ACIDS_AND_DERIVATIVES
+13:                                                                            REACTOME_NERVOUS_SYSTEM_DEVELOPMENT
+14:                                                                REACTOME_CELLULAR_RESPONSES_TO_EXTERNAL_STIMULI
+15:                                                                                    REACTOME_INFECTIOUS_DISEASE
+16:                                                                                               REACTOME_DISEASE
+17:                                                                                 REACTOME_DEVELOPMENTAL_BIOLOGY
+18:                                                                                     REACTOME_METABOLISM_OF_RNA
+19: REACTOME_ACTIVATION_OF_THE_MRNA_UPON_BINDING_OF_THE_CAP_BINDING_COMPLEX_AND_EIFS_AND_SUBSEQUENT_BINDING_TO_43S
+20:                                                  REACTOME_BINDING_AND_UPTAKE_OF_LIGANDS_BY_SCAVENGER_RECEPTORS
+21:                                                                           REACTOME_CALNEXIN_CALRETICULIN_CYCLE
+22:                                                                          REACTOME_CHAPERONE_MEDIATED_AUTOPHAGY
+23:                                                                                             REACTOME_AUTOPHAGY
+24:                                                                             REACTOME_IRON_UPTAKE_AND_TRANSPORT
+25:                                                                        REACTOME_PINK_PARKIN_MEDIATED_MITOPHAGY
+26:                                                                                  REACTOME_INNATE_IMMUNE_SYSTEM
+27:                                                                                       REACTOME_HSF1_ACTIVATION
+28:                                                                                   REACTOME_SELECTIVE_AUTOPHAGY
+29:                                                                                             REACTOME_MITOPHAGY
+30:                                                                   REACTOME_ER_QUALITY_CONTROL_COMPARTMENT_ERQC
+                                                                                                           pathway
+            pval         padj      NES
+ 1: 1.000000e-10 4.426667e-09 1.659444
+ 2: 1.000000e-10 4.426667e-09 1.644737
+ 3: 1.000000e-10 4.426667e-09 1.643839
+ 4: 1.000000e-10 4.426667e-09 1.627898
+ 5: 1.000000e-10 4.426667e-09 1.624367
+ 6: 1.000000e-10 4.426667e-09 1.622236
+ 7: 1.000000e-10 4.426667e-09 1.571373
+ 8: 1.000000e-10 4.426667e-09 1.561311
+ 9: 1.000000e-10 4.426667e-09 1.555871
+10: 1.000000e-10 4.426667e-09 1.537907
+11: 1.000000e-10 4.426667e-09 1.524381
+12: 1.000000e-10 4.426667e-09 1.513589
+13: 1.000000e-10 4.426667e-09 1.447894
+14: 1.000000e-10 4.426667e-09 1.399063
+15: 1.000000e-10 4.426667e-09 1.381088
+16: 3.130784e-10 1.299275e-08 1.282968
+17: 5.421842e-10 2.117708e-08 1.349253
+18: 3.367801e-07 1.242344e-05 1.252569
+19: 5.832304e-07 2.038237e-05 1.565306
+20: 1.248140e-04 4.143825e-03 1.660123
+21: 1.582078e-04 5.002379e-03 1.610219
+22: 3.889460e-04 1.173910e-02 1.634578
+23: 4.169585e-04 1.203741e-02 1.363097
+24: 8.197176e-04 2.267885e-02 1.511915
+25: 1.271123e-03 3.376102e-02 1.581446
+26: 1.647531e-03 4.207540e-02 1.152375
+27: 1.820477e-03 4.343534e-02 1.532272
+28: 1.831611e-03 4.343534e-02 1.425869
+29: 2.061652e-03 4.720472e-02 1.528498
+30: 2.195107e-03 4.858503e-02 1.604732
+            pval         padj      NES
+
+$MAST_glm
+                                                                                                           pathway
+ 1:                                                                     REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION
+ 2:                                                                           REACTOME_SELENOAMINO_ACID_METABOLISM
+ 3:                                                     REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY
+ 4:                                           REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE
+ 5:                                                                           REACTOME_NONSENSE_MEDIATED_DECAY_NMD
+ 6:                                                                     REACTOME_EUKARYOTIC_TRANSLATION_INITIATION
+ 7:                                                                                   REACTOME_INFLUENZA_INFECTION
+ 8:                                                           REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS
+ 9:                                                                                       REACTOME_RRNA_PROCESSING
+10:                                                                           REACTOME_SIGNALING_BY_ROBO_RECEPTORS
+11:                                                             REACTOME_METABOLISM_OF_AMINO_ACIDS_AND_DERIVATIVES
+12:                                                                                           REACTOME_TRANSLATION
+13:                                                                            REACTOME_NERVOUS_SYSTEM_DEVELOPMENT
+14:                                                                REACTOME_CELLULAR_RESPONSES_TO_EXTERNAL_STIMULI
+15:                                                                                    REACTOME_INFECTIOUS_DISEASE
+16:                                                                                 REACTOME_DEVELOPMENTAL_BIOLOGY
+17: REACTOME_ACTIVATION_OF_THE_MRNA_UPON_BINDING_OF_THE_CAP_BINDING_COMPLEX_AND_EIFS_AND_SUBSEQUENT_BINDING_TO_43S
+18:                                                                                               REACTOME_DISEASE
+19:                                                                                     REACTOME_METABOLISM_OF_RNA
+20:                                                                          REACTOME_CHAPERONE_MEDIATED_AUTOPHAGY
+21:                                                  REACTOME_BINDING_AND_UPTAKE_OF_LIGANDS_BY_SCAVENGER_RECEPTORS
+22:                                                                         REACTOME_LATE_ENDOSOMAL_MICROAUTOPHAGY
+23:                                                                                             REACTOME_AUTOPHAGY
+24:                                                                                  REACTOME_INTERFERON_SIGNALING
+25:                                                                             REACTOME_IRON_UPTAKE_AND_TRANSPORT
+                                                                                                           pathway
+            pval         padj      NES
+ 1: 1.000000e-10 4.426667e-09 2.138810
+ 2: 1.000000e-10 4.426667e-09 2.102762
+ 3: 1.000000e-10 4.426667e-09 2.097180
+ 4: 1.000000e-10 4.426667e-09 2.084388
+ 5: 1.000000e-10 4.426667e-09 2.069564
+ 6: 1.000000e-10 4.426667e-09 2.038676
+ 7: 1.000000e-10 4.426667e-09 1.950412
+ 8: 1.000000e-10 4.426667e-09 1.929649
+ 9: 1.000000e-10 4.426667e-09 1.915429
+10: 1.000000e-10 4.426667e-09 1.853409
+11: 1.000000e-10 4.426667e-09 1.828152
+12: 1.000000e-10 4.426667e-09 1.806973
+13: 1.000000e-10 4.426667e-09 1.675249
+14: 1.000000e-10 4.426667e-09 1.603323
+15: 1.000000e-10 4.426667e-09 1.535478
+16: 1.614692e-09 6.700970e-08 1.518977
+17: 6.554240e-08 2.560009e-06 1.905729
+18: 7.498032e-08 2.765941e-06 1.380912
+19: 8.441826e-08 2.950196e-06 1.408806
+20: 1.607674e-05 5.266489e-04 1.982739
+21: 1.665606e-05 5.266489e-04 1.981909
+22: 7.501250e-05 2.264014e-03 1.926313
+23: 4.716860e-04 1.361737e-02 1.587344
+24: 1.629123e-03 4.507240e-02 1.465093
+25: 1.835278e-03 4.874497e-02 1.727386
+            pval         padj      NES
+
+$PS_nb_Was
+                                                                                     pathway
+1:                                                REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION
+2:                                                REACTOME_EUKARYOTIC_TRANSLATION_INITIATION
+3:                      REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE
+4:                                                              REACTOME_INFLUENZA_INFECTION
+5:                                                                      REACTOME_TRANSLATION
+6: REACTOME_ANTIGEN_ACTIVATES_B_CELL_RECEPTOR_BCR_LEADING_TO_GENERATION_OF_SECOND_MESSENGERS
+7:                                REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY
+           pval       padj      NES
+1: 0.0001303688 0.01969198 1.391987
+2: 0.0000412527 0.01969198 1.373660
+3: 0.0001371705 0.01969198 1.372847
+4: 0.0001485066 0.01969198 1.317785
+5: 0.0001303688 0.01969198 1.261655
+6: 0.0003051709 0.03372138 1.615538
+7: 0.0005174794 0.04901269 1.349326
+
+$PS_dca_direct_Was
+                                                                                           pathway
+ 1:                                                             REACTOME_HDMS_DEMETHYLATE_HISTONES
+ 2:       REACTOME_NR1H3_NR1H2_REGULATE_GENE_EXPRESSION_LINKED_TO_CHOLESTEROL_TRANSPORT_AND_EFFLUX
+ 3:                                                       REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION
+ 4:                                               REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 5:                                                           REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 6:                                                                   REACTOME_CELLULAR_SENESCENCE
+ 7:                                                                 REACTOME_GENE_SILENCING_BY_RNA
+ 8: REACTOME_RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION
+ 9:                                                    REACTOME_NR1H2_AND_NR1H3_MEDIATED_SIGNALING
+10:                                                   REACTOME_PRE_NOTCH_EXPRESSION_AND_PROCESSING
+11:                                              REACTOME_TRANSCRIPTIONAL_REGULATION_BY_SMALL_RNAS
+12:                                                   REACTOME_OXIDATIVE_STRESS_INDUCED_SENESCENCE
+13:                                                                           REACTOME_SUMOYLATION
+14:                                           REACTOME_REGULATION_OF_RUNX1_EXPRESSION_AND_ACTIVITY
+15:                                REACTOME_FORMATION_OF_TUBULIN_FOLDING_INTERMEDIATES_BY_CCT_TRIC
+16:                                           REACTOME_ANTIVIRAL_MECHANISM_BY_IFN_STIMULATED_GENES
+17:                                                                            REACTOME_CELL_CYCLE
+18:                                                                REACTOME_ESR_MEDIATED_SIGNALING
+19:                                                    REACTOME_ESTROGEN_DEPENDENT_GENE_EXPRESSION
+20:                                                             REACTOME_MICRORNA_MIRNA_BIOGENESIS
+            pval        padj       NES
+ 1: 2.067884e-05 0.007059563  1.995245
+ 2: 2.162194e-05 0.007059563  1.914094
+ 3: 5.416153e-05 0.011789159  1.240678
+ 4: 1.032177e-04 0.016850291  1.616346
+ 5: 1.394377e-04 0.018210563  1.421595
+ 6: 1.802479e-04 0.019616983  1.487224
+ 7: 3.896173e-04 0.036345726  1.583511
+ 8: 6.489428e-04 0.038607581  1.737276
+ 9: 7.686042e-04 0.038607581  1.724309
+10: 5.735776e-04 0.038607581  1.709260
+11: 6.921865e-04 0.038607581  1.634968
+12: 6.457014e-04 0.038607581  1.560309
+13: 7.098125e-04 0.038607581  1.422156
+14: 8.321592e-04 0.038814282  1.784915
+15: 9.388373e-04 0.040870717 -1.817213
+16: 1.040070e-03 0.042447839  1.499449
+17: 1.168925e-03 0.044900455  1.235445
+18: 1.316188e-03 0.047748368  1.392063
+19: 1.426635e-03 0.049031205  1.468756
+20: 1.518471e-03 0.049578065  1.661342
+
+$PS_saver_direct_Was
+                                                                                           pathway
+ 1:                                                           REACTOME_CHROMATIN_MODIFYING_ENZYMES
+ 2:                                                       REACTOME_RNA_POLYMERASE_II_TRANSCRIPTION
+ 3:                                               REACTOME_RESOLUTION_OF_SISTER_CHROMATID_COHESION
+ 4:                                                                  REACTOME_MITOTIC_PROMETAPHASE
+ 5:                                                                               REACTOME_M_PHASE
+ 6:                                                REACTOME_CELL_EXTRACELLULAR_MATRIX_INTERACTIONS
+ 7:                                                       REACTOME_ION_TRANSPORT_BY_P_TYPE_ATPASES
+ 8:                                                   REACTOME_SUMOYLATION_OF_SUMOYLATION_PROTEINS
+ 9:                                              REACTOME_SUMOYLATION_OF_UBIQUITINYLATION_PROTEINS
+10: REACTOME_RUNX1_REGULATES_GENES_INVOLVED_IN_MEGAKARYOCYTE_DIFFERENTIATION_AND_PLATELET_FUNCTION
+11:                                                            REACTOME_MITOTIC_SPINDLE_CHECKPOINT
+12:                                                        REACTOME_SIGNALING_BY_NUCLEAR_RECEPTORS
+            pval        padj       NES
+ 1: 4.320543e-06 0.001414978  1.465960
+ 2: 2.390413e-06 0.001414978  1.252675
+ 3: 2.192123e-05 0.004786135  1.597186
+ 4: 5.191651e-05 0.008501329  1.458554
+ 5: 3.075937e-04 0.040294768  1.273969
+ 6: 3.735108e-04 0.040774925 -2.021444
+ 7: 7.407095e-04 0.045742749  1.678770
+ 8: 7.070105e-04 0.045742749  1.676430
+ 9: 6.476424e-04 0.045742749  1.655187
+10: 8.221816e-04 0.045742749  1.637602
+11: 6.548601e-04 0.045742749  1.490135
+12: 8.380351e-04 0.045742749  1.335567
+

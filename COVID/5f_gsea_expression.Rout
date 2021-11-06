@@ -1,0 +1,349 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> # compared to 5f_gsea.R
+> # this step orders genes by the mean expression level
+> 
+> 
+> # compared to 3f, this code only deals with the results of 
+> # 5d_dca_direct.R
+> 
+> # this code is modified from 3f_gsea.R
+> 
+> 
+> # compared to 1f, the results delt with in this version consider more genes
+> # by setting filtering criterion to keep genes
+> # appearning in at last 10% of the cells
+> 
+> 
+> 
+> 
+> # ========================================================================
+> # take arguments
+> # ========================================================================
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+character(0)
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'CD8+Tcells_1' as default.\n")
++   grp = "CD8+Tcells_1"
++ }else{
++   eval(parse(text=args[[1]]))
++ }
+one argument is expected, use 'CD8+Tcells_1' as default.
+
+> 
+> grp
+[1] "CD8+Tcells_1"
+> 
+> 
+> # ========================================================================
+> # libraries and path
+> # ========================================================================
+> 
+> library(MASS)
+> library(data.table)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+> library(doRNG)
+Loading required package: rngtools
+> library(qvalue)
+> library(ggplot2)
+> library(ggpubr)
+> library(ggpointdensity)
+> library(fgsea)
+> library(stringr)
+> 
+> # number of cores for multi-core computation
+> nCore = 4
+> # nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> RNGkind("L'Ecuyer-CMRG")
+> # ------------------------------------------------------------------------
+> # read in pathway information
+> # ------------------------------------------------------------------------
+> 
+> gmtfile_go_bp     = "../Autism/data/c5.bp.v7.1.symbols.gmt"
+> gmtfile_reactome  = "../Autism/data/c2.cp.reactome.v7.1.symbols.gmt"
+> pathways_go_bp    = gmtPathways(gmtfile_go_bp)
+> pathways_reactome = gmtPathways(gmtfile_reactome)
+> 
+> length(pathways_reactome)
+[1] 1532
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   5.00   11.00   23.00   57.02   57.00 1470.00 
+> reactome_genes = unique(unlist(pathways_reactome))
+> length(reactome_genes)
+[1] 10807
+> 
+> # ------------------------------------------------------------------------
+> # read in p-values
+> # ------------------------------------------------------------------------
+> 
+> 
+> #pvals = fread(sprintf("res/3e_pvals_%s.tsv", grp))
+> pvals = fread(sprintf("res/5d_dca_direct_pvals_%s.tsv", grp))
+> pvals = pvals[, c(1, 4)]
+> dim(pvals)
+[1] 5160    2
+> head(pvals)
+       gene PS_dca_direct_Was
+1:    NOC2L           0.55748
+2:    ISG15           0.01249
+3:     SDF4           0.09537
+4:   UBE2J2           0.01356
+5: AURKAIP1           0.01151
+6:    CCNL2           0.00005
+> 
+> w_ens = grep("_", pvals$gene)
+> length(w_ens)
+[1] 0
+> 
+> #pvals$gene[w_ens[1:20]]
+> genes = pvals$gene
+> #genes[w_ens] = str_extract(genes[w_ens], '(\\S+)(?=_)')  # gene symbol
+> #genes[w_ens][1:20]
+> 
+> pvals$gene_symbol = genes
+> 
+> # ------------------------------------------------------------------------
+> # filter genes in reactome annoations
+> # ------------------------------------------------------------------------
+> 
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   5.00   11.00   23.00   57.02   57.00 1470.00 
+> for(p1 in names(pathways_reactome)){
++   pathways_reactome[[p1]] = intersect(pathways_reactome[[p1]], genes)
++ }
+> summary(sapply(pathways_reactome, length))
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+   0.00    3.00    8.00   22.36   21.00  558.00 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # read in mean adjusted expression level 
+> # ------------------------------------------------------------------------
+> 
+> df_express = read.csv("res/5f_mean_expressions.csv", header = TRUE)
+> 
+> # check whether the genes match
+> # by checking the dca_direct pvalues
+> summary(abs(df_express$dca_direct + log10(pvals$PS_dca_direct_Was)))
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.000e+00 3.886e-16 1.776e-15 1.962e-15 3.553e-15 5.107e-15 
+> 
+> 
+> 
+> # ------------------------------------------------------------------------
+> # GESA
+> # ------------------------------------------------------------------------
+> 
+> 
+> methods = names(df_express)[3:4]
+> 
+> gsea = list()
+> 
+> for(m1 in methods){
++   #stats = unlist(-log10(pvals[[m1]]))
++   stats = df_express[[m1]]
++   names(stats) =  pvals$gene_symbol
++   length(stats)
++   
++   stats = stats[unique(names(stats))]
++   length(stats)
++   stats = na.omit(stats)
++   length(stats)
++   
++   set.seed(918)
++   fgseaRes = fgseaMultilevel(pathways_reactome, stats, 
++                              minSize=10, maxSize=1000)
++   od1 = order(fgseaRes[,"padj"], -fgseaRes[,"NES"])
++   fgseaRes   = fgseaRes[od1,]
++   gsea[[m1]] = fgseaRes
++ }
+Warning messages:
+1: In preparePathwaysAndStats(pathways, stats, minSize, maxSize, gseaParam,  :
+  All values in the stats vector are greater than zero and scoreType is "std", maybe you should switch to scoreType = "pos".
+2: In fgseaMultilevel(pathways_reactome, stats, minSize = 10, maxSize = 1000) :
+  There were 1 pathways for which P-values were not calculated properly due to unbalanced (positive and negative) gene-level statistic values. For such pathways pval, padj, NES, log2err are set to NA. You can try to increase the value of the argument nPermSimple (for example set it nPermSimple = 10000)
+3: In fgseaMultilevel(pathways_reactome, stats, minSize = 10, maxSize = 1000) :
+  For some pathways, in reality P-values are less than 1e-10. You can set the `eps` argument to zero for better estimation.
+4: In xtfrm.data.frame(x) : cannot xtfrm data frames
+5: In xtfrm.data.frame(x) : cannot xtfrm data frames
+6: In preparePathwaysAndStats(pathways, stats, minSize, maxSize, gseaParam,  :
+  All values in the stats vector are greater than zero and scoreType is "std", maybe you should switch to scoreType = "pos".
+7: In fgseaMultilevel(pathways_reactome, stats, minSize = 10, maxSize = 1000) :
+  There were 1 pathways for which P-values were not calculated properly due to unbalanced (positive and negative) gene-level statistic values. For such pathways pval, padj, NES, log2err are set to NA. You can try to increase the value of the argument nPermSimple (for example set it nPermSimple = 10000)
+8: In fgseaMultilevel(pathways_reactome, stats, minSize = 10, maxSize = 1000) :
+  For some pathways, in reality P-values are less than 1e-10. You can set the `eps` argument to zero for better estimation.
+9: In xtfrm.data.frame(x) : cannot xtfrm data frames
+10: In xtfrm.data.frame(x) : cannot xtfrm data frames
+> 
+> lapply(gsea, head, n=10)
+$paper
+                                                                 pathway  pval
+ 1:                           REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION 1e-10
+ 2:                                 REACTOME_SELENOAMINO_ACID_METABOLISM 1e-10
+ 3:           REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY 1e-10
+ 4:                                 REACTOME_NONSENSE_MEDIATED_DECAY_NMD 1e-10
+ 5:                           REACTOME_EUKARYOTIC_TRANSLATION_INITIATION 1e-10
+ 6: REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE 1e-10
+ 7:                                         REACTOME_INFLUENZA_INFECTION 1e-10
+ 8:                                             REACTOME_RRNA_PROCESSING 1e-10
+ 9:                 REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS 1e-10
+10:                                 REACTOME_SIGNALING_BY_ROBO_RECEPTORS 1e-10
+         padj log2err        ES      NES size
+ 1: 2.652e-09      NA 0.9278406 6.758928   88
+ 2: 2.652e-09      NA 0.8993312 6.567672   90
+ 3: 2.652e-09      NA 0.8822468 6.525230   93
+ 4: 2.652e-09      NA 0.8137165 6.189380  106
+ 5: 2.652e-09      NA 0.7914337 6.123974  112
+ 6: 2.652e-09      NA 0.8047779 6.121390  106
+ 7: 2.652e-09      NA 0.7106538 5.664860  134
+ 8: 2.652e-09      NA 0.6735609 5.470057  146
+ 9: 2.652e-09      NA 0.6714901 5.453240  146
+10: 2.652e-09      NA 0.6404902 5.295896  164
+                                 leadingEdge
+ 1: RPL41,EEF1A1,RPS27,RPL10,RPS12,RPL13,...
+ 2:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 3:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 4:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 5:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 6:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 7:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 8:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 9:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+10:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+
+$email
+                                                                 pathway  pval
+ 1:                           REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION 1e-10
+ 2:                                 REACTOME_SELENOAMINO_ACID_METABOLISM 1e-10
+ 3:           REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY 1e-10
+ 4:                                 REACTOME_NONSENSE_MEDIATED_DECAY_NMD 1e-10
+ 5: REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE 1e-10
+ 6:                           REACTOME_EUKARYOTIC_TRANSLATION_INITIATION 1e-10
+ 7:                                         REACTOME_INFLUENZA_INFECTION 1e-10
+ 8:                 REACTOME_REGULATION_OF_EXPRESSION_OF_SLITS_AND_ROBOS 1e-10
+ 9:                                             REACTOME_RRNA_PROCESSING 1e-10
+10:                                 REACTOME_SIGNALING_BY_ROBO_RECEPTORS 1e-10
+            padj log2err        ES      NES size
+ 1: 2.882609e-09      NA 0.9272488 6.956675   88
+ 2: 2.882609e-09      NA 0.8969441 6.751118   90
+ 3: 2.882609e-09      NA 0.8795248 6.687694   93
+ 4: 2.882609e-09      NA 0.8094572 6.367599  106
+ 5: 2.882609e-09      NA 0.8018667 6.307888  106
+ 6: 2.882609e-09      NA 0.7880383 6.298498  112
+ 7: 2.882609e-09      NA 0.7046158 5.823134  134
+ 8: 2.882609e-09      NA 0.6662642 5.616407  146
+ 9: 2.882609e-09      NA 0.6660432 5.614544  146
+10: 2.882609e-09      NA 0.6349848 5.458975  164
+                                 leadingEdge
+ 1: RPL41,EEF1A1,RPS27,RPL10,RPS12,RPL13,...
+ 2:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 3:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 4:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 5:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 6:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 7:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 8:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+ 9:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+10:  RPL41,RPS27,RPL10,RPS12,RPL13,RPLP1,...
+
+> lapply(gsea, dim)
+$paper
+[1] 664   8
+
+$email
+[1] 664   8
+
+> 
+> #lapply(gsea, function(x){x[which(x$pathway=="SFARI"),]})
+> 
+> saveRDS(gsea, file = sprintf("res/5f_gsea_expression_%s.rds",grp))
+> 
+> 
+> 
+> 
+> gc()
+          used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
+Ncells 2212898 118.2    4295775 229.5         NA  3156425 168.6
+Vcells 5862622  44.8   12255594  93.6      65536 10145875  77.5
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+Random number generation:
+ RNG:     L'Ecuyer-CMRG 
+ Normal:  Inversion 
+ Sample:  Rejection 
+ 
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] stringr_1.4.0        fgsea_1.18.0         ggpointdensity_0.1.0
+ [4] ggpubr_0.4.0         ggplot2_3.3.5        qvalue_2.24.0       
+ [7] doRNG_1.8.2          rngtools_1.5         doParallel_1.0.16   
+[10] iterators_1.0.13     foreach_1.5.1        data.table_1.14.0   
+[13] MASS_7.3-54         
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.1.1    reshape2_1.4.4      purrr_0.3.4        
+ [4] lattice_0.20-44     splines_4.1.0       haven_2.4.1        
+ [7] carData_3.0-4       colorspace_2.0-2    vctrs_0.3.8        
+[10] generics_0.1.0      utf8_1.2.1          rlang_0.4.11       
+[13] pillar_1.6.1        foreign_0.8-81      glue_1.4.2         
+[16] withr_2.4.2         DBI_1.1.1           BiocParallel_1.26.2
+[19] readxl_1.3.1        lifecycle_1.0.0     plyr_1.8.6         
+[22] munsell_0.5.0       ggsignif_0.6.2      gtable_0.3.0       
+[25] cellranger_1.1.0    zip_2.2.0           codetools_0.2-18   
+[28] rio_0.5.27          forcats_0.5.1       curl_4.3.2         
+[31] fansi_0.5.0         broom_0.7.8         Rcpp_1.0.7         
+[34] scales_1.1.1        backports_1.2.1     abind_1.4-5        
+[37] gridExtra_2.3       fastmatch_1.1-3     hms_1.1.0          
+[40] digest_0.6.27       stringi_1.6.2       openxlsx_4.2.4     
+[43] rstatix_0.7.0       dplyr_1.0.7         grid_4.1.0         
+[46] tools_4.1.0         magrittr_2.0.1      tibble_3.1.2       
+[49] crayon_1.4.1        tidyr_1.1.3         car_3.0-11         
+[52] pkgconfig_2.0.3     Matrix_1.3-3        ellipsis_0.3.2     
+[55] assertthat_0.2.1    R6_2.5.0            compiler_4.1.0     
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 19.630   0.453   8.910 

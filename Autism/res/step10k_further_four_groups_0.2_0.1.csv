@@ -1,0 +1,5 @@
+"NA","mean sign, theta sign","mean sign, theta nosign","mean nosign, theta sign","mean nosign, theta nosign"
+"DESeq2 sign, dca sign (38)","0.132","0.211","0.105","0.553"
+"DESeq2 nosign, dca sign (222)","0.045","0.135","0.14","0.68"
+"DESeq2 sign, dca nosign (93)","0","0","0.011","0.989"
+"DESeq2 nosign, dca nosign (7907)","0","0","0.01","0.99"

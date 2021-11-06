@@ -1,0 +1,56 @@
+
+---------------------------------------------------
+CD8+Tcells_1
+---------------------------------------------------
+$paper
+                                                                                        pathway
+  1:                                                 REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION
+  2:                                                       REACTOME_SELENOAMINO_ACID_METABOLISM
+  3:                                 REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY
+  4:                                                       REACTOME_NONSENSE_MEDIATED_DECAY_NMD
+  5:                                                 REACTOME_EUKARYOTIC_TRANSLATION_INITIATION
+ ---                                                                                           
+235: REACTOME_JNK_C_JUN_KINASES_PHOSPHORYLATION_AND_ACTIVATION_MEDIATED_BY_ACTIVATED_HUMAN_TAK1
+236:                                                            REACTOME_ESR_MEDIATED_SIGNALING
+237:                                                                 REACTOME_ATTENUATION_PHASE
+238:                                                     REACTOME_TRANSLESION_SYNTHESIS_BY_POLH
+239:                                           REACTOME_HDR_THROUGH_SINGLE_STRAND_ANNEALING_SSA
+             pval         padj       NES
+  1: 0.0000000001 2.652000e-09  6.758928
+  2: 0.0000000001 2.652000e-09  6.567672
+  3: 0.0000000001 2.652000e-09  6.525230
+  4: 0.0000000001 2.652000e-09  6.189380
+  5: 0.0000000001 2.652000e-09  6.123974
+ ---                                    
+235: 0.0166575337 4.699551e-02  1.732466
+236: 0.0168805602 4.722283e-02  1.704775
+237: 0.0168585877 4.722283e-02  1.696296
+238: 0.0170770342 4.757174e-02  1.681155
+239: 0.0177044704 4.911324e-02 -1.720926
+
+$email
+                                                                  pathway
+  1:                           REACTOME_EUKARYOTIC_TRANSLATION_ELONGATION
+  2:                                 REACTOME_SELENOAMINO_ACID_METABOLISM
+  3:           REACTOME_RESPONSE_OF_EIF2AK4_GCN2_TO_AMINO_ACID_DEFICIENCY
+  4:                                 REACTOME_NONSENSE_MEDIATED_DECAY_NMD
+  5: REACTOME_SRP_DEPENDENT_COTRANSLATIONAL_PROTEIN_TARGETING_TO_MEMBRANE
+ ---                                                                     
+231:                      REACTOME_UPTAKE_AND_ACTIONS_OF_BACTERIAL_TOXINS
+232:        REACTOME_CLASS_I_MHC_MEDIATED_ANTIGEN_PROCESSING_PRESENTATION
+233:                                 REACTOME_G_ALPHA_S_SIGNALLING_EVENTS
+234:     REACTOME_DDX58_IFIH1_MEDIATED_INDUCTION_OF_INTERFERON_ALPHA_BETA
+235:                           REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION
+             pval         padj      NES
+  1: 0.0000000001 2.882609e-09 6.956675
+  2: 0.0000000001 2.882609e-09 6.751118
+  3: 0.0000000001 2.882609e-09 6.687694
+  4: 0.0000000001 2.882609e-09 6.367599
+  5: 0.0000000001 2.882609e-09 6.307888
+ ---                                   
+231: 0.0156195442 4.463689e-02 1.793387
+232: 0.0156106875 4.463689e-02 1.583026
+233: 0.0164625800 4.684417e-02 1.808254
+234: 0.0174541568 4.945344e-02 1.770326
+235: 0.0175347764 4.947045e-02 1.714968
+

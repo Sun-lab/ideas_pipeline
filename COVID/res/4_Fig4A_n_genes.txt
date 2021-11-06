@@ -1,2 +1,0 @@
-cell_type	n_genes	DESeq2	MAST_glmer	IDEAS_NB	IDEAS_DCA	IDEAS_SAVER
-CD8+Tcells_1	5160	0.346	0.963	0.382	0.783	0.748

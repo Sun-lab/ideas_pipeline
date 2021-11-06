@@ -1,0 +1,711 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> 
+> 
+> 
+> library(MASS)
+> library(Matrix)
+> library(data.table)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following object is masked from ‘package:MASS’:
+
+    select
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> #library(doParallel)
+> #library(doRNG)
+> #library(svd)
+> #library(ideas)
+> #library(MiRKAT)
+> library(transport)
+> library(ggplot2)
+> library(ggpubr)
+> library(ggpointdensity)
+> 
+> library(grid)
+> library(gridExtra)
+
+Attaching package: ‘gridExtra’
+
+The following object is masked from ‘package:dplyr’:
+
+    combine
+
+> #big_font <- theme_grey(base_size =  16)
+> 
+> theme_set(theme_classic())
+> 
+> 
+> 
+> 
+> 
+> #setwd("~/Documents/Fred_Hutch/core_code")
+> data.dca.dir = "../../ideas_data/COVID/PBMC_10x/dca_zinb_celltypes"
+> data.dir = "../../ideas_data/COVID/PBMC_10x"
+> 
+> grp = "CD8+Tcells_1"
+> 
+> 
+> 
+> ## data processing
+> 
+> # ------------------------------------------------------------------------
+> # read in cell information
+> # ------------------------------------------------------------------------
+> 
+> cell_info = fread(file.path(data.dir, "meta.tsv"), 
++                   stringsAsFactors=TRUE)
+> dim(cell_info)
+[1] 99049    40
+> cell_info[1:2,]
+                   cell orig.ident nCount_RNA nFeature_RNA nReads_RNA
+1: 1_AAACCCAAGGCTTTCA-1    Covid19       4842         1925       4842
+2: 1_AAACCCACAACTTCTT-1    Covid19       9582         3004       9582
+   nReads_ALL percent.mito percent.hb       donor onset_of_symptoms
+1:       5102     6.608839          0 C19-CB-0001        25.02.2020
+2:      10008     4.195366          0 C19-CB-0003        29.02.2020
+   days_after_onset        sampleID origID date_of_sampling DaysAfterSample0
+1:               11 C19-CB-0001_d11   1_d4       06.03.2020                4
+2:               13 C19-CB-0003_d13   3_d0       12.03.2020                0
+   experiment PoolID sampletag         hash.ID        platform purification
+1:       A3_2      1  Hashtag6 Hashtag6-TotalA scRNA-seq (10x)        Fresh
+2:       A3_2      1  Hashtag8 Hashtag8-TotalA scRNA-seq (10x)        Fresh
+   cells   age  sex group_per_sample who_per_sample disease_stage    outcome
+1:  PBMC 21_25 male             mild              3          late discharged
+2:  PBMC 41_45 male             mild              3          late discharged
+             comorbidities COVID.19.related_medication_and_anti.microbials
+1:                    none                                            none
+2: Cardiovascular diseases                                            none
+   RNA_snn_res.0.4  cluster_labels_res.0.4 new.order                id.celltype
+1:               7 HLA-DR+ CD83+ Monocytes         1 1: HLA-DR+ CD83+ Monocytes
+2:               7 HLA-DR+ CD83+ Monocytes         1 1: HLA-DR+ CD83+ Monocytes
+   hpca.labels blueprint.labels monaco.labels immune.labels dmap.labels
+1:    Monocyte        Monocytes     Monocytes     Monocytes   Monocytes
+2:    Monocyte        Monocytes     Monocytes     Monocytes   Monocytes
+   hemato.labels
+1:     Monocytes
+2:     Monocytes
+> 
+> # ------------------------------------------------------------------------
+> # read in count data of one celltype
+> # ------------------------------------------------------------------------
+> 
+> dat = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+> dim(dat)
+[1] 10167 11002
+> class(dat)
+[1] "dgCMatrix"
+attr(,"package")
+[1] "Matrix"
+> dat[1:5,1:4]
+5 x 4 sparse Matrix of class "dgCMatrix"
+          1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
+LINC00115                    .                    .                    .
+NOC2L                        .                    .                    .
+HES4                         .                    .                    .
+ISG15                        .                    3                    .
+C1orf159                     .                    .                    .
+          1_AAGACTCCATGGCCCA-1
+LINC00115                    .
+NOC2L                        .
+HES4                         .
+ISG15                        .
+C1orf159                     .
+> 
+> full_genes = row.names(dat)
+> 
+> # ------------------------------------------------------------------------
+> # read in covid donor information
+> # ------------------------------------------------------------------------
+> 
+> covid_donor_info = 
++   read.csv(file.path(data.dir, "covid_donor_info_from_mmc1.csv"), 
++            header = TRUE)
+> 
+> dim(covid_donor_info)
+[1] 18  4
+> covid_donor_info[1:2,]
+        donor age sex condition
+1 C19-CB-0001  21   m      mild
+2 C19-CB-0002  31   f      mild
+> summary(covid_donor_info)
+    donor                age            sex             condition        
+ Length:18          Min.   :21.00   Length:18          Length:18         
+ Class :character   1st Qu.:52.25   Class :character   Class :character  
+ Mode  :character   Median :66.00   Mode  :character   Mode  :character  
+                    Mean   :60.17                                        
+                    3rd Qu.:71.00                                        
+                    Max.   :80.00                                        
+> 
+> # ------------------------------------------------------------------------
+> # subset cell information
+> # ------------------------------------------------------------------------
+> 
+> table(colnames(dat) %in% cell_info$cell)
+
+ TRUE 
+11002 
+> 
+> meta = cell_info[match(colnames(dat), cell_info$cell),]
+> dim(meta)
+[1] 11002    40
+> meta[1:2,]
+                   cell orig.ident nCount_RNA nFeature_RNA nReads_RNA
+1: 1_AAAGAACCATGAATAG-1    Covid19       3717         1537       3717
+2: 1_AACAAGAGTCGGTAAG-1    Covid19       3284         1578       3284
+   nReads_ALL percent.mito percent.hb       donor onset_of_symptoms
+1:       4183     6.941082          0 C19-CB-0002        25.02.2020
+2:       3613     4.080390          0 C19-CB-0003        29.02.2020
+   days_after_onset        sampleID origID date_of_sampling DaysAfterSample0
+1:               13 C19-CB-0002_d13   2_d6       09.03.2020                6
+2:               13 C19-CB-0003_d13   3_d0       12.03.2020                0
+   experiment PoolID sampletag         hash.ID        platform purification
+1:       A3_2      1  Hashtag5 Hashtag5-TotalA scRNA-seq (10x)        Fresh
+2:       A3_2      1  Hashtag8 Hashtag8-TotalA scRNA-seq (10x)        Fresh
+   cells   age    sex group_per_sample who_per_sample disease_stage    outcome
+1:  PBMC 31_35 female             mild              3          late discharged
+2:  PBMC 41_45   male             mild              3          late discharged
+             comorbidities COVID.19.related_medication_and_anti.microbials
+1:                    none                                            none
+2: Cardiovascular diseases                                            none
+   RNA_snn_res.0.4 cluster_labels_res.0.4 new.order        id.celltype
+1:               2         CD8+ T cells_1        12 12: CD8+ T cells_1
+2:               2         CD8+ T cells_1        12 12: CD8+ T cells_1
+   hpca.labels blueprint.labels monaco.labels immune.labels  dmap.labels
+1:     NK_cell     CD8+ T-cells       T cells      NK cells CD8+ T cells
+2:     NK_cell     CD8+ T-cells       T cells      NK cells CD8+ T cells
+   hemato.labels
+1:  CD8+ T cells
+2:  CD8+ T cells
+> 
+> summary(meta)
+                   cell           orig.ident     nCount_RNA     nFeature_RNA   
+ 1_AAAGAACCATGAATAG-1:    1   Covid19  :5561   Min.   :  503   Min.   : 281.0  
+ 1_AACAAGAGTCGGTAAG-1:    1   Five_k_v3: 508   1st Qu.: 2501   1st Qu.: 967.2  
+ 1_AACCTGATCTGTGTGA-1:    1   Ten_k_v3 :1218   Median : 4598   Median :1590.0  
+ 1_AAGACTCCATGGCCCA-1:    1   one_k_v3 : 131   Mean   : 4616   Mean   :1518.7  
+ 1_AAGCGAGGTAGATCGG-1:    1   sepsis   :3584   3rd Qu.: 5938   3rd Qu.:1925.0  
+ 1_AATGAAGTCTTGTTAC-1:    1                    Max.   :24583   Max.   :4862.0  
+ (Other)             :10996                                                    
+   nReads_RNA      nReads_ALL     percent.mito      percent.hb      
+ Min.   :  772   Min.   :  908   Min.   : 0.000   Min.   : 0.00000  
+ 1st Qu.: 4430   1st Qu.: 4967   1st Qu.: 2.691   1st Qu.: 0.00000  
+ Median : 5198   Median : 5903   Median : 3.732   Median : 0.00000  
+ Mean   : 5661   Mean   : 6363   Mean   : 4.840   Mean   : 0.04846  
+ 3rd Qu.: 6218   3rd Qu.: 7104   3rd Qu.: 5.576   3rd Qu.: 0.03541  
+ Max.   :21794   Max.   :30488   Max.   :24.857   Max.   :21.43761  
+ NA's   :5441    NA's   :5441                                       
+         donor       onset_of_symptoms days_after_onset            sampleID   
+ Ten_k_v3   :1218   control   :5441    Min.   : 0.000   Ten_k_v3_d0    :1218  
+ C19-CB-0198:1154   12.03.2020:2201    1st Qu.: 0.000   C19-CB-0198_d18:1154  
+ C19-CB-0020: 697   28.05.2020:1154    Median : 3.000   C19-CB-0020_d16: 697  
+ C19-CB-0002: 625   25.02.2020: 670    Mean   : 7.385   C19-CB-0016_d16: 612  
+ C19-CB-0012: 621   31.05.2020: 417    3rd Qu.:16.000   C2P16H_d0      : 605  
+ C19-CB-0016: 612   13.03.2020: 242    Max.   :20.000   C2P15H_d0      : 538  
+ (Other)    :6075   (Other)   : 877                     (Other)        :6178  
+      origID       date_of_sampling DaysAfterSample0
+ Ten_k_v3:1218   n/a       :5441    Min.   : 0.000  
+ 198_d18 :1154   27.03.2020:2458    1st Qu.: 0.000  
+ 20_d0   : 697   15.06.2020:1923    Median : 7.000  
+ 16_d0   : 612   03.03.2020: 530    Mean   : 7.037  
+ C2P16H  : 605   20.03.2020: 398    3rd Qu.:15.000  
+ C2P15H  : 538   09.03.2020:  95    Max.   :18.000  
+ (Other) :6178   (Other)   : 157    NA's   :5441    
+                       experiment       PoolID         sampletag   
+ Reyes et al., Nat Med, 2020:3584   Min.   :1.000           :5441  
+ B6B7                       :2458   1st Qu.:4.000   Hashtag3:1805  
+ 10x                        :1857   Median :4.000   Hashtag2: 986  
+ H5                         :1756   Mean   :3.998   Hashtag6: 791  
+ B3B4                       : 645   3rd Qu.:5.000   Hashtag5: 766  
+ B5                         : 398   Max.   :6.000   Hashtag1: 495  
+ (Other)                    : 304   NA's   :5441    (Other) : 718  
+            hash.ID                platform     purification 
+ Hashtag3-TotalA:1805   scRNA-seq (10x):11002   Fresh :4767  
+ Hashtag2-TotalA: 986                           Frozen:6235  
+ Hashtag6-TotalA: 791                                        
+ Hashtag5-TotalA: 766                                        
+ Hashtag1-TotalA: 495                                        
+ (Other)        : 718                                        
+ NA's           :5441                                        
+                     cells           age           sex       group_per_sample
+ CD45-sorted frozen PBMC:3584   n/a    :5441   female:3349   control:5441    
+ PBMC                   :7418   71_75  :1988   male  :2212   mild   :1366    
+                                41_45  :1262   n/a   :5441   severe :4195    
+                                51_55  : 935                                 
+                                31_35  : 625                                 
+                                76_80  : 271                                 
+                                (Other): 480                                 
+ who_per_sample  disease_stage        outcome    
+ Min.   :0.000   control:5441   control   :5441  
+ 1st Qu.:0.000   early  :1166   deceased  :1092  
+ Median :3.000   late   :4395   discharged:2695  
+ Mean   :2.909                  ongoing   :1774  
+ 3rd Qu.:6.000                                   
+ Max.   :7.000                                   
+                                                 
+                                       comorbidities 
+ Cardiovascular diseases                      :2070  
+ Cardiovascular diseases, chronic lung disease: 260  
+ Cardiovascular diseases, obesity             :  57  
+ Cardiovascular diseases, type 2 diabetes     : 691  
+ n/a                                          :5858  
+ none                                         :2066  
+                                                     
+ COVID.19.related_medication_and_anti.microbials RNA_snn_res.0.4
+ Antibiotics          : 400                      Min.   :2      
+ Steroids             : 630                      1st Qu.:2      
+ Steroids, antibiotics: 312                      Median :2      
+ n/a                  :5441                      Mean   :2      
+ none                 :4219                      3rd Qu.:2      
+                                                 Max.   :2      
+                                                                
+                      cluster_labels_res.0.4   new.order 
+ CD8+ T cells_1                  :11002      Min.   :12  
+ B cells_1                       :    0      1st Qu.:12  
+ B cells_2                       :    0      Median :12  
+ B cells_3                       :    0      Mean   :12  
+ CD163+ Monocytes (Sample ID1_d7):    0      3rd Qu.:12  
+ CD4+ T cells_1                  :    0      Max.   :12  
+ (Other)                         :    0                  
+                 id.celltype              hpca.labels       blueprint.labels
+ 12: CD8+ T cells_1    :11002   NK_cell         :5222   CD8+ T-cells:8969   
+ 0: Classical Monocytes:    0   T_cells         :4142   NK cells    :1921   
+ 10: CD4+ T cells_2    :    0   Pre-B_cell_CD34-:1616   CD4+ T-cells: 106   
+ 11: CD4+ T cells_3    :    0   HSC_-G-CSF      :  22   Monocytes   :   6   
+ 13: CD8+ T cells_2    :    0   BM              :   0   B-cells     :   0   
+ 14: CD8+ T cells_3    :    0   B_cell          :   0   Eosinophils :   0   
+ (Other)               :    0   (Other)         :   0   (Other)     :   0   
+         monaco.labels        immune.labels        dmap.labels   
+ T cells        :7915   B cells      :   0   CD8+ T cells:10434  
+ NK cells       :2802   Monocytes    :  20   CD4+ T cells:  237  
+ CD8+ T cells   : 202   NK cells     :9328   Granulocytes:  206  
+ CD4+ T cells   :  56   T cells, CD4+:1485   NK cells    :  119  
+ Monocytes      :  26   T cells, CD8+: 169   NK T cells  :    6  
+ Dendritic cells:   1                        B cells     :    0  
+ (Other)        :   0                        (Other)     :    0  
+      hemato.labels  
+ CD8+ T cells:10434  
+ CD4+ T cells:  237  
+ Granulocytes:  206  
+ NK cells    :  119  
+ NK T cells  :    6  
+ B cells     :    0  
+ (Other)     :    0  
+> 
+> meta$donor = as.factor(meta$donor)
+> 
+> summary(meta$nCount_RNA/meta$nFeature_RNA)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.457   2.559   2.865   2.874   3.158   5.750 
+> 
+> 
+> # filter out cells from control samples
+> meta_covid = meta[which(meta$group_per_sample != "control"),]
+> dim(meta_covid)
+[1] 5561   40
+> 
+> table(meta_covid$group_per_sample)
+
+control    mild  severe 
+      0    1366    4195 
+> table(meta_covid$disease_stage)
+
+control   early    late 
+      0    1166    4395 
+> table(meta_covid$donor)
+
+C19-CB-0001 C19-CB-0002 C19-CB-0003 C19-CB-0005 C19-CB-0008 C19-CB-0009 
+         45         625         108           4          70         271 
+C19-CB-0011 C19-CB-0012 C19-CB-0013 C19-CB-0016 C19-CB-0020 C19-CB-0021 
+        105         621         242         612         697         238 
+C19-CB-0052 C19-CB-0053 C19-CB-0198 C19-CB-0199 C19-CB-0204 C19-CB-0214 
+         57          92        1154         185         417          18 
+     C2P01H      C2P05F      C2P07H      C2P10H      C2P13F      C2P15H 
+          0           0           0           0           0           0 
+     C2P16H      C2P19H   Five_k_v3        P02H        P04H        P06F 
+          0           0           0           0           0           0 
+       P07H        P08H        P09H        P13H        P15F        P17H 
+          0           0           0           0           0           0 
+       P18F        P20H    Ten_k_v3    one_k_v3 
+          0           0           0           0 
+> 
+> table(meta_covid$donor, meta_covid$group_per_sample)
+             
+              control mild severe
+  C19-CB-0001       0   45      0
+  C19-CB-0002       0  625      0
+  C19-CB-0003       0  108      0
+  C19-CB-0005       0    4      0
+  C19-CB-0008       0    0     70
+  C19-CB-0009       0    0    271
+  C19-CB-0011       0    0    105
+  C19-CB-0012       0    0    621
+  C19-CB-0013       0    0    242
+  C19-CB-0016       0    0    612
+  C19-CB-0020       0    0    697
+  C19-CB-0021       0    0    238
+  C19-CB-0052       0   57      0
+  C19-CB-0053       0   92      0
+  C19-CB-0198       0    0   1154
+  C19-CB-0199       0    0    185
+  C19-CB-0204       0  417      0
+  C19-CB-0214       0   18      0
+  C2P01H            0    0      0
+  C2P05F            0    0      0
+  C2P07H            0    0      0
+  C2P10H            0    0      0
+  C2P13F            0    0      0
+  C2P15H            0    0      0
+  C2P16H            0    0      0
+  C2P19H            0    0      0
+  Five_k_v3         0    0      0
+  P02H              0    0      0
+  P04H              0    0      0
+  P06F              0    0      0
+  P07H              0    0      0
+  P08H              0    0      0
+  P09H              0    0      0
+  P13H              0    0      0
+  P15F              0    0      0
+  P17H              0    0      0
+  P18F              0    0      0
+  P20H              0    0      0
+  Ten_k_v3          0    0      0
+  one_k_v3          0    0      0
+> 
+> df_donor = as.data.frame(table(meta_covid$donor))
+> donor2kp = df_donor$Var1[which(df_donor$Freq >= 10)]
+> 
+> meta2kp = meta_covid[which(meta_covid$donor %in% donor2kp),]
+> dim(meta2kp)
+[1] 5557   40
+> meta2kp[1:2,]
+                   cell orig.ident nCount_RNA nFeature_RNA nReads_RNA
+1: 1_AAAGAACCATGAATAG-1    Covid19       3717         1537       3717
+2: 1_AACAAGAGTCGGTAAG-1    Covid19       3284         1578       3284
+   nReads_ALL percent.mito percent.hb       donor onset_of_symptoms
+1:       4183     6.941082          0 C19-CB-0002        25.02.2020
+2:       3613     4.080390          0 C19-CB-0003        29.02.2020
+   days_after_onset        sampleID origID date_of_sampling DaysAfterSample0
+1:               13 C19-CB-0002_d13   2_d6       09.03.2020                6
+2:               13 C19-CB-0003_d13   3_d0       12.03.2020                0
+   experiment PoolID sampletag         hash.ID        platform purification
+1:       A3_2      1  Hashtag5 Hashtag5-TotalA scRNA-seq (10x)        Fresh
+2:       A3_2      1  Hashtag8 Hashtag8-TotalA scRNA-seq (10x)        Fresh
+   cells   age    sex group_per_sample who_per_sample disease_stage    outcome
+1:  PBMC 31_35 female             mild              3          late discharged
+2:  PBMC 41_45   male             mild              3          late discharged
+             comorbidities COVID.19.related_medication_and_anti.microbials
+1:                    none                                            none
+2: Cardiovascular diseases                                            none
+   RNA_snn_res.0.4 cluster_labels_res.0.4 new.order        id.celltype
+1:               2         CD8+ T cells_1        12 12: CD8+ T cells_1
+2:               2         CD8+ T cells_1        12 12: CD8+ T cells_1
+   hpca.labels blueprint.labels monaco.labels immune.labels  dmap.labels
+1:     NK_cell     CD8+ T-cells       T cells      NK cells CD8+ T cells
+2:     NK_cell     CD8+ T-cells       T cells      NK cells CD8+ T cells
+   hemato.labels
+1:  CD8+ T cells
+2:  CD8+ T cells
+> table(meta2kp$donor)
+
+C19-CB-0001 C19-CB-0002 C19-CB-0003 C19-CB-0005 C19-CB-0008 C19-CB-0009 
+         45         625         108           0          70         271 
+C19-CB-0011 C19-CB-0012 C19-CB-0013 C19-CB-0016 C19-CB-0020 C19-CB-0021 
+        105         621         242         612         697         238 
+C19-CB-0052 C19-CB-0053 C19-CB-0198 C19-CB-0199 C19-CB-0204 C19-CB-0214 
+         57          92        1154         185         417          18 
+     C2P01H      C2P05F      C2P07H      C2P10H      C2P13F      C2P15H 
+          0           0           0           0           0           0 
+     C2P16H      C2P19H   Five_k_v3        P02H        P04H        P06F 
+          0           0           0           0           0           0 
+       P07H        P08H        P09H        P13H        P15F        P17H 
+          0           0           0           0           0           0 
+       P18F        P20H    Ten_k_v3    one_k_v3 
+          0           0           0           0 
+> length(unique(meta2kp$donor))
+[1] 17
+> 
+> cell2kp_index = which(meta$cell %in% meta2kp$cell)
+> 
+> # select counts in the cells to keep
+> dat1 = dat[, cell2kp_index]
+> table(colnames(dat1) == meta2kp$cell)
+
+TRUE 
+5557 
+> 
+> 
+> # check how many samples (each sample contains multiple cells) each donor has
+> table(tapply(meta2kp$sampleID, meta2kp$donor, function(v){length(unique(v))}))
+
+ 1  2  3 
+10  6  1 
+> 
+> sort(table(paste(meta2kp$donor, meta2kp$group_per_sample, sep=":")))
+
+  C19-CB-0214:mild   C19-CB-0001:mild   C19-CB-0052:mild C19-CB-0008:severe 
+                18                 45                 57                 70 
+  C19-CB-0053:mild C19-CB-0011:severe   C19-CB-0003:mild C19-CB-0199:severe 
+                92                105                108                185 
+C19-CB-0021:severe C19-CB-0013:severe C19-CB-0009:severe   C19-CB-0204:mild 
+               238                242                271                417 
+C19-CB-0016:severe C19-CB-0012:severe   C19-CB-0002:mild C19-CB-0020:severe 
+               612                621                625                697 
+C19-CB-0198:severe 
+              1154 
+> 
+> # adjust certain column names in meta2kp to match the requirement 
+> # of ideas and for the ease of later processing
+> colnames_meta2kp = names(meta2kp)
+> names(meta2kp)[which(colnames_meta2kp=="cell")] = "cell_id"
+> names(meta2kp)[which(colnames_meta2kp=="donor")] = "individual"
+> 
+> names(meta2kp)[which(colnames_meta2kp=="group_per_sample")] = "diagnosis"
+> 
+> 
+> # ------------------------------------------------------------------------
+> # generate individual level information
+> # ------------------------------------------------------------------------
+> 
+> meta2kp$diagnosis = droplevels(meta2kp$diagnosis)
+> table(meta2kp$diagnosis)
+
+  mild severe 
+  1362   4195 
+> 
+> meta2kp$individual = droplevels(meta2kp$individual)
+> meta2kp$sex = droplevels(meta2kp$sex)
+> 
+> meta_ind = distinct(meta2kp[,c('individual', 'diagnosis', 'sex')])
+> table(meta_ind$diagnosis, meta_ind$sex)
+        
+         female male
+  mild        2    5
+  severe      4    6
+> 
+> # add exact age information
+> donor_info_match = 
++   covid_donor_info[match(meta_ind$individual, covid_donor_info$donor),]
+> # double check that the condition and sex features match
+> table(donor_info_match$condition == meta_ind$diagnosis)
+
+TRUE 
+  17 
+> table(which(donor_info_match$sex=="f") == which(meta_ind$sex=="female"))
+
+TRUE 
+   6 
+> meta_ind$age = donor_info_match$age
+> 
+> sort(meta_ind$age[which(meta_ind$diagnosis=="mild")])
+[1] 21 31 45 69 70 71 74
+> sort(meta_ind$age[which(meta_ind$diagnosis=="severe")])
+ [1] 42 52 53 60 61 63 71 74 75 80
+> 
+> meta_ind$age = scale(meta_ind$age)
+> 
+> table(meta_ind$diagnosis)
+
+  mild severe 
+     7     10 
+> 
+> 
+> if(nrow(meta_ind) != length(unique(meta2kp$individual))){
++   stop("there is non-unique information\n")
++ }
+> 
+> # ------------------------------------------------------------------------
+> # filter out genes with too many zero's
+> # ------------------------------------------------------------------------
+> 
+> n.zeros = rowSums(dat1 == 0)
+> summary(n.zeros)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+      0    4302    4989    4572    5307    5557 
+> 
+> 0.6*ncol(dat1)
+[1] 3334.2
+> 0.8*ncol(dat1)
+[1] 4445.6
+> 
+> table(n.zeros < 0.6*ncol(dat1))
+
+FALSE  TRUE 
+ 8976  1191 
+> table(n.zeros < 0.8*ncol(dat1))
+
+FALSE  TRUE 
+ 7274  2893 
+> table(n.zeros < 0.9*ncol(dat1))
+
+FALSE  TRUE 
+ 5007  5160 
+> 
+> w2kp = which(n.zeros < 0.9*ncol(dat1))
+> dat1 = dat1[w2kp,]
+> 
+> dim(dat1)
+[1] 5160 5557
+> dat1[1:5,1:4]
+5 x 4 sparse Matrix of class "dgCMatrix"
+         1_AAAGAACCATGAATAG-1 1_AACAAGAGTCGGTAAG-1 1_AACCTGATCTGTGTGA-1
+NOC2L                       .                    .                    .
+ISG15                       .                    3                    .
+SDF4                        .                    .                    .
+UBE2J2                      .                    .                    .
+AURKAIP1                    .                    .                    .
+         1_AAGACTCCATGGCCCA-1
+NOC2L                       .
+ISG15                       .
+SDF4                        .
+UBE2J2                      .
+AURKAIP1                    1
+> 
+> 
+> genes = rownames(dat1)
+> 
+> # ------------------------------------------------------------------------
+> # add read-depth information
+> # ------------------------------------------------------------------------
+> 
+> rd_cell = colSums(dat1)
+> summary(rd_cell)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    723    4203    4933    5361    5890   20386 
+> 
+> meta2kp$rd = rd_cell
+> 
+> 
+> 
+> 
+> # -------------------------------------------------------------------
+> # load means and variances from formula based approach
+> # -------------------------------------------------------------------
+> 
+> mean_formula = readRDS("res/7a_DCA_formula_mean_matrix.rds")
+> var_formula = readRDS("res/7a_DCA_formula_var_matrix.rds")
+> 
+> # ------------------------------------------------------------
+> # pvalues on log(mean) and log(variance) from dca formula 
+> # ------------------------------------------------------------
+> 
+> v_mean_formula_pvals = rep(NA, nrow(mean_formula))
+> 
+> for(i_g in 1:nrow(mean_formula)){
++     
++   v_means = log(mean_formula[i_g, ])
++   temp_mean_df = cbind(meta_ind, v_means)
++   colnames(temp_mean_df)[ncol(temp_mean_df)] = "means"
++   temp_lm <- lm(means ~ age + sex + diagnosis, data = temp_mean_df)
++   temp_pvalue  = summary(temp_lm)$coefficients[4, 4]                     
++   v_mean_formula_pvals[i_g] = temp_pvalue
++     
++ }
+> 
+>  
+> v_var_formula_pvals = rep(NA, nrow(var_formula)) 
+> 
+> for(i_g in 1:nrow(var_formula)){
++   
++   v_vars = log(var_formula[i_g, ])
++   temp_var_df = cbind(meta_ind, v_vars)
++   colnames(temp_var_df)[ncol(temp_var_df)] = "vars"
++   temp_lm <- lm(vars ~ age + sex + diagnosis, data = temp_var_df)
++   temp_pvalue  = summary(temp_lm)$coefficients[4, 4]                       
++   v_var_formula_pvals[i_g] = temp_pvalue
++   
++ }
+> 
+> 
+> 
+> # save pvalue results out
+> 
+> pvalues_combined = data.frame(gene = full_genes[w2kp], 
++                               mean_formula = v_mean_formula_pvals, 
++                               var_formula = v_var_formula_pvals)
+> 
+> write.csv(pvalues_combined, 
++           file = "res/7b_formula_covariates_pvals_all.csv",
++           row.names = FALSE)
+> 
+> 
+> 
+> 
+> 
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb)  max used   (Mb)
+Ncells  2173833 116.1    4198642 224.3         NA   4198642  224.3
+Vcells 45865822 350.0  128373199 979.5      65536 147351353 1124.3
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] grid      stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+[1] gridExtra_2.3        ggpointdensity_0.1.0 ggpubr_0.4.0        
+[4] ggplot2_3.3.5        transport_0.12-2     dplyr_1.0.7         
+[7] data.table_1.14.0    Matrix_1.3-3         MASS_7.3-54         
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.1.1 purrr_0.3.4      haven_2.4.1      lattice_0.20-44 
+ [5] carData_3.0-4    colorspace_2.0-2 vctrs_0.3.8      generics_0.1.0  
+ [9] utf8_1.2.1       rlang_0.4.11     pillar_1.6.1     foreign_0.8-81  
+[13] glue_1.4.2       withr_2.4.2      DBI_1.1.1        readxl_1.3.1    
+[17] lifecycle_1.0.0  munsell_0.5.0    ggsignif_0.6.2   gtable_0.3.0    
+[21] cellranger_1.1.0 zip_2.2.0        rio_0.5.27       forcats_0.5.1   
+[25] curl_4.3.2       fansi_0.5.0      broom_0.7.8      Rcpp_1.0.7      
+[29] scales_1.1.1     backports_1.2.1  abind_1.4-5      hms_1.1.0       
+[33] stringi_1.6.2    openxlsx_4.2.4   rstatix_0.7.0    tools_4.1.0     
+[37] magrittr_2.0.1   tibble_3.1.2     crayon_1.4.1     tidyr_1.1.3     
+[41] car_3.0-11       pkgconfig_2.0.3  ellipsis_0.3.2   assertthat_0.2.1
+[45] R6_2.5.0         compiler_4.1.0  
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+ 14.263   0.422  14.678 

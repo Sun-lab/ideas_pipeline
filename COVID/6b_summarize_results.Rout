@@ -1,0 +1,215 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> # compared with 6a, this version only deals with the results
+> # based on 5f_gsea_expression.R
+> 
+> 
+> 
+> # compared with 4a, this version only deals with the results
+> # based on 4d_dca_direct PS_dca_direct_Was
+> 
+> 
+> # compared with 2a, this version deals with the results when 
+> # keep all genes appearing in at least 10% of cells
+> 
+> 
+> 
+> library(ggcorrplot)
+Loading required package: ggplot2
+> library(data.table)
+> library(ggpubr)
+> library(ggrepel)
+> library(reshape2)
+
+Attaching package: ‘reshape2’
+
+The following objects are masked from ‘package:data.table’:
+
+    dcast, melt
+
+> 
+> theme_set(theme_classic())
+> 
+> # -------------------------------------------------------------------
+> # read in cell type information
+> # -------------------------------------------------------------------
+> 
+> # for now, CD8+Tcells_1 only
+> cell_types = c("CD8+Tcells_1")
+> 
+> # -------------------------------------------------------------------
+> # read p-values, draw histogram of p-values, and record 
+> # fisher exact test to compare each pair of method
+> # -------------------------------------------------------------------
+> 
+> methods = c("paper", "email")
+> 
+> 
+> # -------------------------------------------------------------------
+> # read GSEA results
+> # -------------------------------------------------------------------
+> 
+> f1 <- function(x){
++   ww1 = which(x$padj < 0.05)
++   if(length(ww1) > 0){
++     x1 = x[ww1, c("pathway", "pval", "padj", "NES")]
++   }else{
++     x1 = NULL
++   }
++   x1
++ }
+> 
+> 
+> gesaL = list()
+> 
+> sink("res/6b_GSEA.txt")
+> 
+> for(ct1 in cell_types){
++   
++   cat("\n---------------------------------------------------\n")
++   cat(ct1)
++   cat("\n---------------------------------------------------\n")
++   
++   gsea = readRDS(sprintf("res/5f_gsea_expression_%s.rds", ct1))
++   gsea = gsea[methods]
++   
++   x1   = lapply(gsea, f1)
++   x1[sapply(x1, is.null)] = NULL
++   
++   if(length(x1) > 0){ print(x1) }
++   
++   gesaL[[ct1]] = gsea
++ }
+> sink()
+> 
+> 
+> 
+> # -------------------------------------------------------------------
+> # plot GSEA results for CD8+Tcells_1
+> # -------------------------------------------------------------------
+> 
+> ct1 = "CD8+Tcells_1"
+> 
+> #IDEAS_DCA = gesaL[[ct1]]$PS_dca_direct_Was
+> #summary(IDEAS_DCA$padj)
+> #IDEAS_DCA = IDEAS_DCA[which(IDEAS_DCA$padj < 0.05),]
+> #IDEAS_DCA$pathway = gsub("REACTOME_", "", IDEAS_DCA$pathway)
+> 
+> #df_gsea = as.data.frame(IDEAS_DCA)
+> #df_gsea = df_gsea[order(df_gsea$pval),]
+> #df_gsea$pathway = factor(df_gsea$pathway, levels=rev(df_gsea$pathway))
+> #p1 = ggplot(data=df_gsea, aes(x=pathway, y=-log10(pval))) +
+> #  geom_bar(stat="identity", fill="#56B4E9") + coord_flip() +
+> #  theme(legend.position = "none") + xlab("")
+> 
+> #ggsave("figures/2_GSEA_CD8+Tcells_1_IDEAS_DCA.pdf", p1, width=6, height=3)
+> 
+> for (i in 1:length(methods)){
++   m = methods[i]
++   cur_method = gesaL[[ct1]][[i]]
++   cur_padj = cur_method$padj
++   cat(paste(m, "  minimal adjusted pvalue: ",
++             as.character(min(cur_padj, na.rm = TRUE)), "\n", sep = ""))
++   
++   row_sign_padj = which(cur_padj < 0.05)
++   cat(paste("number of pathways with adjusted pvalue<0.05: ", 
++             as.character(length(row_sign_padj)), "\n" ))
++ 
++   if (length(row_sign_padj)>0){
++     
++     cur_method = cur_method[row_sign_padj,]
++     cur_method$pathway = gsub("REACTOME_", "", cur_method$pathway)
++     
++     df_gsea = as.data.frame(cur_method)
++     df_gsea = df_gsea[order(df_gsea$pval),]
++     df_gsea$pathway = factor(df_gsea$pathway, levels=rev(df_gsea$pathway))
++     p1 = ggplot(data=df_gsea, aes(x=pathway, y=-log10(pval))) +
++       geom_bar(stat="identity", fill="#56B4E9") + coord_flip() +
++       theme(legend.position = "none") + xlab("")
++     
++     cur_figurename = 
++       paste("figures/6b_GSEA_CD8+Tcells_1_", m, "_expression.pdf", sep = "")
++     ggsave(cur_figurename, p1, device = "pdf", width=12, 
++            height=round(length(row_sign_padj)/4)+1, limitsize = FALSE)
++     
++     df_gsea$leadingEdge <- 
++       vapply(df_gsea$leadingEdge, paste, collapse = ", ", character(1L))
++     
++     write.csv(df_gsea, 
++               file = sprintf("res/6b_GSEA_sign_pathways_CD8+Tcells_1_%s.csv", m), 
++               row.names = FALSE)
++   }
++ }
+paper  minimal adjusted pvalue: 2.652e-09
+number of pathways with adjusted pvalue<0.05:  239 
+email  minimal adjusted pvalue: 2.88260869565217e-09
+number of pathways with adjusted pvalue<0.05:  235 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> gc()
+          used (Mb) gc trigger  (Mb) limit (Mb) max used (Mb)
+Ncells 1030302 55.1    2041031 109.1         NA  1445115 77.2
+Vcells 1972459 15.1    8388608  64.0      65536  3041860 23.3
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] reshape2_1.4.4    ggrepel_0.9.1     ggpubr_0.4.0      data.table_1.14.0
+[5] ggcorrplot_0.1.3  ggplot2_3.3.5    
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.1.1 purrr_0.3.4      haven_2.4.1      carData_3.0-4   
+ [5] colorspace_2.0-2 vctrs_0.3.8      generics_0.1.0   utf8_1.2.1      
+ [9] rlang_0.4.11     pillar_1.6.1     foreign_0.8-81   glue_1.4.2      
+[13] withr_2.4.2      DBI_1.1.1        readxl_1.3.1     lifecycle_1.0.0 
+[17] plyr_1.8.6       stringr_1.4.0    munsell_0.5.0    ggsignif_0.6.2  
+[21] gtable_0.3.0     cellranger_1.1.0 zip_2.2.0        labeling_0.4.2  
+[25] rio_0.5.27       forcats_0.5.1    curl_4.3.2       fansi_0.5.0     
+[29] broom_0.7.8      Rcpp_1.0.7       backports_1.2.1  scales_1.1.1    
+[33] abind_1.4-5      farver_2.1.0     digest_0.6.27    hms_1.1.0       
+[37] stringi_1.6.2    openxlsx_4.2.4   rstatix_0.7.0    dplyr_1.0.7     
+[41] grid_4.1.0       tools_4.1.0      magrittr_2.0.1   tibble_3.1.2    
+[45] crayon_1.4.1     car_3.0-11       tidyr_1.1.3      pkgconfig_2.0.3 
+[49] ellipsis_0.3.2   assertthat_0.2.1 R6_2.5.0         compiler_4.1.0  
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+  1.162   0.095   1.250 

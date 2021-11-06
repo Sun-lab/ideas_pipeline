@@ -82,7 +82,7 @@ for(ct1 in cell_types){
   g1 = ggcorrplot(or1, tl.srt=90) + ggtitle(gsub("PFC_", "", ct1)) +
     scale_fill_gradient2(limit = c(0,10), low = "blue", 
                          high =  "red", mid = "white", 
-                         midpoint = 5)
+                         midpoint = 1)
   print(g1)
 }
 dev.off()

@@ -1,2 +1,0 @@
-cell_type	DESeq2	KR_nb_Was	KR_nb_JSD	PS_nb_Was	PS_nb_JSD	KR_dca_direct_Was	KR_dca_direct_JSD	PS_dca_direct_Was	PS_dca_direct_JSD	MAST_glm	MAST_glmer	rank_sum	KR_saver_direct_Was	KR_saver_direct_JSD	PS_saver_direct_Was	PS_saver_direct_JSD
-CD8+Tcells_1	1734	1759	1541	1814	1560	2602	2587	2629	2617	2851	2811	2531	2528	2491	2546	2522

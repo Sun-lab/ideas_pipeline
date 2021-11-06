@@ -1,0 +1,910 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # this version is based on step10b, different from the step10b version 
+> # on cluster in the sense that var_per_cell is set to rd, although
+> # this does not make any difference
+> # may remove this input item in improved version
+> # ========================================================================
+> # take arguments
+> # ========================================================================
+> 
+> args = commandArgs(trailingOnly=TRUE)
+> args
+[1] "grp='PFC_AST-PP'"
+> 
+> if (length(args) != 1) {
++   message("one argument is expected, use 'PFC_L2_3' as default.\n")
++   grp = "PFC_L2_3"
++ }else{
++   for(i in 1:length(args)){
++     eval(parse(text=args[[i]]))
++   }
++ }
+> 
+> grp
+[1] "PFC_AST-PP"
+> 
+> grp1 = gsub("PFC_", "", grp)
+> grp1
+[1] "AST-PP"
+> 
+> 
+> 
+> # ========================================================================
+> # read input
+> # ========================================================================
+> 
+> library(MASS)
+> library(Matrix)
+> library(data.table)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following object is masked from ‘package:MASS’:
+
+    select
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+> library(doRNG)
+Loading required package: rngtools
+> library(svd)
+> #library(ideas)
+> library(MiRKAT)
+> library(transport)
+> library(ggplot2)
+> library(ggpubr)
+> library(ggpointdensity)
+> 
+> 
+> library(pscl)
+Classes and Methods for R developed in the
+Political Science Computational Laboratory
+Department of Political Science
+Stanford University
+Simon Jackman
+hurdle and zeroinfl functions by Achim Zeileis
+> library(emdbook)
+> library(foreach)
+> library(stats)
+> 
+> library(ideas)
+> 
+> 
+> 
+> # number of cores for multi-core computation
+> nCore = 4
+> #nCore = Sys.getenv("SLURM_CPUS_ON_NODE")
+> 
+> registerDoParallel(cores=nCore)
+> options(mc.cores=nCore)
+> 
+> RNGkind("L'Ecuyer-CMRG")
+>  
+> # The outpuf of DCA are too large to save at GitHub, e.g., 
+> # -rw-rw---- 1  1383783222 Dec 21 02:00 L2_3_mean_norm.tsv
+> # -rw-rw---- 1   576171020 Oct  3 16:14 L2_3_dispersion.tsv.gz
+> # -rwxrwx--- 1   486210994 Dec 16 22:38 L2_3_pi.tsv.gz
+> # so we access them from this local folder:
+> data.dca.dir = "../../ideas_data/Autism/dca_PFC_all/"
+>   
+> data.dir  = "data/"
+> 
+> # ------------------------------------------------------------------------
+> # read in cell information
+> # ------------------------------------------------------------------------
+> 
+> cell_info = fread(file.path(data.dir, "meta.tsv"), 
++                   stringsAsFactors=TRUE)
+> dim(cell_info)
+[1] 104559     16
+> cell_info[1:2,]
+                           cell     cluster    sample individual region age sex
+1: AAACCTGGTACGCACC-1_1823_BA24 Neu-NRGN-II 1823_BA24       1823    ACC  15   M
+2: AAACGGGCACCAGATT-1_1823_BA24        L5/6 1823_BA24       1823    ACC  15   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB8      SB3                           18
+2:   Control      CB8      SB3                           18
+   RNA Integrity Number genes  UMIs RNA mitochondr. percent
+1:                    7   622   774               2.4547804
+2:                    7  6926 24042               0.4450545
+   RNA ribosomal percent
+1:             1.4211886
+2:             0.4284169
+> 
+> # ------------------------------------------------------------------------
+> # read in count data of one region and one cluster
+> # ------------------------------------------------------------------------
+> 
+> dat1 = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
+> class(dat1)
+[1] "dgCMatrix"
+attr(,"package")
+[1] "Matrix"
+> 
+> dim(dat1)
+[1] 18041  5461
+> dat1[1:5,1:4]
+5 x 4 sparse Matrix of class "dgCMatrix"
+         AAACCTGAGATGGCGT-1_4341_BA46 AAACGGGAGGACGAAA-1_4341_BA46
+DNAJC11                             .                            .
+NADK                                .                            .
+MASP2                               .                            .
+CLCN6                               .                            .
+TNFRSF1B                            .                            .
+         AACCATGAGCGCTTAT-1_4341_BA46 AACCATGAGTGTACGG-1_4341_BA46
+DNAJC11                             .                            .
+NADK                                .                            .
+MASP2                               .                            .
+CLCN6                               .                            .
+TNFRSF1B                            .                            .
+> 
+> 
+> # ------------------------------------------------------------------------
+> # subset cell information
+> # ------------------------------------------------------------------------
+> 
+> table(colnames(dat1) %in% cell_info$cell)
+
+TRUE 
+5461 
+> 
+> meta_cell = cell_info[match(colnames(dat1), cell_info$cell),]
+> dim(meta_cell)
+[1] 5461   16
+> meta_cell[1:2,]
+                           cell cluster    sample individual region age sex
+1: AAACCTGAGATGGCGT-1_4341_BA46  AST-PP 4341_BA46       4341    PFC  13   M
+2: AAACGGGAGGACGAAA-1_4341_BA46  AST-PP 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch post-mortem interval (hours)
+1:   Control      CB6      SB2                           16
+2:   Control      CB6      SB2                           16
+   RNA Integrity Number genes UMIs RNA mitochondr. percent
+1:                  7.2   792 1121               0.0892061
+2:                  7.2  1091 1584               0.5681818
+   RNA ribosomal percent
+1:             1.3380910
+2:             0.1893939
+> 
+> names(meta_cell)[11:12] = c("PMI", "RIN")
+> names(meta_cell)[15:16] = c("mitoPercent", "riboPercent")
+> dim(meta_cell)
+[1] 5461   16
+> meta_cell[1:2,]
+                           cell cluster    sample individual region age sex
+1: AAACCTGAGATGGCGT-1_4341_BA46  AST-PP 4341_BA46       4341    PFC  13   M
+2: AAACGGGAGGACGAAA-1_4341_BA46  AST-PP 4341_BA46       4341    PFC  13   M
+   diagnosis Capbatch Seqbatch PMI RIN genes UMIs mitoPercent riboPercent
+1:   Control      CB6      SB2  16 7.2   792 1121   0.0892061   1.3380910
+2:   Control      CB6      SB2  16 7.2  1091 1584   0.5681818   0.1893939
+> 
+> summary(meta_cell)
+                               cell             cluster    
+ AAACCTGAGATGGCGT-1_4341_BA46    :   1   AST-PP     :5461  
+ AAACCTGAGGAGTAGA-1_5144_PFC     :   1   AST-FB     :   0  
+ AAACCTGAGTTTCCTT-1_5408_PFC_Nova:   1   Endothelial:   0  
+ AAACCTGCACCGCTAG-1_5841_BA9     :   1   IN-PV      :   0  
+ AAACCTGCATGATCCA-1_5278_PFC     :   1   IN-SST     :   0  
+ AAACCTGGTACTCAAC-1_5565_BA9     :   1   IN-SV2C    :   0  
+ (Other)                         :5455   (Other)    :   0  
+           sample       individual   region          age        sex     
+ 5531_BA9     : 523   Min.   :4341   ACC:   0   Min.   : 4.00   F:1611  
+ 5278_PFC     : 509   1st Qu.:5403   PFC:5461   1st Qu.:14.00   M:3850  
+ 5936_PFC_Nova: 430   Median :5538              Median :15.00           
+ 5945_PFC     : 426   Mean   :5595              Mean   :15.63           
+ 5538_PFC_Nova: 424   3rd Qu.:5936              3rd Qu.:19.00           
+ 5144_PFC     : 393   Max.   :6033              Max.   :22.00           
+ (Other)      :2756                                                     
+   diagnosis       Capbatch    Seqbatch        PMI             RIN       
+ ASD    :3625   CB1    :1936   SB1:2957   Min.   : 3.00   Min.   :6.500  
+ Control:1836   CB6    :1829   SB2:2504   1st Qu.:15.00   1st Qu.:7.400  
+                CB2    :1021   SB3:   0   Median :22.00   Median :8.000  
+                CB7    : 675              Mean   :21.39   Mean   :7.954  
+                CB3    :   0              3rd Qu.:24.00   3rd Qu.:8.500  
+                CB4    :   0              Max.   :42.00   Max.   :9.000  
+                (Other):   0                                             
+     genes           UMIs        mitoPercent      riboPercent    
+ Min.   : 500   Min.   :  620   Min.   :0.0000   Min.   :0.0000  
+ 1st Qu.:1004   1st Qu.: 1496   1st Qu.:0.1435   1st Qu.:0.4911  
+ Median :1309   Median : 2138   Median :0.2824   Median :0.6982  
+ Mean   :1348   Mean   : 2286   Mean   :0.4798   Mean   :0.7531  
+ 3rd Qu.:1624   3rd Qu.: 2856   3rd Qu.:0.5709   3rd Qu.:0.9533  
+ Max.   :5991   Max.   :17244   Max.   :4.7228   Max.   :3.7861  
+                                                                 
+> meta_cell$age = scale(meta_cell$age)
+> meta_cell$PMI = scale(meta_cell$PMI)
+> meta_cell$RIN = scale(meta_cell$RIN)
+> meta_cell$Capbatch = droplevels(meta_cell$Capbatch)
+> meta_cell$Seqbatch = droplevels(meta_cell$Seqbatch)
+> meta_cell$individual = as.factor(meta_cell$individual)
+> summary(meta_cell)
+                               cell             cluster    
+ AAACCTGAGATGGCGT-1_4341_BA46    :   1   AST-PP     :5461  
+ AAACCTGAGGAGTAGA-1_5144_PFC     :   1   AST-FB     :   0  
+ AAACCTGAGTTTCCTT-1_5408_PFC_Nova:   1   Endothelial:   0  
+ AAACCTGCACCGCTAG-1_5841_BA9     :   1   IN-PV      :   0  
+ AAACCTGCATGATCCA-1_5278_PFC     :   1   IN-SST     :   0  
+ AAACCTGGTACTCAAC-1_5565_BA9     :   1   IN-SV2C    :   0  
+ (Other)                         :5455   (Other)    :   0  
+           sample       individual   region          age          sex     
+ 5531_BA9     : 523   5531   : 523   ACC:   0   Min.   :-2.7581   F:1611  
+ 5278_PFC     : 509   5278   : 509   PFC:5461   1st Qu.:-0.3873   M:3850  
+ 5936_PFC_Nova: 430   5936   : 430              Median :-0.1502           
+ 5945_PFC     : 426   5945   : 426              Mean   : 0.0000           
+ 5538_PFC_Nova: 424   5538   : 424              3rd Qu.: 0.7981           
+ 5144_PFC     : 393   5144   : 393              Max.   : 1.5094           
+ (Other)      :2756   (Other):2756                                        
+   diagnosis    Capbatch   Seqbatch        PMI                RIN          
+ ASD    :3625   CB1:1936   SB1:2957   Min.   :-2.04971   Min.   :-2.29255  
+ Control:1836   CB2:1021   SB2:2504   1st Qu.:-0.71219   1st Qu.:-0.87311  
+                CB6:1829              Median : 0.06803   Median : 0.07318  
+                CB7: 675              Mean   : 0.00000   Mean   : 0.00000  
+                                      3rd Qu.: 0.29095   3rd Qu.: 0.86176  
+                                      Max.   : 2.29722   Max.   : 1.65034  
+                                                                           
+     genes           UMIs        mitoPercent      riboPercent    
+ Min.   : 500   Min.   :  620   Min.   :0.0000   Min.   :0.0000  
+ 1st Qu.:1004   1st Qu.: 1496   1st Qu.:0.1435   1st Qu.:0.4911  
+ Median :1309   Median : 2138   Median :0.2824   Median :0.6982  
+ Mean   :1348   Mean   : 2286   Mean   :0.4798   Mean   :0.7531  
+ 3rd Qu.:1624   3rd Qu.: 2856   3rd Qu.:0.5709   3rd Qu.:0.9533  
+ Max.   :5991   Max.   :17244   Max.   :4.7228   Max.   :3.7861  
+                                                                 
+> 
+> table(meta_cell$Capbatch, meta_cell$Seqbatch)
+     
+       SB1  SB2
+  CB1 1936    0
+  CB2 1021    0
+  CB6    0 1829
+  CB7    0  675
+> summary(meta_cell$UMIs/meta_cell$genes)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  1.204   1.475   1.624   1.637   1.771   2.878 
+> 
+> # make sure each individual has a unique sample
+> table(tapply(meta_cell$sample, meta_cell$individual, 
++              function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> # check each individual has a unique Capbatch
+> table(tapply(meta_cell$Capbatch, meta_cell$individual, 
++              function(v){length(unique(v))}))
+
+ 1 
+23 
+> 
+> table(meta_cell$cluster)
+
+          AST-FB           AST-PP      Endothelial            IN-PV 
+               0             5461                0                0 
+          IN-SST          IN-SV2C           IN-VIP             L2/3 
+               0                0                0                0 
+              L4             L5/6          L5/6-CC        Microglia 
+               0                0                0                0 
+      Neu-NRGN-I      Neu-NRGN-II          Neu-mat              OPC 
+               0                0                0                0 
+Oligodendrocytes 
+               0 
+> table(meta_cell$region)
+
+ ACC  PFC 
+   0 5461 
+> table(meta_cell$diagnosis)
+
+    ASD Control 
+   3625    1836 
+> sort(table(paste(meta_cell$individual, meta_cell$diagnosis, sep=":")))
+
+5976:Control 5958:Control     5978:ASD     5419:ASD 5387:Control 5893:Control 
+          25           31           56           65           87          106 
+4341:Control 5408:Control 5879:Control     5294:ASD     6033:ASD     5565:ASD 
+         109          128          133          157          158          183 
+    5864:ASD     5841:ASD     5939:ASD     5403:ASD 5577:Control     5144:ASD 
+         222          295          295          343          363          393 
+5538:Control     5945:ASD 5936:Control     5278:ASD     5531:ASD 
+         424          426          430          509          523 
+> tt1 = table(meta_cell$individual)
+> sort(tt1)
+
+5976 5958 5978 5419 5387 5893 4341 5408 5879 5294 6033 5565 5864 5841 5939 5403 
+  25   31   56   65   87  106  109  128  133  157  158  183  222  295  295  343 
+5577 5144 5538 5945 5936 5278 5531 
+ 363  393  424  426  430  509  523 
+> 
+> # ------------------------------------------------------------------------
+> # generate individual level information
+> # ------------------------------------------------------------------------
+> 
+> length(unique(meta_cell$individual))
+[1] 23
+> 
+> meta_ind = distinct(meta_cell[,3:12])
+> dim(meta_ind)
+[1] 23 10
+> meta_ind[1:2,]
+      sample individual region       age sex diagnosis Capbatch Seqbatch
+1: 4341_BA46       4341    PFC -0.624374   M   Control      CB6      SB2
+2:  5144_PFC       5144    PFC -2.046863   M       ASD      CB1      SB1
+          PMI         RIN
+1: -0.6007307 -1.18854273
+2: -2.0497055  0.07318286
+> meta_ind$diagnosis = relevel(meta_ind$diagnosis, ref="Control")
+> table(meta_ind$diagnosis)
+
+Control     ASD 
+     10      13 
+> 
+> if(nrow(meta_ind) != length(unique(meta_cell$individual))){
++   stop("there is non-unique information\n")
++ }
+> 
+> table(meta_ind$Seqbatch, meta_ind$Capbatch)
+     
+      CB1 CB2 CB6 CB7
+  SB1   6   4   0   0
+  SB2   0   0   7   6
+> 
+> # ------------------------------------------------------------------------
+> # filter out genes with too many zero's
+> # ------------------------------------------------------------------------
+> 
+> n.zeros = rowSums(dat1 == 0)
+> summary(n.zeros)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+      0    5010    5285    5062    5399    5461 
+> 
+> 0.6*ncol(dat1)
+[1] 3276.6
+> 0.8*ncol(dat1)
+[1] 4368.8
+> 
+> table(n.zeros < 0.6*ncol(dat1))
+
+FALSE  TRUE 
+17571   470 
+> table(n.zeros < 0.8*ncol(dat1))
+
+FALSE  TRUE 
+16462  1579 
+> table(n.zeros < 0.9*ncol(dat1))
+
+FALSE  TRUE 
+14292  3749 
+> 
+> w2kp = which(n.zeros < 0.8*ncol(dat1))
+> dat1 = dat1[w2kp,]
+> 
+> dim(dat1)
+[1] 1579 5461
+> dat1[1:5,1:4]
+5 x 4 sparse Matrix of class "dgCMatrix"
+       AAACCTGAGATGGCGT-1_4341_BA46 AAACGGGAGGACGAAA-1_4341_BA46
+VPS13D                            .                            .
+PER3                              .                            .
+KIF1B                             1                            .
+ENO1                              2                            .
+GNB1                              .                            .
+       AACCATGAGCGCTTAT-1_4341_BA46 AACCATGAGTGTACGG-1_4341_BA46
+VPS13D                            .                            .
+PER3                              1                            .
+KIF1B                             1                            .
+ENO1                              .                            .
+GNB1                              .                            .
+> 
+> genes = rownames(dat1)
+> 
+> # ------------------------------------------------------------------------
+> # add read-depth information
+> # ------------------------------------------------------------------------
+> 
+> dim(meta_cell)
+[1] 5461   16
+> meta_cell[1:2,]
+                           cell cluster    sample individual region       age
+1: AAACCTGAGATGGCGT-1_4341_BA46  AST-PP 4341_BA46       4341    PFC -0.624374
+2: AAACGGGAGGACGAAA-1_4341_BA46  AST-PP 4341_BA46       4341    PFC -0.624374
+   sex diagnosis Capbatch Seqbatch        PMI       RIN genes UMIs mitoPercent
+1:   M   Control      CB6      SB2 -0.6007307 -1.188543   792 1121   0.0892061
+2:   M   Control      CB6      SB2 -0.6007307 -1.188543  1091 1584   0.5681818
+   riboPercent
+1:   1.3380910
+2:   0.1893939
+> 
+> table(meta_cell$cell == colnames(dat1))
+
+TRUE 
+5461 
+> 
+> rd_cell = colSums(dat1)
+> summary(rd_cell)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    355     920    1356    1444    1820   10541 
+> 
+> meta_cell$rd = rd_cell
+> 
+> dim(meta_cell)
+[1] 5461   17
+> meta_cell[1:2,]
+                           cell cluster    sample individual region       age
+1: AAACCTGAGATGGCGT-1_4341_BA46  AST-PP 4341_BA46       4341    PFC -0.624374
+2: AAACGGGAGGACGAAA-1_4341_BA46  AST-PP 4341_BA46       4341    PFC -0.624374
+   sex diagnosis Capbatch Seqbatch        PMI       RIN genes UMIs mitoPercent
+1:   M   Control      CB6      SB2 -0.6007307 -1.188543   792 1121   0.0892061
+2:   M   Control      CB6      SB2 -0.6007307 -1.188543  1091 1584   0.5681818
+   riboPercent  rd
+1:   1.3380910 690
+2:   0.1893939 946
+> 
+> names(meta_cell)[1] = "cell_id"
+> mean(meta_cell$cell_id == colnames(dat1))
+[1] 1
+> 
+> 
+> # ------------------------------------------------------------------------
+> # read in DCA estimates
+> # ------------------------------------------------------------------------
+>   
+> f_mean = file.path(data.dca.dir, paste0(grp1, "_mean_norm.tsv"))
+> f_disp = file.path(data.dca.dir, paste0(grp1, "_dispersion.tsv.gz"))
+> f_pi   = file.path(data.dca.dir, paste0(grp1, "_pi.tsv.gz"))
+>   
+> dca_mean = fread(f_mean, sep="\t", data.table = FALSE)
+> dca_disp = fread(f_disp)
+> dca_pi   = fread(f_pi)
+>   
+> dim(dca_mean)
+[1] 18041  5462
+> dim(dca_disp)
+[1] 18041  5462
+> dim(dca_pi)
+[1] 18041  5462
+>   
+> dca_mean[1:2,1:5]
+       V1 AAACCTGAGATGGCGT-1_4341_BA46 AAACGGGAGGACGAAA-1_4341_BA46
+1 DNAJC11                     0.138752                     0.134627
+2    NADK                     0.073956                     0.066124
+  AACCATGAGCGCTTAT-1_4341_BA46 AACCATGAGTGTACGG-1_4341_BA46
+1                     0.127427                     0.135997
+2                     0.051013                     0.068455
+> dca_disp[1:2,1:5]
+        V1 AAACCTGAGATGGCGT-1_4341_BA46 AAACGGGAGGACGAAA-1_4341_BA46
+1: DNAJC11                     3.372787                     3.424492
+2:    NADK                     1.660747                     1.670425
+   AACCATGAGCGCTTAT-1_4341_BA46 AACCATGAGTGTACGG-1_4341_BA46
+1:                     3.604645                     3.420431
+2:                     1.741252                     1.673602
+> dca_pi[1:2,1:5]
+        V1 AAACCTGAGATGGCGT-1_4341_BA46 AAACGGGAGGACGAAA-1_4341_BA46
+1: DNAJC11                     0.410798                     0.389479
+2:    NADK                     0.676217                     0.694009
+   AACCATGAGCGCTTAT-1_4341_BA46 AACCATGAGTGTACGG-1_4341_BA46
+1:                     0.395729                     0.394821
+2:                     0.700081                     0.688642
+>   
+> table(meta_cell$cell_id == colnames(dca_mean)[-1])
+
+TRUE 
+5461 
+> table(rownames(dat1) %in% dca_mean$V1)
+
+TRUE 
+1579 
+>   
+> w2kp = match(rownames(dat1), dca_mean$V1)
+>   
+> dca_mean = dca_mean[w2kp,]
+> dca_disp = dca_disp[w2kp,]
+> dca_pi   = dca_pi[w2kp,]
+>   
+> table(rownames(dat1) == dca_mean$V1)
+
+TRUE 
+1579 
+> table(rownames(dat1) == dca_disp$V1)
+
+TRUE 
+1579 
+> table(rownames(dat1) == dca_pi$V1)
+
+TRUE 
+1579 
+>   
+> rownames(dca_mean) = dca_mean$V1
+> rownames(dca_disp) = dca_disp$V1
+> rownames(dca_pi)   = dca_pi$V1
+>   
+> dca_mean = data.matrix(dca_mean[,-1])
+> dca_disp = data.matrix(dca_disp[,-1, with=FALSE])
+> dca_pi   = data.matrix(dca_pi[,-1,   with=FALSE])
+>   
+> table(colnames(dat1) == colnames(dca_mean))
+
+TRUE 
+5461 
+> table(colnames(dat1) == colnames(dca_disp))
+
+TRUE 
+5461 
+> table(colnames(dat1) == colnames(dca_pi))
+
+TRUE 
+5461 
+>   
+> dca_par_list = list(dca_mean, dca_disp, dca_pi)
+> 
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  3217529 171.9    5801130  309.9         NA   5625651  300.5
+Vcells 67225111 512.9  329573769 2514.5      65536 406624460 3102.3
+> 
+> rm(dca_mean)
+> rm(dca_disp)
+> rm(dca_pi)
+> rm(dat1)
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  3217492 171.9    5801130  309.9         NA   5625651  300.5
+Vcells 62379013 476.0  263659016 2011.6      65536 406624460 3102.3
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  3217497 171.9    5801130  309.9         NA   5625651  300.5
+Vcells 62379032 476.0  210927213 1609.3      65536 406624460 3102.3
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  3217497 171.9    5801130  309.9         NA   5625651  300.5
+Vcells 62379032 476.0  210927213 1609.3      65536 406624460 3102.3
+> 
+> # ========================================================================
+> # perform testing
+> # ========================================================================
+> 
+> set.seed(2020)
+>   
+> date()
+[1] "Fri Oct 29 16:16:47 2021"
+>   
+>   
+> # ---------------------------------------------------------------
+> # estimate distance across individuals
+> # ---------------------------------------------------------------
+> 
+> 
+> var2test      = "diagnosis"
+> var2adjust    = c("age", "sex", "Seqbatch", "RIN")
+> 
+> var2test_type = "binary"
+> var_per_cell  = c("rd")
+> 
+> 
+> date()
+[1] "Fri Oct 29 16:16:47 2021"
+> 
+> dist_list = list()
+> 
+> for(fit_method in c("dca_direct")){
++   for(d_metric in c("Was", "JSD")){
++     message(sprintf("fit_method: %s, d_metric: %s\n", fit_method, d_metric))
++     message(date())
++     
++     label = paste(fit_method, d_metric, sep="_")
++     
++     dist1 = ideas_dist(dca_par_list, meta_cell, meta_ind, 
++                        var_per_cell, var2test, var2test_type,
++                        d_metric = d_metric, 
++                        fit_method = fit_method)
++     dist_list[[label]] = dist1
++   }
++ }
+fit_method: dca_direct, d_metric: Was
+
+Fri Oct 29 16:16:47 2021
+estimating distribution for each gene and each individual by dca_direct
+
+fit_method: dca_direct, d_metric: JSD
+
+Fri Oct 29 16:17:23 2021
+estimating distribution for each gene and each individual by dca_direct
+
+> 
+> date()
+[1] "Fri Oct 29 16:18:00 2021"
+> 
+> # not sure why, it will take a few gc() to see the reduction of memory usage
+> for(gi in 1:10){
++   gc()
++ }
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  3240824 173.1    5801130  309.9         NA   5801130  309.9
+Vcells 64224761 490.0  210927213 1609.3      65536 406624460 3102.3
+> 
+> 
+> # ---------------------------------------------------------------
+> # pval calculation by kernel regression, ZINB
+> # ---------------------------------------------------------------
+> 
+> y = as.numeric(as.factor(meta_ind$diagnosis)) - 1
+> table(y)
+y
+ 0  1 
+10 13 
+> 
+> X = model.matrix(~ age + sex + Seqbatch + RIN, data=meta_ind)
+> 
+> dim(X)
+[1] 23  5
+> X[1:2,]
+  (Intercept)       age sexM SeqbatchSB2         RIN
+1           1 -0.624374    1           1 -1.18854273
+2           1 -2.046863    1           0  0.07318286
+> X = X[,-1]
+> 
+> n_gene = nrow(dist_list[[1]])
+> pval_KR = matrix(NA, nrow = n_gene, ncol = length(dist_list))
+> rownames(pval_KR) = genes
+> colnames(pval_KR) = paste("KR", names(dist_list), sep="_")
+> 
+> 
+> set.seed(905)
+> 
+> date()
+[1] "Fri Oct 29 16:18:01 2021"
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   
++   pval_KR[,k] = foreach(i_g = 1:dim(dist_k)[1], .combine = "c") %dorng% {
++     Di = dist_k[i_g,,]
++     
++     if(any(is.na(Di))){
++       pval = NA 
++     }else{
++       Ki = D2K(Di)
++       m1 = MiRKAT(y = y, X = X, Ks = Ki, out_type = "D", 
++                   method = "permutation", nperm = 4999)
++       pval = m1$p_values
++       
++       if(pval < 0.1){
++         m1 = MiRKAT(y = y, X = X, Ks = Ki, out_type = "D", 
++                     method = "permutation", nperm = 9999)
++         pval = m1$p_values
++       }
++     }
++     pval
++   }
++ }
+dca_direct_Was
+Fri Oct 29 16:18:01 2021
+dca_direct_JSD
+Fri Oct 29 16:18:41 2021
+> date()
+[1] "Fri Oct 29 16:19:20 2021"
+> 
+> dim(pval_KR)
+[1] 1579    2
+> pval_KR[1:2,]
+       KR_dca_direct_Was KR_dca_direct_JSD
+VPS13D            0.7126            0.5302
+PER3              0.9360            0.8814
+> 
+> 
+> # ---------------------------------------------------------------
+> # pval calculation by permanova
+> # ---------------------------------------------------------------
+> 
+> n_perm  = 4999
+> n_perm2 = 9999
+> r.seed  = 904
+> 
+> pval_PS = matrix(NA, nrow=n_gene, ncol=length(dist_list))
+> rownames(pval_PS) = genes
+> colnames(pval_PS) = names(dist_list)
+> colnames(pval_PS) = paste("PS", names(dist_list), sep="_")
+> 
+> date()
+[1] "Fri Oct 29 16:19:20 2021"
+> 
+> for(k in 1:length(dist_list)){
++   message(names(dist_list)[k])
++   message(date())
++   dist_k  = dist_list[[k]]
++   pval_k  = permanova(dist_k, meta_ind, var2test, var2adjust, 
++                       var2test_type, n_perm=n_perm, r.seed=r.seed)
++   w2rerun = which(pval_k < 0.1)
++   if(length(w2rerun) > 0){
++     if (length(w2rerun) == 1){
++       slice_dist_k = dist_k[w2rerun, , ]  
++       rerun_dist_k = array(dim = c(1, dim(slice_dist_k)))
++       rerun_dist_k[1, , ] = slice_dist_k
++     }else{
++       rerun_dist_k = dist_k[w2rerun, , ]
++     }
++     pval_kr = permanova(rerun_dist_k, meta_ind, var2test, var2adjust, 
++                         var2test_type, n_perm=n_perm2, r.seed=r.seed)
++     pval_k[w2rerun] = pval_kr
++   }
++   pval_PS[,k] = pval_k
++ }
+dca_direct_Was
+Fri Oct 29 16:19:20 2021
+testing for 'diagnosis', a binary variable
+
+testing for 'diagnosis', a binary variable
+
+dca_direct_JSD
+Fri Oct 29 16:21:51 2021
+testing for 'diagnosis', a binary variable
+
+testing for 'diagnosis', a binary variable
+
+> 
+> date()
+[1] "Fri Oct 29 16:24:22 2021"
+> 
+> summary(pval_KR)
+ KR_dca_direct_Was KR_dca_direct_JSD
+ Min.   :0.0046    Min.   :0.0049   
+ 1st Qu.:0.3143    1st Qu.:0.2870   
+ Median :0.5342    Median :0.5120   
+ Mean   :0.5317    Mean   :0.5158   
+ 3rd Qu.:0.7580    3rd Qu.:0.7428   
+ Max.   :1.0000    Max.   :1.0000   
+> summary(pval_PS)
+ PS_dca_direct_Was PS_dca_direct_JSD
+ Min.   :0.0147    Min.   :0.0012   
+ 1st Qu.:0.2464    1st Qu.:0.2279   
+ Median :0.4608    Median :0.4504   
+ Mean   :0.4807    Mean   :0.4730   
+ 3rd Qu.:0.7124    3rd Qu.:0.7081   
+ Max.   :1.0000    Max.   :0.9996   
+> 
+> # ------------------------------------------------------------------------
+> # summarize and save the results
+> # ------------------------------------------------------------------------
+> 
+> df = data.frame(gene=genes, pval_KR, pval_PS)
+> dim(df)
+[1] 1579    5
+> head(df)
+         gene KR_dca_direct_Was KR_dca_direct_JSD PS_dca_direct_Was
+VPS13D VPS13D            0.7126            0.5302            0.6166
+PER3     PER3            0.9360            0.8814            0.9326
+KIF1B   KIF1B            0.3406            0.3486            0.3180
+ENO1     ENO1            0.3424            0.3608            0.3368
+GNB1     GNB1            0.0533            0.0495            0.0835
+UBE4B   UBE4B            0.8654            0.7578            0.8746
+       PS_dca_direct_JSD
+VPS13D            0.4276
+PER3              0.8760
+KIF1B             0.2972
+ENO1              0.2960
+GNB1              0.0795
+UBE4B             0.7784
+> 
+> gh = list()
+> for(k in 2:ncol(df)){
++   method_nm = names(df)[k]
++   gh[[k-1]] = ggplot(df, aes_string(x = method_nm)) + 
++     labs(title = method_nm) + 
++     geom_histogram(color = "darkblue", fill = "lightblue", 
++                    breaks = seq(0,1,by = 0.02))
++ }
+> 
+> fig.name  = sprintf("figures/step1d_dca_direct_pval_hist_%s.pdf", 
++                     grp)
+> file.name = sprintf("res/step1d_dca_direct_pvals_%s.tsv", 
++                     grp)
+> 
+> 
+> pdf(fig.name, width = 9, height = 9)
+> ggarrange(plotlist=gh, ncol = 2, nrow = 2)
+> dev.off()
+null device 
+          1 
+> 
+> fwrite(df, file = file.name, sep = "\t")
+> 
+> gc()
+           used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
+Ncells  3395266 181.4    5801130  309.9         NA   5801130  309.9
+Vcells 64594720 492.9  210927213 1609.3      65536 406624460 3102.3
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+Random number generation:
+ RNG:     L'Ecuyer-CMRG 
+ Normal:  Inversion 
+ Sample:  Rejection 
+ 
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] ideas_0.0.9000       emdbook_1.3.12       pscl_1.5.5          
+ [4] ggpointdensity_0.1.0 ggpubr_0.4.0         ggplot2_3.3.5       
+ [7] transport_0.12-2     MiRKAT_1.1.4         svd_0.5             
+[10] doRNG_1.8.2          rngtools_1.5         doParallel_1.0.16   
+[13] iterators_1.0.13     foreach_1.5.1        dplyr_1.0.7         
+[16] data.table_1.14.0    Matrix_1.3-3         MASS_7.3-54         
+
+loaded via a namespace (and not attached):
+ [1] segmented_1.3-4     nlme_3.1-152        matrixStats_0.61.0 
+ [4] numDeriv_2016.8-1.1 tools_4.1.0         backports_1.2.1    
+ [7] utf8_1.2.1          R6_2.5.0            vegan_2.5-7        
+[10] DBI_1.1.1           mgcv_1.8-35         colorspace_2.0-2   
+[13] permute_0.9-5       withr_2.4.2         tidyselect_1.1.1   
+[16] curl_4.3.2          compiler_4.1.0      quantreg_5.86      
+[19] SparseM_1.81        labeling_0.4.2      scales_1.1.1       
+[22] mvtnorm_1.1-2       digest_0.6.27       foreign_0.8-81     
+[25] minqa_1.2.4         mixtools_1.2.0      R.utils_2.11.0     
+[28] rio_0.5.27          pkgconfig_2.0.3     lme4_1.1-27.1      
+[31] bbmle_1.0.23.1      rlang_0.4.11        readxl_1.3.1       
+[34] farver_2.1.0        generics_0.1.0      R.oo_1.24.0        
+[37] zip_2.2.0           car_3.0-11          magrittr_2.0.1     
+[40] Rcpp_1.0.7          munsell_0.5.0       fansi_0.5.0        
+[43] ape_5.5             abind_1.4-5         R.methodsS3_1.8.1  
+[46] lifecycle_1.0.0     stringi_1.6.2       CompQuadForm_1.4.3 
+[49] carData_3.0-4       plyr_1.8.6          grid_4.1.0         
+[52] bdsmatrix_1.3-4     forcats_0.5.1       crayon_1.4.1       
+[55] lattice_0.20-44     cowplot_1.1.1       haven_2.4.1        
+[58] splines_4.1.0       hms_1.1.0           pillar_1.6.1       
+[61] boot_1.3-28         ggsignif_0.6.2      codetools_0.2-18   
+[64] stats4_4.1.0        glue_1.4.2          GUniFrac_1.2       
+[67] vctrs_0.3.8         nloptr_1.2.2.2      MatrixModels_0.5-0 
+[70] cellranger_1.1.0    gtable_0.3.0        purrr_0.3.4        
+[73] tidyr_1.1.3         kernlab_0.9-29      assertthat_0.2.1   
+[76] openxlsx_4.2.4      broom_0.7.8         coda_0.19-4        
+[79] rstatix_0.7.0       PearsonDS_1.2       survival_3.2-11    
+[82] tibble_3.1.2        conquer_1.0.2       cluster_2.1.2      
+[85] ellipsis_0.3.2     
+> q(save="no")
+> proc.time()
+    user   system  elapsed 
+1720.542   74.721  479.428 

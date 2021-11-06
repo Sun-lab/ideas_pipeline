@@ -1,0 +1,5 @@
+"names","DESeq2 sign, dca sign","DESeq2 nosign, dca sign","DESeq2 sign, dca nosign","DESeq2 nosign, dca nosign"
+"DESeq2 sign, dca sign",NA,"1.9e-11","4.5e-56","4.3e-245"
+"DESeq2 nosign, dca sign","1.9e-11",NA,"3.8e-64","0.0e+00"
+"DESeq2 sign, dca nosign","4.5e-56","3.8e-64",NA,"0.313"
+"DESeq2 nosign, dca nosign","4.3e-245","0.0e+00","0.313",NA
