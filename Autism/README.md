@@ -42,7 +42,7 @@ Compute corresponding q values.
 
 List all the 17 cell types for looping through using .sh files when needed.
 
-**summary steps:**
+### summary steps:
 
 [step2a_summarize_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step2a_summarize_results.R) summarizes GSEA results and comparison between results from different methods.
 
@@ -50,7 +50,7 @@ List all the 17 cell types for looping through using .sh files when needed.
 
 [step2d_summarize_results_qvalue.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step2d_summarize_results_qvalue.R) overlap between significant genes from different methods under q-value cutoff. 
 
-**DCA mean and pseudo dispersion exploration:**
+### DCA mean and pseudo dispersion exploration:
 
 [step3a_DCA_formula_helper.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step3a_DCA_formula_helper.R) helper file getting indivdual level mean and variance for each gene, based on cell-level parameter estimates given by DCA.
 
