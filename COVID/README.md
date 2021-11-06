@@ -43,27 +43,54 @@ Create permutated donor level labels:
 
 **MAST:**
 
-[1b_MAST.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_MAST.R) 
+[3b_MAST.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/3b_MAST.R) 
 
 
 **IDEAS related:**
 
-[1c_ideas.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1c_ideas.R)
+[5c_ideas.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5c_ideas.R)
 
-[1d_dca_direct.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_dca_direct.R)
+[5d_dca_direct.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5d_dca_direct.R)
 
-[1d_saver.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_saver.R)
-
-[1d_saver_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1d_saver_perm.R)
+[5d_saver.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5d_saver.R)
 
 
 **Summary steps:**
 
-[2e_summarize_results_qvalue.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/2e_summarize_results_qvalue.R) gets number of significant genes under qvalue cutoff 0.01 & 0.05 for different methods, the odds ratio (conditional MLE given my fisher.test in R) of overlap between significant genes given by different methods and the one-sided pvalue from fisher's exact test. 
+[5e_combine_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5e_combine_results.R) combines p-value results from different methods.
 
-**Rerun by filtering out genes appearing in less than 10% of cells**
+[5f_gsea.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5f_gsea.R) gene set enrichment analysis. 
 
-3b-4e
+[5l_qvalues.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5l_qvalues.R) gets q-values and number of genes significant under certain q-value cutoffs 0.1, 0.2, 0.3, and 0.4. 
+
+[6a_summarize_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6a_summarize_results.R) prints out pathways significant under ajusted pvalue cutoff 0.05 from GSEA and does several other comparisons.
+
+[6b_summarize_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6b_summarize_results.R) writes out detailed information on the significant pathways. 
+
+[6c_summarize_results.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6c_summarize_results.R) fisher exact test among set of genes with p-value < 0.05 from different methods. 
+
+[6e_summarize_results_qvalue.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6e_summarize_results_qvalue.R) gets number of genes with q-value < 0.05 from different methods and also gets the overlap counts and proportions(with respect to row name) between those from any pair of methods. 
+
+**DCA mean and pseudo dispersion exploration:**
+
+[7a_DCA_formula_helper.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/7a_DCA_formula_helper.R) helper file getting indivdual level mean and variance for each gene, based on cell-level parameter estimates given by DCA. 
+
+[7b_DCA_formula_covariates_all.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/7b_DCA_formula_covariates_all.R) gets p-values for association between log(mean) and mild/severe status, given covariates, by linear regression. 
+
+[7c_DCA_pseudo_over_dispersion_covariates_all.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/7c_DCA_pseudo_over_dispersion_covariates_all.R) computes pseudo dispersion parameters and does regression. 
+
+[7d_DCA_formula_four_groups_covariates_ranksum.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/7d_DCA_formula_four_groups_covariates_ranksum.R) ranksum tests on log(mean) 
+(and log(pseudo theta)) regression p-values among groups separated by DESeq2 and DCA\_direct q-value cutoffs.
+
+**Mean expression level related exploration:**
+[5f_neg_log_pvalue_vs_expression_level.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5f_neg_log_pvalue_vs_expression_level.R) gets mean expression level for each gene. 
+
+[5f_gsea_expression.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5f_gsea_expression.R) GSEA when ranking genes by mean expression level. 
+
+[7f_gsea_overlap_test.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/7f_gsea_overlap_test.R) counts and fisher exact test related quantities for the overlap between pathways significant under adjusted pvalue 0.05 from DESeq2, PS\_nb\_Was, PS\_dca\_direct\_Was and mean expression. 
+
+
+
 
 ## References
 <a id="1">[1]</a> 
