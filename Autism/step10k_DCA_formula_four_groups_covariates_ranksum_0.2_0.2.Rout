@@ -1,6 +1,6 @@
 
-R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
-Copyright (C) 2021 The R Foundation for Statistical Computing
+R version 4.0.2 (2020-06-22) -- "Taking Off Again"
+Copyright (C) 2020 The R Foundation for Statistical Computing
 Platform: x86_64-apple-darwin17.0 (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -16,8 +16,6 @@ Type 'contributors()' for more information and
 Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
-
-[Previously saved workspace restored]
 
 > # This code is modified from
 > # step3e_DCA_formula_pmf_three_groups_covariates_ranksum.R
@@ -78,11 +76,6 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
-> #library(doParallel)
-> #library(doRNG)
-> #library(svd)
-> #library(ideas)
-> #library(MiRKAT)
 > library(transport)
 > library(ggplot2)
 > library(ggpubr)
@@ -97,7 +90,6 @@ The following object is masked from ‘package:dplyr’:
 
     combine
 
-> #big_font <- theme_grey(base_size =  16)
 > 
 > theme_set(theme_classic())
 > 
@@ -105,9 +97,7 @@ The following object is masked from ‘package:dplyr’:
 > 
 > 
 > 
-> #setwd("~/Documents/Fred_Hutch/core_code")
 > data.dir  = "./data"
-> data.dca.dir = "../../ideas_data/Autism/dca_PFC_all"
 > 
 > grp = "PFC_L2_3"
 > grp1 = "L2_3"
@@ -225,14 +215,14 @@ PRKCZ                              1                            .
 +   "res/step3b_formula_covariates_pvals_all.csv", 
 +   header = TRUE)
 > dim(dca_pvalues)
-[1] 8260    5
+[1] 8260    3
 > dca_pvalues[1:2, ]
-     gene mean_formula var_formula    mean_pmf     var_pmf
-1 DNAJC11  0.024853584 0.026261006 0.023630226 0.023901143
-2  VPS13D  0.005169749 0.006230165 0.004976338 0.005838741
+     gene mean_formula var_formula
+1 DNAJC11  0.024853584 0.026261006
+2  VPS13D  0.005169749 0.006230165
 > 
 > theta_pvalues = read.csv(
-+   "res/step10b_formula_pmf_covariates_pvals_all.csv", 
++   "res/step10b_formula_covariates_pvals_all.csv", 
 +   header = TRUE)
 > dim(theta_pvalues)
 [1] 8260    2
@@ -243,11 +233,11 @@ PRKCZ                              1                            .
 > 
 > dca_pvalues$theta_formula = theta_pvalues$theta_formula
 > dim(dca_pvalues)
-[1] 8260    6
+[1] 8260    4
 > dca_pvalues[1:2, ]
-     gene mean_formula var_formula    mean_pmf     var_pmf theta_formula
-1 DNAJC11  0.024853584 0.026261006 0.023630226 0.023901143   0.008188921
-2  VPS13D  0.005169749 0.006230165 0.004976338 0.005838741   0.002598113
+     gene mean_formula var_formula theta_formula
+1 DNAJC11  0.024853584 0.026261006   0.008188921
+2  VPS13D  0.005169749 0.006230165   0.002598113
 > 
 > # -------------------------------------------------------------------
 > # read in q value information
@@ -431,10 +421,10 @@ TRUE
 > hist(log10(group2_mean_pval), 
 +      main="DESeq2 nosign, dca_direct sign\nmean", 
 +      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-> hist(log10(group3_mean_pval), 
+> hist(group3_mean_pval, xlim = c(0, 1),
 +      main="DESeq2 sign, dca_direct nosign\nmean", 
-+      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-> hist(group4_mean_pval, 
++      xlab="p-value", breaks = 20)
+> hist(group4_mean_pval, xlim = c(0, 1),
 +      main="DESeq2 nosign, dca_direct nosign\nmean", 
 +      xlab="p-value", breaks = 20)  
 > 
@@ -444,10 +434,10 @@ TRUE
 > hist(log10(group2_theta_pval), 
 +      main="DESeq2 nosign, dca_direct sign\npseudo theta", 
 +      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-> hist(log10(group3_theta_pval), 
+> hist(group3_theta_pval, xlim = c(0, 1),
 +      main="DESeq2 sign, dca_direct nosign\npseudo theta", 
-+      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-> hist(group4_theta_pval, 
++      xlab="p-value", breaks = 20)
+> hist(group4_theta_pval, xlim = c(0, 1),
 +      main="DESeq2 nosign, dca_direct nosign\npseudo theta", 
 +      xlab="p-value", breaks = 20)  
 > 
@@ -609,17 +599,17 @@ null device
 >   
 > gc()
            used  (Mb) gc trigger   (Mb) limit (Mb)  max used   (Mb)
-Ncells  2119876 113.3    4132222  220.7         NA   2775354  148.3
-Vcells 55573950 424.0  289314284 2207.3      65536 356084538 2716.8
+Ncells  2046947 109.4    3908942  208.8         NA   2703155  144.4
+Vcells 55344081 422.3  288910720 2204.3      16384 355567473 2712.8
 > 
 > sessionInfo()
-R version 4.1.0 (2021-05-18)
+R version 4.0.2 (2020-06-22)
 Platform: x86_64-apple-darwin17.0 (64-bit)
-Running under: macOS Big Sur 10.16
+Running under: macOS High Sierra 10.13.6
 
 Matrix products: default
-BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
-LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
 
 locale:
 [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
@@ -630,23 +620,22 @@ attached base packages:
 
 other attached packages:
 [1] gridExtra_2.3        ggpointdensity_0.1.0 ggpubr_0.4.0        
-[4] ggplot2_3.3.5        transport_0.12-2     dplyr_1.0.7         
-[7] data.table_1.14.0    Matrix_1.3-3         MASS_7.3-54         
+[4] ggplot2_3.3.2        transport_0.12-2     dplyr_1.0.2         
+[7] data.table_1.14.0    Matrix_1.2-18        MASS_7.3-53         
 
 loaded via a namespace (and not attached):
- [1] tidyselect_1.1.1 purrr_0.3.4      haven_2.4.1      lattice_0.20-44 
- [5] carData_3.0-4    colorspace_2.0-2 vctrs_0.3.8      generics_0.1.0  
- [9] utf8_1.2.1       rlang_0.4.11     pillar_1.6.1     foreign_0.8-81  
-[13] glue_1.4.2       withr_2.4.2      DBI_1.1.1        readxl_1.3.1    
-[17] lifecycle_1.0.0  munsell_0.5.0    ggsignif_0.6.2   gtable_0.3.0    
-[21] cellranger_1.1.0 zip_2.2.0        rio_0.5.27       forcats_0.5.1   
-[25] curl_4.3.2       fansi_0.5.0      broom_0.7.8      Rcpp_1.0.7      
-[29] scales_1.1.1     backports_1.2.1  abind_1.4-5      hms_1.1.0       
-[33] stringi_1.6.2    openxlsx_4.2.4   rstatix_0.7.0    tools_4.1.0     
-[37] magrittr_2.0.1   tibble_3.1.2     crayon_1.4.1     tidyr_1.1.3     
-[41] car_3.0-11       pkgconfig_2.0.3  ellipsis_0.3.2   assertthat_0.2.1
-[45] R6_2.5.0         compiler_4.1.0  
+ [1] zip_2.1.1        Rcpp_1.0.6       cellranger_1.1.0 pillar_1.4.6    
+ [5] compiler_4.0.2   tools_4.0.2      forcats_0.5.0    lifecycle_0.2.0 
+ [9] tibble_3.0.3     gtable_0.3.0     lattice_0.20-41  pkgconfig_2.0.3 
+[13] rlang_0.4.8      openxlsx_4.2.2   curl_4.3         haven_2.3.1     
+[17] rio_0.5.16       withr_2.3.0      generics_0.0.2   vctrs_0.3.4     
+[21] hms_0.5.3        tidyselect_1.1.0 glue_1.4.2       R6_2.4.1        
+[25] rstatix_0.6.0    readxl_1.3.1     foreign_0.8-80   carData_3.0-4   
+[29] purrr_0.3.4      tidyr_1.1.2      car_3.0-9        magrittr_1.5    
+[33] scales_1.1.1     backports_1.1.10 ellipsis_0.3.1   abind_1.4-5     
+[37] colorspace_1.4-1 ggsignif_0.6.0   stringi_1.5.3    munsell_0.5.0   
+[41] broom_0.7.0      crayon_1.3.4    
 > q(save="no")
 > proc.time()
    user  system elapsed 
-  4.622   0.734   5.348 
+  8.170   1.793  10.854 

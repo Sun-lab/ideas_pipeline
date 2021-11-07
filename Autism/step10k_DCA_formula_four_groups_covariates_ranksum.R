@@ -35,11 +35,6 @@ library(MASS)
 library(Matrix)
 library(data.table)
 library(dplyr)
-#library(doParallel)
-#library(doRNG)
-#library(svd)
-#library(ideas)
-#library(MiRKAT)
 library(transport)
 library(ggplot2)
 library(ggpubr)
@@ -47,7 +42,6 @@ library(ggpointdensity)
 
 library(grid)
 library(gridExtra)
-#big_font <- theme_grey(base_size =  16)
 
 theme_set(theme_classic())
 
@@ -55,9 +49,7 @@ theme_set(theme_classic())
 
 
 
-#setwd("~/Documents/Fred_Hutch/core_code")
 data.dir  = "./data"
-data.dca.dir = "../../ideas_data/Autism/dca_PFC_all"
 
 grp = "PFC_L2_3"
 grp1 = "L2_3"
@@ -124,7 +116,7 @@ dim(dca_pvalues)
 dca_pvalues[1:2, ]
 
 theta_pvalues = read.csv(
-  "res/step10b_formula_pmf_covariates_pvals_all.csv", 
+  "res/step10b_formula_covariates_pvals_all.csv", 
   header = TRUE)
 dim(theta_pvalues)
 theta_pvalues[1:2, ]
@@ -255,10 +247,10 @@ hist(log10(group1_mean_pval),
 hist(log10(group2_mean_pval), 
      main="DESeq2 nosign, dca_direct sign\nmean", 
      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-hist(log10(group3_mean_pval), 
+hist(group3_mean_pval, xlim = c(0, 1),
      main="DESeq2 sign, dca_direct nosign\nmean", 
-     xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-hist(group4_mean_pval, 
+     xlab="p-value", breaks = 20)
+hist(group4_mean_pval, xlim = c(0, 1),
      main="DESeq2 nosign, dca_direct nosign\nmean", 
      xlab="p-value", breaks = 20)  
 
@@ -268,10 +260,10 @@ hist(log10(group1_theta_pval),
 hist(log10(group2_theta_pval), 
      main="DESeq2 nosign, dca_direct sign\npseudo theta", 
      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-hist(log10(group3_theta_pval), 
+hist(group3_theta_pval, xlim = c(0, 1),
      main="DESeq2 sign, dca_direct nosign\npseudo theta", 
-     xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
-hist(group4_theta_pval, 
+     xlab="p-value", breaks = 20)
+hist(group4_theta_pval, xlim = c(0, 1),
      main="DESeq2 nosign, dca_direct nosign\npseudo theta", 
      xlab="p-value", breaks = 20)  
 
