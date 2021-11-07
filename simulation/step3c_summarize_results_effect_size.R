@@ -133,7 +133,7 @@ p0 = ggplot(subset(gg_all, geneType %in% c("EE")),
 p0_sub = p0 + ylim(0,0.1)
 
 table(gg_all$method)
-gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST", "MAST_glmer"))
+gg_sub = subset(gg_all, ! method %in% c("Rank-sum", "MAST"))
 
 p_mean = ggplot(subset(gg_sub, geneType %in% c("meanDE")), 
                 aes(x=mean_fold, y=power, group=method)) +
