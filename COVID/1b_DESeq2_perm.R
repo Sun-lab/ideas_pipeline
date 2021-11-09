@@ -6,7 +6,8 @@ library(DESeq2)
 
 
 data.dir = "../../ideas_data/COVID/PBMC_10x"
-
+label.dir = "../../ideas_data/COVID"
+  
 args=(commandArgs(TRUE))
 args
 
@@ -177,7 +178,26 @@ trec1[1:2,1:3]
 # run DESeq2
 # ------------------------------------------------------------------------
 
-colData = meta_ind
+
+# get label after permutation
+iperm = 1
+cur_perm_cell_label = data.frame(perm_table)[, iperm]
+cur_perm_ind_label = rep(NA, nrow(meta_ind))
+
+for (i in 1:nrow(meta_ind)){
+  wi = which(meta2kp$donor == meta_ind$donor[i])
+  cur_perm_ind_label[i] = cur_perm_cell_label[wi[1]]
+}
+
+
+meta_ind[, 2] = cur_perm_ind_label
+
+# only keep the 14 individuals with mild or severe label
+# after permutation
+ind2kp = which(cur_perm_ind_label != "")
+
+
+colData = meta_ind[ind2kp,]
 colnames(colData)[2] = 'diagnosis'
 # keep the age column being numeric
 for(i in 1:(ncol(colData)-1)){
@@ -202,7 +222,7 @@ colData$diagnosis = factor(colData$diagnosis, levels=c("mild", "severe"))
 
 total_rd = c()
 
-for (i in c(1:dim(meta_ind)[1])){
+for (i in ind2kp){
   wi = which(meta2kp$donor == meta_ind$donor[i])
   total_rd = c(total_rd, sum(apply(dat1[,wi], 2, sum)))
 }
@@ -213,7 +233,7 @@ colData$totalrd = total_rd
 
 # fourth, include both donor level total read depth, sex and age
 
-dd3 = DESeqDataSetFromMatrix(countData = trec1, 
+dd3 = DESeqDataSetFromMatrix(countData = trec1[, ind2kp], 
                              colData = colData,
                              design = ~ log(totalrd) + sex + age + diagnosis)
 dd3 = DESeq(dd3)

@@ -17,8 +17,6 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
-[Previously saved workspace restored]
-
 > library(Matrix)
 > library(data.table)
 > 
@@ -266,12 +264,39 @@ C19-CB-0053 C19-CB-0198 C19-CB-0199 C19-CB-0204 C19-CB-0214
 > 
 > 
 > #concatenate disease status and donor id
-> cell_info_ind = unique(paste(meta2kp$group_per_sample, meta2kp$donor, sep=":"))
+> #cell_info_ind = unique(paste(meta2kp$group_per_sample, meta2kp$donor, sep=":"))
+> status_and_donor = unique(paste(meta2kp$group_per_sample, meta2kp$donor, sep=":"))
+> status_and_donor
+ [1] "mild:C19-CB-0002"   "mild:C19-CB-0003"   "mild:C19-CB-0001"  
+ [4] "severe:C19-CB-0009" "severe:C19-CB-0012" "severe:C19-CB-0008"
+ [7] "severe:C19-CB-0011" "severe:C19-CB-0013" "severe:C19-CB-0020"
+[10] "severe:C19-CB-0016" "severe:C19-CB-0021" "mild:C19-CB-0204"  
+[13] "severe:C19-CB-0198" "severe:C19-CB-0199" "mild:C19-CB-0053"  
+[16] "mild:C19-CB-0052"   "mild:C19-CB-0214"  
+> 
+> # double check that the order in status_and_donor matches that
+> # from meta2kp$donor
+> extract_donor <- function(item){
++   return(unlist(strsplit(item, "[:]"))[2])
++ }
+> 
+> donor2check = unlist(lapply(status_and_donor, extract_donor))
+> donor2check
+ [1] "C19-CB-0002" "C19-CB-0003" "C19-CB-0001" "C19-CB-0009" "C19-CB-0012"
+ [6] "C19-CB-0008" "C19-CB-0011" "C19-CB-0013" "C19-CB-0020" "C19-CB-0016"
+[11] "C19-CB-0021" "C19-CB-0204" "C19-CB-0198" "C19-CB-0199" "C19-CB-0053"
+[16] "C19-CB-0052" "C19-CB-0214"
+> 
+> table(donor2check == unique(meta2kp$donor))
+
+TRUE 
+  17 
+> 
 > 
 > #map from donor level info to cell level info
 > match_ind_index = match(meta2kp$donor,unique(meta2kp$donor))
 > 
-> case_index = grep("severe",cell_info_ind)
+> case_index = grep("severe",status_and_donor)
 > length(case_index)
 [1] 10
 > 
@@ -303,8 +328,8 @@ C19-CB-0053 C19-CB-0198 C19-CB-0199 C19-CB-0204 C19-CB-0214
 > 
 > gc()
            used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
-Ncells  1602691  85.6    3222114 172.1         NA  1745230  93.3
-Vcells 32684565 249.4   48206096 367.8      65536 34826176 265.8
+Ncells  1587646  84.8    2956141 157.9         NA  1748219  93.4
+Vcells 32479414 247.8   47814018 364.8      65536 34709348 264.9
 > 
 > sessionInfo()
 R version 4.1.0 (2021-05-18)
@@ -329,4 +354,4 @@ loaded via a namespace (and not attached):
 > q(save="no")
 > proc.time()
    user  system elapsed 
-  1.568   0.102   1.661 
+  1.486   0.105   1.701 

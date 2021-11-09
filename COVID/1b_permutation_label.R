@@ -68,12 +68,26 @@ length(unique(meta2kp$donor))
 
 
 #concatenate disease status and donor id
-cell_info_ind = unique(paste(meta2kp$group_per_sample, meta2kp$donor, sep=":"))
+#cell_info_ind = unique(paste(meta2kp$group_per_sample, meta2kp$donor, sep=":"))
+status_and_donor = unique(paste(meta2kp$group_per_sample, meta2kp$donor, sep=":"))
+status_and_donor
+
+# double check that the order in status_and_donor matches that
+# from meta2kp$donor
+extract_donor <- function(item){
+  return(unlist(strsplit(item, "[:]"))[2])
+}
+
+donor2check = unlist(lapply(status_and_donor, extract_donor))
+donor2check
+
+table(donor2check == unique(meta2kp$donor))
+
 
 #map from donor level info to cell level info
 match_ind_index = match(meta2kp$donor,unique(meta2kp$donor))
 
-case_index = grep("severe",cell_info_ind)
+case_index = grep("severe",status_and_donor)
 length(case_index)
 
 set.seed(1)

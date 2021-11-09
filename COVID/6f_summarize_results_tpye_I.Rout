@@ -1,0 +1,316 @@
+
+R version 4.1.0 (2021-05-18) -- "Camp Pontanezen"
+Copyright (C) 2021 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin17.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> library(ggcorrplot)
+Loading required package: ggplot2
+> library(data.table)
+> library(ggpubr)
+> library(ggrepel)
+> library(reshape2)
+
+Attaching package: ‘reshape2’
+
+The following objects are masked from ‘package:data.table’:
+
+    dcast, melt
+
+> library(stringr)
+> library(tidyr)
+
+Attaching package: ‘tidyr’
+
+The following object is masked from ‘package:reshape2’:
+
+    smiths
+
+> 
+> theme_set(theme_classic())
+> 
+> data.dir = "../../ideas_data/COVID/PBMC_10x"
+> 
+> 
+> # -------------------------------------------------------------------
+> # cell type information
+> # -------------------------------------------------------------------
+> cell_types = c("CD8+Tcells_1")
+> 
+> # -------------------------------------------------------------------
+> # load MAST, rank-sum, and ideas results after permutations
+> # -------------------------------------------------------------------
+> 
+> pcuts = c(1e-5, 1e-4, 0.001, 0.01, 0.05)
+> 
+> type_i_mast_glm = matrix(NA, nrow=length(cell_types), ncol=length(pcuts))
+> rownames(type_i_mast_glm) = cell_types
+> colnames(type_i_mast_glm) = pcuts
+> type_i_mast_glm
+             1e-05 1e-04 0.001 0.01 0.05
+CD8+Tcells_1    NA    NA    NA   NA   NA
+> 
+> type_i = list()
+> 
+> methods = c("rank-sum", "MAST", "MAST-glmer", "DESeq2", "IDEAS", "DCA", "SAVER")
+> for(m1 in methods){
++   type_i[[m1]] = type_i_mast_glm
++ }
+> 
+> 
+> for(k in 1:length(cell_types)){
++   
++   grp = cell_types[k]
++   
++   # ---------------
++   # first part is to get the genes to keep
++   # ---------------
++   
++   # read in cell information
++   cell_info = fread(file.path(data.dir, "meta.tsv"), 
++                     stringsAsFactors=TRUE)
++   dim(cell_info)
++   cell_info[1:2,]
++   
++   # read in count data of one celltype
++   dat = readRDS(file.path(data.dir, sprintf("ct_mtx/%s.rds", grp)))
++   dim(dat)
++   class(dat)
++   dat[1:5,1:4]
++   
++   # read in covid donor information
++ 
++   covid_donor_info = 
++     read.csv(file.path(data.dir, "covid_donor_info_from_mmc1.csv"), 
++              header = TRUE)
++   
++   dim(covid_donor_info)
++   covid_donor_info[1:2,]
++   summary(covid_donor_info)
++   
++   # subset cell information
++   table(colnames(dat) %in% cell_info$cell)
++   
++   meta = cell_info[match(colnames(dat), cell_info$cell),]
++   dim(meta)
++   meta[1:2,]
++   
++   summary(meta)
++   meta$donor = as.factor(meta$donor)
++   
++   summary(meta$nCount_RNA/meta$nFeature_RNA)
++   
++   
++   # filter out cells from control samples
++   meta_covid = meta[which(meta$group_per_sample != "control"),]
++   dim(meta_covid)
++   
++   table(meta_covid$group_per_sample)
++   table(meta_covid$disease_stage)
++   table(meta_covid$donor)
++   
++   table(meta_covid$donor, meta_covid$group_per_sample)
++   
++   df_donor = as.data.frame(table(meta_covid$donor))
++   donor2kp = df_donor$Var1[which(df_donor$Freq >= 10)]
++   
++   meta2kp = meta_covid[which(meta_covid$donor %in% donor2kp),]
++   dim(meta2kp)
++   meta2kp[1:2,]
++   table(meta2kp$donor)
++   length(unique(meta2kp$donor))
++   
++   cell2kp_index = which(meta$cell %in% meta2kp$cell)
++   
++   # select counts in the cells to keep
++   dat1 = dat[, cell2kp_index]
++   table(colnames(dat1) == meta2kp$cell)
++ 
++   # filter out genes with too many zero's
++   n.zeros = rowSums(dat1 == 0)
++   summary(n.zeros)
++   
++   0.6*ncol(dat1)
++   0.8*ncol(dat1)
++   
++   table(n.zeros < 0.6*ncol(dat1))
++   table(n.zeros < 0.8*ncol(dat1))
++   table(n.zeros < 0.9*ncol(dat1))
++   
++   w2kp = which(n.zeros < 0.9*ncol(dat1))
++   dat1 = dat1[w2kp,]
++   
++   dim(dat1)
++   dat1[1:5,1:4]
++   
++   # ----------------
++   # the second part loads the pvalues from permutation
++   # ----------------
++   
++   # load permutation pvalues
++   
++   DESeq2     = fread(sprintf("res/1b_DESeq2_%s_logtotalrd_sex_age_perm.tsv", grp))
++   mast_glm   = fread(sprintf("res/3b_MAST_perm_%s_glm.tsv", grp))
++   mast_glmer = fread(sprintf("res/3b_MAST_perm_%s_glmer.tsv", grp))
++   rank_sum   = fread(sprintf("res/1b_ranksum_perm_%s.tsv", grp))
++   saver      = fread(sprintf("res/5d_saver_direct_pvals_%s_perm.tsv", grp))
++   ideas      = fread(sprintf("res/5c_nb_pvals_%s_perm.tsv", grp))
++   dca        = fread(sprintf("res/5d_dca_direct_pvals_%s_perm.tsv", grp))
++   
++   dim(ideas)
++   ideas[1:2,]
++   
++   table(rownames(dat1) == mast_glm$V1)
++   table(rownames(dat1) == mast_glmer$V1) 
++   table(rownames(dat1) == ideas$gene) 
++   table(rownames(dat1) == dca$gene) 
++   table(rownames(dat1) == saver$gene)
++ 
++   
++   DESeq2   = DESeq2[w2kp,]
++   rank_sum = rank_sum[w2kp,]
++   
++   for(j in 1:length(pcuts)){
++     pj = pcuts[j]
++     type_i$`rank-sum`[k,j]   = mean(rank_sum$V2 < pcuts[j], na.rm = TRUE)
++     type_i$MAST[k,j]         = mean(mast_glm$V2 < pcuts[j], na.rm = TRUE)
++     type_i$`MAST-glmer`[k,j] = mean(mast_glmer$V2 < pcuts[j], na.rm = TRUE)
++     type_i$DESeq2[k,j]       = mean(DESeq2$pvalue < pcuts[j], na.rm = TRUE)
++     type_i$IDEAS[k,j]        = mean(ideas$PS_nb_Was < pcuts[j], na.rm = TRUE)
++     type_i$DCA[k,j]          = mean(dca$PS_dca_direct_Was < pcuts[j], na.rm = TRUE)
++     type_i$SAVER[k,j]        = mean(saver$PS_saver_direct_Was < pcuts[j], na.rm = TRUE)
++   }
++ }
+Loading required package: Matrix
+
+Attaching package: ‘Matrix’
+
+The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+> 
+> lapply(type_i, dim)
+$`rank-sum`
+[1] 1 5
+
+$MAST
+[1] 1 5
+
+$`MAST-glmer`
+[1] 1 5
+
+$DESeq2
+[1] 1 5
+
+$IDEAS
+[1] 1 5
+
+$DCA
+[1] 1 5
+
+$SAVER
+[1] 1 5
+
+> type_i
+$`rank-sum`
+                 1e-05     1e-04    0.001      0.01      0.05
+CD8+Tcells_1 0.1331395 0.1786822 0.244186 0.3486434 0.4722868
+
+$MAST
+                 1e-05     1e-04    0.001      0.01      0.05
+CD8+Tcells_1 0.2736434 0.3757752 0.522093 0.7065891 0.8457364
+
+$`MAST-glmer`
+                    1e-05       1e-04      0.001      0.01     0.05
+CD8+Tcells_1 0.0005816208 0.006203955 0.04323381 0.2031795 0.469368
+
+$DESeq2
+             1e-05 1e-04       0.001        0.01       0.05
+CD8+Tcells_1     0     0 0.001356589 0.006007752 0.02577519
+
+$IDEAS
+             1e-05 1e-04        0.001       0.01       0.05
+CD8+Tcells_1     0     0 0.0005818464 0.01357642 0.08475562
+
+$DCA
+             1e-05 1e-04 0.001         0.01       0.05
+CD8+Tcells_1     0     0     0 0.0007751938 0.04379845
+
+$SAVER
+             1e-05 1e-04        0.001        0.01       0.05
+CD8+Tcells_1     0     0 0.0001937984 0.007364341 0.07325581
+
+> 
+> 
+> # save type_I error results out
+> 
+> type_i_mat = matrix(NA, nrow = 7, ncol = 5)
+> for (i in 1:length(methods)){
++   m = methods[i]
++   type_i_mat[i, ] = type_i[[m]][1, ]
++ }
+> 
+> df_type_i = 
++   as.data.frame(cbind(methods, signif(type_i_mat, digits = 2)))
+> colnames(df_type_i)[2:ncol(df_type_i)] = pcuts
+> 
+> write.csv(df_type_i, file = "res/6f_type_i.csv", 
++           row.names = FALSE)
+> 
+> gc()
+           used  (Mb) gc trigger  (Mb) limit (Mb)  max used   (Mb)
+Ncells  2057275 109.9    3781924 202.0         NA   3592623  191.9
+Vcells 44920495 342.8  127777959 974.9      65536 145972923 1113.7
+> 
+> sessionInfo()
+R version 4.1.0 (2021-05-18)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] Matrix_1.3-3      tidyr_1.1.3       stringr_1.4.0     reshape2_1.4.4   
+[5] ggrepel_0.9.1     ggpubr_0.4.0      data.table_1.14.0 ggcorrplot_0.1.3 
+[9] ggplot2_3.3.5    
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.1.1 purrr_0.3.4      haven_2.4.1      lattice_0.20-44 
+ [5] carData_3.0-4    colorspace_2.0-2 vctrs_0.3.8      generics_0.1.0  
+ [9] utf8_1.2.1       rlang_0.4.11     pillar_1.6.1     foreign_0.8-81  
+[13] glue_1.4.2       withr_2.4.2      DBI_1.1.1        readxl_1.3.1    
+[17] lifecycle_1.0.0  plyr_1.8.6       munsell_0.5.0    ggsignif_0.6.2  
+[21] gtable_0.3.0     cellranger_1.1.0 zip_2.2.0        rio_0.5.27      
+[25] forcats_0.5.1    curl_4.3.2       fansi_0.5.0      broom_0.7.8     
+[29] Rcpp_1.0.7       backports_1.2.1  scales_1.1.1     abind_1.4-5     
+[33] hms_1.1.0        stringi_1.6.2    openxlsx_4.2.4   rstatix_0.7.0   
+[37] dplyr_1.0.7      grid_4.1.0       tools_4.1.0      magrittr_2.0.1  
+[41] tibble_3.1.2     crayon_1.4.1     car_3.0-11       pkgconfig_2.0.3 
+[45] ellipsis_0.3.2   assertthat_0.2.1 R6_2.5.0         compiler_4.1.0  
+> q(save="no")
+> proc.time()
+   user  system elapsed 
+  2.848   0.372   3.211 
