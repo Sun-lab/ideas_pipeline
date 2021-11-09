@@ -90,7 +90,25 @@ Create permutated donor level labels:
 
 [7f_gsea_overlap_test.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/7f_gsea_overlap_test.R) counts and fisher exact test related quantities for the overlap between pathways significant under adjusted pvalue 0.05 from DESeq2, PS\_nb\_Was, PS\_dca\_direct\_Was and mean expression. 
 
+**Permutations:**
 
+[1b_permutation_label.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_permutation_label.R)
+
+[1b_ranksum_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_ranksum_perm.R)
+
+[3b_MAST_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/3b_MAST_perm.R)
+
+[1b_DESeq2_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1b_DESeq2_perm.R)
+
+[5c_ideas_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5c_ideas_perm.R)
+
+[5d_dca_direct_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5d_dca_direct_perm.R)
+
+[5d_saver_perm.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/5d_saver_perm.R)
+
+[6f_summarize_results_tpye_I.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6f_summarize_results_tpye_I.R)
+
+[6g_summarize_results_FDR.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6g_summarize_results_FDR.R)
 
 
 ## References
