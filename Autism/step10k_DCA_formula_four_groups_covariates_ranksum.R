@@ -238,33 +238,33 @@ char2 = as.character(round(dca_direct_qcut, digits = 1))
 
 figure_filename = paste0("figures/step10k_DCA_log_formula_four_groups_pvalue_hist_", 
                          char1, "_", char2, ".pdf")
-pdf(figure_filename, width=12, height=6)
+pdf(figure_filename, width=8, height=4)
 par(mfrow=c(2,4), bty="n", mar=c(5,4,3,1))
 
 hist(log10(group1_mean_pval), 
-     main="DESeq2 sign, dca_direct sign\nmean", 
+     main="DE genes by DESeq2", 
      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
 hist(log10(group2_mean_pval), 
-     main="DESeq2 nosign, dca_direct sign\nmean", 
+     main="EE genes by DESeq2", 
      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
 hist(group3_mean_pval, xlim = c(0, 1),
-     main="DESeq2 sign, dca_direct nosign\nmean", 
+     main="DE genes by DESeq2", 
      xlab="p-value", breaks = 20)
 hist(group4_mean_pval, xlim = c(0, 1),
-     main="DESeq2 nosign, dca_direct nosign\nmean", 
+     main="EE genes by DESeq2", 
      xlab="p-value", breaks = 20)  
 
 hist(log10(group1_theta_pval), 
-     main="DESeq2 sign, dca_direct sign\npseudo theta", 
+     main="DE genes by DESeq2", 
      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
 hist(log10(group2_theta_pval), 
-     main="DESeq2 nosign, dca_direct sign\npseudo theta", 
+     main="EE genes by DESeq2", 
      xlab="log10(p-value)", seq(-6.5, 0, by=0.5))
 hist(group3_theta_pval, xlim = c(0, 1),
-     main="DESeq2 sign, dca_direct nosign\npseudo theta", 
+     main="DE genes by DESeq2", 
      xlab="p-value", breaks = 20)
 hist(group4_theta_pval, xlim = c(0, 1),
-     main="DESeq2 nosign, dca_direct nosign\npseudo theta", 
+     main="EE genes by DESeq2", 
      xlab="p-value", breaks = 20)  
 
 dev.off()
