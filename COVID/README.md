@@ -108,7 +108,6 @@ Create permutated donor level labels:
 
 [6f_summarize_results_tpye_I.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6f_summarize_results_tpye_I.R)
 
-[6g_summarize_results_FDR.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/6g_summarize_results_FDR.R)
 
 
 ## References
