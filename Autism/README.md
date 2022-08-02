@@ -11,6 +11,12 @@ DCA related preparation steps (this is needed for DCA\_direct):
 
 [step1a_dca.sh](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_dca.sh)
 
+**Note:** The output files from DCA for Autism data were got before 2021. DCA code had updates and as of Sept. 2021, there are two differences: 
+
+(1) the command line to run DCA code for our setting changes to https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1a_dca.sh
+
+(2) DCA output now longer directly provide mean_norm.tsv. We need to use the original count matrix and the mean.tsv output file from DCA to recover mean_norm.tsv. This step can be done using the code in https://github.com/Sun-lab/ideas_pipeline/blob/main/COVID/1a_dca_recover_mean_norm.R.
+
 [step1a_split_dca_outputs.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_split_dca_outputs.R)
 
 SAVER related preparation steps (this is need if want to try saver\_direct):
