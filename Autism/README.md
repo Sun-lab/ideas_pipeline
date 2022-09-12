@@ -9,7 +9,7 @@ DCA related preparation steps (this is needed for DCA\_direct):
 
 [step1a_dca_prepare_data.R](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_dca_prepare_data.R)
 
-[step1a_dca.sh](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_dca.sh) (for Autism data, all.csv should be used instead of PFC_all.csv)
+[step1a_dca.sh](https://github.com/Sun-lab/ideas_pipeline/blob/main/Autism/step1a_dca.sh) (for Autism data, PFC_all.csv should be used instead of all.csv)
 
 **Note:** The output files from DCA for Autism data were got before 2021. DCA code had updates and as of Sept. 2021, there are two differences: 
 
