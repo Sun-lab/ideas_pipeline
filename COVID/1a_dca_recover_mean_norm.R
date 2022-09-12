@@ -62,11 +62,11 @@ mean_norm_mat[1:6, 1:2]
 mean(mean_names[2:ncol(mean_mat)] == mean_norm_names)
 
 # test recovery for mean_norm_mat, using certain cells
-j = 10000
-summary(mean_mat[, (j+1):(j+1)]/as.numeric(unlist(mean_norm_mat[, j:j])))
-sum(as.numeric(unlist(mean_norm_mat[, j:j])))
-sum(as.numeric(unlist(mean_norm_mat[, j:j]))) * sum(all_counts[, (j+1)])
-sum(as.numeric(unlist(mean_mat[, (j+1):(j+1)]))) * med_rd
+#j = 10000
+#summary(mean_mat[, (j+1):(j+1)]/as.numeric(unlist(mean_norm_mat[, j:j])))
+#sum(as.numeric(unlist(mean_norm_mat[, j:j])))
+#sum(as.numeric(unlist(mean_norm_mat[, j:j]))) * sum(all_counts[, (j+1)])
+#sum(as.numeric(unlist(mean_mat[, (j+1):(j+1)]))) * med_rd
 
 rnames = rownames(mean_mat)
 length(rnames)
@@ -81,8 +81,8 @@ mean_norm_dt[1:6, 1:3]
 mean_norm_dt[, V1:= mean_mat[, 1]]
 dim(mean_norm_dt)
 
-mean_norm_dt[1:6, 99048:99050]
-mean_norm_mat[1:6, 99047:99049]
+#mean_norm_dt[1:6, 99048:99050]
+#mean_norm_mat[1:6, 99047:99049]
 
 setcolorder(mean_norm_dt, "V1")
 
