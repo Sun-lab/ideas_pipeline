@@ -199,12 +199,12 @@ mean(meta_cell$cell_id == colnames(dat1))
 # ------------------------------------------------------------------------
   
 f_mean = file.path(data.dca.dir, paste0(grp1, "_mean_norm.tsv"))
-f_disp = file.path(data.dca.dir, paste0(grp1, "_dispersion.tsv.gz"))
-f_pi   = file.path(data.dca.dir, paste0(grp1, "_pi.tsv.gz"))
+f_disp = file.path(data.dca.dir, paste0(grp1, "_dispersion.tsv"))
+f_pi   = file.path(data.dca.dir, paste0(grp1, "_pi.tsv"))
   
 dca_mean = fread(f_mean, sep="\t", data.table = FALSE)
-dca_disp = fread(f_disp)
-dca_pi   = fread(f_pi)
+dca_disp = fread(f_disp, sep="\t", data.table = FALSE)
+dca_pi   = fread(f_pi, sep="\t", data.table = FALSE)
   
 dim(dca_mean)
 dim(dca_disp)
