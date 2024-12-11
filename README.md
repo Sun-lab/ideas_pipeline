@@ -1,4 +1,4 @@
-# ideas_pipelilne
+# ideas_pipeline
 
 Pipeline for data analysis using IDEAS (Individual level Differential Expression Analysis for Single cells) (Zhang, Liu et al. (2021)). Please refer to repository https://github.com/Sun-lab/ideas for the ideas R package.  This project is licensed under the terms of the MIT license.
 
